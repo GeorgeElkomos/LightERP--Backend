@@ -6,8 +6,8 @@ from .models import Currency
 
 
 
-@admin.register(Currency)
-class CurrencyAdmin(admin.ModelAdmin):
-    list_display = ['code', 'name', 'symbol', 'is_active']
-    list_filter = ['is_active']
-    search_fields = ['code', 'name']
+# @admin.register(Currency)
+# class CurrencyAdmin(admin.ModelAdmin):
+#     list_display = ['code', 'name', 'symbol', 'is_active']
+#     list_filter = ['is_active']
+#     search_fields = ['code', 'name']

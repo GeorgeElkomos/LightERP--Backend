@@ -3,7 +3,7 @@ Accounts Payable Models
 Handles Vendors, Bills, Payments to vendors
 """
 from django.db import models
-from Finance.core.models import Currency, TaxRate,ExchangeRate, country
+from Finance.core.models import Currency, TaxRate,ExchangeRate, Country
 #from Finance.GL.models import
 
 
@@ -18,7 +18,7 @@ class Supplier(models.Model):
     email = models.EmailField(blank=True)
     phone = models.CharField(max_length=50, blank=True)
     website = models.URLField(blank=True)
-    country = models.ForeignKey(country, on_delete=models.PROTECT, null=True, blank=True, related_name="suppliers")
+    country = models.ForeignKey(Country, on_delete=models.PROTECT, null=True, blank=True, related_name="suppliers")
     vat_number = models.CharField(max_length=50, blank=True, help_text="VAT/Tax registration number (TRN)")
     tax_id = models.CharField(max_length=50, blank=True, help_text="Alternative tax ID")
     
@@ -30,13 +30,12 @@ class Supplier(models.Model):
     notes = models.TextField(blank=True, help_text="Internal notes about this vendor")
     
     class Meta:
-        ordering = ['code']
         db_table = 'supplier'  # NEW table name
         verbose_name = 'Supplier'
         verbose_name_plural = 'Suppliers'
     
     def __str__(self):
-        return f"{self.code} - {self.name}"
+        return f"{self.name}"
     
 
     @property
@@ -132,7 +131,7 @@ class APInvoice(models.Model):
     number = models.CharField(max_length=32, unique=True)
     date = models.DateField()
     currency = models.ForeignKey(Currency, on_delete=models.PROTECT, related_name="ap_invoices")
-    country = models.ForeignKey(country, on_delete=models.PROTECT, null=True, blank=True, related_name="ap_invoices", help_text="Tax country for this invoice (defaults to supplier country)")
+    country = models.ForeignKey(Country, on_delete=models.PROTECT, null=True, blank=True, related_name="ap_invoices", help_text="Tax country for this invoice (defaults to supplier country)")
     #period = models.ForeignKey('periods.FiscalPeriod', on_delete=models.PROTECT, null=True, blank=True, related_name='ap_invoices', help_text="Fiscal period for this invoice")
     
     # 3-Way Match fields (PO → GR → Invoice matching)
@@ -214,15 +213,10 @@ class APInvoice(models.Model):
         default=UNPAID,
         help_text="Payment status of the invoice"
     )
-    paid_at = models.DateTimeField(null=True, blank=True)
     
-    # Cancellation flag
-    is_cancelled = models.BooleanField(default=False, help_text="Whether invoice is cancelled")
-    cancelled_at = models.DateTimeField(null=True, blank=True)
-    
-    gl_journal = models.OneToOneField(
-        "finance.JournalEntry", null=True, blank=True, on_delete=models.SET_NULL,
-        related_name="ap_source_new")  # Changed related_name to avoid conflict
+    # gl_journal = models.OneToOneField(
+    #     "finance.JournalEntry", null=True, blank=True, on_delete=models.SET_NULL,
+    #     related_name="ap_source_new")  # Changed related_name to avoid conflict
     
     # FX tracking fields
     exchange_rate = models.DecimalField(
