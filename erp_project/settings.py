@@ -45,8 +45,8 @@ INSTALLED_APPS = [
     # Finance Sub-Apps
     'Finance.core',      # Core/Shared functionality
     'Finance.GL',        # General Ledger
-    'Finance.AP',        # Accounts Payable
-    'Finance.AR',        # Accounts Receivable
+    'Finance.Invoice',        # Accounts Payable
+    'Finance.BusinessPartner',        # Accounts Receivable
 ]
 
 MIDDLEWARE = [

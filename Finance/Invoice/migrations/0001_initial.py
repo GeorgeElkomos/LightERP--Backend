@@ -52,7 +52,7 @@ class Migration(migrations.Migration):
                 ('total', models.DecimalField(blank=True, decimal_places=2, help_text='Invoice total (subtotal + tax)', max_digits=14, null=True)),
                 ('country', models.ForeignKey(blank=True, help_text='Tax country for this invoice (defaults to supplier country)', null=True, on_delete=django.db.models.deletion.PROTECT, related_name='ap_invoices', to='finance_core.country')),
                 ('currency', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='ap_invoices', to='finance_core.currency')),
-                ('supplier', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='finance_ap.supplier')),
+                ('supplier', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='finance_invoice.supplier')),
             ],
             options={
                 'db_table': 'ap_apinvoice',
