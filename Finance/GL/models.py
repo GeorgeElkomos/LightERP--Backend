@@ -343,6 +343,9 @@ class XX_Segment_combination(models.Model):
     - For 5 segments: stores envelope per 5-segment combination
     - Flexible JSON storage for any number of segments
     
+    IMPORTANT: Once created, segment combinations are IMMUTABLE.
+    They cannot be modified or deleted to maintain accounting integrity.
+    
     Usage:
         # Search for a combination
         combo = XX_Segment_combination.find_combination([
@@ -389,6 +392,32 @@ class XX_Segment_combination(models.Model):
             for detail in details
         ])
         return f"Combination {self.id}: {segments_str}"
+    
+    def save(self, *args, **kwargs):
+        """
+        Prevent modification of existing segment combinations.
+        Once created, combinations are immutable for accounting integrity.
+        """
+        # Check if this is an update (not a new record)
+        if self.pk is not None:
+            raise ValidationError(
+                f"Cannot modify Segment Combination #{self.pk}. "
+                "Segment combinations are immutable after creation for accounting integrity. "
+                "Create a new combination instead."
+            )
+        
+        super().save(*args, **kwargs)
+    
+    def delete(self, *args, **kwargs):
+        """
+        Prevent deletion of segment combinations.
+        Combinations are immutable once created.
+        """
+        raise ValidationError(
+            f"Cannot delete Segment Combination #{self.pk}. "
+            "Segment combinations are immutable for accounting integrity. "
+            "Consider marking it as inactive (is_active=False) instead."
+        )
     
     def get_combination_dict(self):
         """
@@ -581,6 +610,9 @@ class segment_combination_detials(models.Model):
     """
     Details of a segment combination - links segment types and values to a combination.
     Each combination must have unique segment types (enforced by unique_together and validation).
+    
+    IMPORTANT: Once created, segment combination details are IMMUTABLE.
+    They cannot be modified or deleted to maintain accounting integrity.
     """
     segment_combination = models.ForeignKey(
         XX_Segment_combination,
@@ -623,9 +655,31 @@ class segment_combination_detials(models.Model):
                 )
     
     def save(self, *args, **kwargs):
-        """Validate before saving"""
+        """
+        Prevent modification of existing segment combination details.
+        Once created, details are immutable for accounting integrity.
+        """
+        # Check if this is an update (not a new record)
+        if self.pk is not None:
+            raise ValidationError(
+                f"Cannot modify Segment Combination Detail #{self.pk}. "
+                "Segment combination details are immutable after creation for accounting integrity. "
+                "Create a new combination instead."
+            )
+        
+        # Validate before saving
         self.full_clean()
         super().save(*args, **kwargs)
+    
+    def delete(self, *args, **kwargs):
+        """
+        Prevent deletion of segment combination details.
+        Details are immutable once created.
+        """
+        raise ValidationError(
+            f"Cannot delete Segment Combination Detail #{self.pk}. "
+            "Segment combination details are immutable for accounting integrity."
+        )
 
 class JournalEntry(models.Model):
     date = models.DateField()
@@ -841,6 +895,61 @@ class JournalEntry(models.Model):
                 print(f"Out of balance by: {diff}")
         """
         return self.get_total_debit() - self.get_total_credit()
+    
+    def post(self):
+        """
+        Post this journal entry to the General Ledger.
+        
+        This method:
+        1. Validates that the entry is balanced (debits = credits)
+        2. Sets the posted flag to True
+        3. Creates a GeneralLedger entry with today's date
+        
+        Once posted, the journal entry becomes immutable.
+        
+        Returns:
+            GeneralLedger: The created general ledger entry
+        
+        Raises:
+            ValidationError: If entry is already posted or not balanced
+        
+        Example:
+            entry = JournalEntry.objects.get(id=1)
+            gl_entry = entry.post()
+            print(f"Posted to GL#{gl_entry.id}")
+        """
+        from django.utils import timezone
+        from django.db import transaction
+        
+        # Check if already posted
+        if self.posted:
+            raise ValidationError(
+                f"Journal Entry #{self.pk} is already posted. "
+                "Cannot post the same entry twice."
+            )
+        
+        # Validate that entry is balanced
+        if not self.is_balanced():
+            diff = self.get_balance_difference()
+            raise ValidationError(
+                f"Cannot post Journal Entry #{self.pk} because it is not balanced. "
+                f"Difference: {diff} (Debits: {self.get_total_debit()}, Credits: {self.get_total_credit()})"
+            )
+        
+        # Post the entry in a transaction
+        with transaction.atomic():
+            # Set posted flag to True
+            self.posted = True
+            # Temporarily bypass the save validation for posting
+            super(JournalEntry, self).save(update_fields=['posted'])
+            
+            # Create GeneralLedger entry with today's date
+            gl_entry = GeneralLedger.objects.create(
+                submitted_date=timezone.now().date(),
+                JournalEntry=self
+            )
+        
+        return gl_entry
 
 class JournalLine(models.Model):
     entry = models.ForeignKey(JournalEntry, related_name="lines", on_delete=models.CASCADE)
@@ -999,3 +1108,5 @@ class GeneralLedger(models.Model):
             q_objects |= Q(JournalEntry__lines__segment_combination_id__in=combinations)
         
         return cls.objects.filter(q_objects).distinct()
+
+
