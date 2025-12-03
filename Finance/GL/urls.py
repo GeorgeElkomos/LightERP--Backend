@@ -3,9 +3,9 @@ General Ledger - URL Configuration
 Handles GL-specific API endpoints for segments, segment types, journal entries, and general ledger.
 """
 from django.urls import path
-from . import segments_views, journal_views, general_ledger_views
+from .views import segments_views, journal_views, general_ledger_views
 
-app_name = 'gl'
+app_name = 'GL'
 
 urlpatterns = [
     # ========================================================================

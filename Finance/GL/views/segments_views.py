@@ -8,8 +8,8 @@ from rest_framework import status
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ValidationError
 
-from .models import XX_SegmentType, XX_Segment
-from .serializers import (
+from Finance.GL.models import XX_SegmentType, XX_Segment
+from Finance.GL.serializers import (
     SegmentTypeSerializer,
     SegmentTypeListSerializer,
     SegmentSerializer,

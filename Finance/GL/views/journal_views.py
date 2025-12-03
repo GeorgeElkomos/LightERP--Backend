@@ -10,7 +10,7 @@ from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from decimal import Decimal
 
-from .models import (
+from Finance.GL.models import (
     JournalEntry,
     JournalLine,
     XX_Segment_combination,
@@ -252,9 +252,9 @@ def journal_entry_delete(request, pk):
         400: Cannot delete (posted)
         404: Entry not found
     """
+    entry = get_object_or_404(JournalEntry, pk=pk)
+    
     try:
-        entry = get_object_or_404(JournalEntry, pk=pk)
-        
         # Check if posted
         if entry.posted:
             return Response(
@@ -297,8 +297,9 @@ def journal_entry_detail(request, pk):
         200: Journal entry with all details
         404: Entry not found
     """
+    entry = get_object_or_404(JournalEntry, pk=pk)
+    
     try:
-        entry = get_object_or_404(JournalEntry, pk=pk)
         
         response_data = {
             'id': entry.id,
@@ -540,9 +541,9 @@ def journal_entry_post(request, pk):
         400: Validation errors
         404: Entry not found
     """
+    entry = get_object_or_404(JournalEntry, pk=pk)
+    
     try:
-        entry = get_object_or_404(JournalEntry, pk=pk)
-        
         # Post the entry (this will validate and create GL entry)
         gl_entry = entry.post()
         

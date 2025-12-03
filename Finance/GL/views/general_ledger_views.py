@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
 
-from .models import GeneralLedger
+from Finance.GL.models import GeneralLedger
 
 
 @api_view(['GET'])
@@ -209,11 +209,12 @@ def general_ledger_detail(request, pk):
         200: General ledger entry with all details including journal entry and lines
         404: Entry not found
     """
+    gl = get_object_or_404(
+        GeneralLedger.objects.select_related('JournalEntry', 'JournalEntry__currency'),
+        pk=pk
+    )
+    
     try:
-        gl = get_object_or_404(
-            GeneralLedger.objects.select_related('JournalEntry', 'JournalEntry__currency'),
-            pk=pk
-        )
         
         entry = gl.JournalEntry
         

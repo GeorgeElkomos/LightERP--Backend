@@ -7,7 +7,83 @@ from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 
 
-class Currency(models.Model):
+class ProtectedDeleteMixin:
+    """
+    Mixin to prevent deletion of model instances that are referenced by other models.
+    
+    This mixin dynamically discovers all foreign key references using Django's _meta API,
+    so you never need to manually update the code when new models reference this one.
+    
+    Usage:
+        class MyModel(ProtectedDeleteMixin, models.Model):
+            # your fields here
+            pass
+    
+    Customization:
+        Override get_deletion_identifier() to customize the identifier shown in error messages.
+    """
+    
+    def get_deletion_identifier(self):
+        """
+        Get a human-readable identifier for this instance to use in error messages.
+        Override this method in your model to customize the identifier.
+        
+        Returns:
+            str: A string identifying this instance (e.g., "USD", "AE - United Arab Emirates")
+        """
+        # Try common identifier fields in order of preference
+        for field in ['code', 'name', 'pk']:
+            if hasattr(self, field):
+                value = getattr(self, field)
+                if value:
+                    return str(value)
+        return str(self)
+    
+    def delete(self, *args, **kwargs):
+        """
+        Override delete to prevent deletion if this instance is referenced by other models.
+        Uses Django's meta API to dynamically discover all related objects.
+        """
+        # Get all related objects dynamically
+        references = []
+        
+        # Get all reverse foreign key relations
+        for related_object in self._meta.related_objects:
+            # Get the related model and accessor name
+            related_model = related_object.related_model
+            accessor_name = related_object.get_accessor_name()
+            
+            try:
+                # Get the related manager (e.g., self.journal_entries)
+                related_manager = getattr(self, accessor_name)
+                
+                # Count related objects
+                count = related_manager.count()
+                
+                if count > 0:
+                    # Get a human-readable name for the related model
+                    model_name = related_model._meta.verbose_name_plural or related_model.__name__
+                    references.append(f"{model_name.title()} ({count} record(s))")
+            except Exception:
+                # Skip if there's any issue accessing the related objects
+                pass
+        
+        # If there are any references, prevent deletion
+        if references:
+            identifier = self.get_deletion_identifier()
+            model_name = self._meta.verbose_name or self.__class__.__name__
+            
+            raise ValidationError(
+                f"Cannot delete {model_name} '{identifier}' because it is referenced by: "
+                f"{', '.join(references)}. Please remove or update these references first."
+            )
+        
+        # If no references, allow deletion
+        super().delete(*args, **kwargs)
+
+
+
+class Currency(ProtectedDeleteMixin, models.Model):
     """Currency master data"""
     code = models.CharField(max_length=3, unique=True)  # USD, EUR, etc.
     name = models.CharField(max_length=100)
@@ -199,7 +275,7 @@ class Currency(models.Model):
         
         return base_amount
 
-class Country(models.Model):
+class Country(ProtectedDeleteMixin, models.Model):
     code = models.CharField(max_length=2, unique=True)  # AE, SA, etc.
     name = models.CharField(max_length=100)
     
@@ -209,7 +285,7 @@ class Country(models.Model):
     def __str__(self):
         return f"{self.code} - {self.name}"
 
-class TaxRate(models.Model):
+class TaxRate(ProtectedDeleteMixin, models.Model):
     CATEGORY_CHOICES = [
         ("STANDARD", "Standard"),
         ("ZERO", "Zero Rated"),
@@ -232,4 +308,8 @@ class TaxRate(models.Model):
         unique_together = (("country", "category"), )
     def __str__(self):
         return f"{self.country}-{self.category} {self.rate}%"
+    
+    def get_deletion_identifier(self):
+        """Custom identifier for deletion error messages"""
+        return f"{self.name} ({self.country}-{self.category})"
 

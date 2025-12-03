@@ -1,8 +1,8 @@
 from django.db import models
 from django.core.exceptions import ValidationError
-from Finance.core.models import Currency
+from Finance.core.models import Currency, ProtectedDeleteMixin
 
-class XX_SegmentType(models.Model):
+class XX_SegmentType(ProtectedDeleteMixin, models.Model):
     """
     Defines segment types for this client installation.
     Examples: Entity (Cost Center), Account, Project, Line Item, etc.
@@ -127,7 +127,7 @@ class XX_SegmentType(models.Model):
         
         super().delete(*args, **kwargs)
 
-class XX_Segment(models.Model):
+class XX_Segment(ProtectedDeleteMixin, models.Model):
     """
     Generic segment value model that replaces XX_Entity, XX_Account, XX_Project.
     All segment values (regardless of type) are stored here.
