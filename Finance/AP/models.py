@@ -3,7 +3,7 @@ Accounts Payable Models
 Handles Vendors, Bills, Payments to vendors
 """
 from django.db import models
-from Finance.core.models import Currency, TaxRate,ExchangeRate, Country
+from Finance.core.models import Currency, TaxRate, Country
 #from Finance.GL.models import
 
 

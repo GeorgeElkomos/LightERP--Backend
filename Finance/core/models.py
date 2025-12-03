@@ -199,7 +199,6 @@ class Currency(models.Model):
         
         return base_amount
 
-
 class Country(models.Model):
     code = models.CharField(max_length=2, unique=True)  # AE, SA, etc.
     name = models.CharField(max_length=100)
@@ -209,7 +208,6 @@ class Country(models.Model):
     
     def __str__(self):
         return f"{self.code} - {self.name}"
-    
 
 class TaxRate(models.Model):
     CATEGORY_CHOICES = [

@@ -310,51 +310,6 @@ def segment_detail(request, pk):
 
 
 @api_view(['GET'])
-def segment_parent(request, pk):
-    """
-    Get the parent segment of a specific segment.
-    
-    GET /segments/{id}/parent/
-    
-    Returns:
-        - Parent segment details if exists
-        - null if no parent
-    """
-    segment = get_object_or_404(XX_Segment, pk=pk)
-    parent = segment.parent
-    
-    if parent:
-        serializer = SegmentSerializer(parent)
-        return Response(serializer.data)
-    else:
-        return Response(None)
-
-
-@api_view(['GET'])
-def segment_full_path(request, pk):
-    """
-    Get the full hierarchical path of a segment.
-    
-    GET /segments/{id}/full-path/
-    
-    Returns:
-        {
-            "full_path": "Parent > Child > GrandChild",
-            "path_segments": ["Parent", "Child", "GrandChild"]
-        }
-    """
-    segment = get_object_or_404(XX_Segment, pk=pk)
-    full_path = segment.full_path
-    path_segments = full_path.split(" > ")
-    
-    serializer = FullPathSerializer({
-        'full_path': full_path,
-        'path_segments': path_segments
-    })
-    return Response(serializer.data)
-
-
-@api_view(['GET'])
 def segment_children(request, pk):
     """
     Get all descendant segments (children, grandchildren, etc.) of a segment.
