@@ -274,7 +274,7 @@ class Currency(ProtectedDeleteMixin, models.Model):
         base_amount = amount * self.exchange_rate_to_base_currency
         
         return base_amount
-
+    
 class Country(ProtectedDeleteMixin, models.Model):
     code = models.CharField(max_length=2, unique=True)  # AE, SA, etc.
     name = models.CharField(max_length=100)
