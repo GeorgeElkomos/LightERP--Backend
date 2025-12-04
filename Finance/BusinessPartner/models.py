@@ -56,7 +56,6 @@ class BusinessPartnerManager(models.Manager):
             "Use Customer or Supplier models instead."
         )
 
-
 class BusinessPartner(ProtectedDeleteMixin, models.Model):
     """
     Business Partner - MANAGED BASE CLASS (Interface-like)
@@ -165,7 +164,6 @@ class BusinessPartner(ProtectedDeleteMixin, models.Model):
         else:
             return 'None'
 
-
 class CustomerManager(models.Manager):
     """
     Custom manager for Customer with convenience methods.
@@ -201,7 +199,6 @@ class CustomerManager(models.Manager):
     def active(self):
         """Get all active customers."""
         return self.filter(business_partner__is_active=True)
-
 
 class Customer(ProtectedDeleteMixin, models.Model):
     """
@@ -360,7 +357,6 @@ class Customer(ProtectedDeleteMixin, models.Model):
         if self.business_partner_id:
             self.business_partner.is_active = value
 
-
 class SupplierManager(models.Manager):
     """
     Custom manager for Supplier with convenience methods.
@@ -396,7 +392,6 @@ class SupplierManager(models.Manager):
     def active(self):
         """Get all active suppliers."""
         return self.filter(business_partner__is_active=True)
-
 
 class Supplier(ProtectedDeleteMixin, models.Model):
     """

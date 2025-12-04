@@ -14,8 +14,8 @@ urlpatterns = [
     path('gl/', include('Finance.GL.urls')),
     
     # Accounts Payable URLs
-    path('ap/', include('Finance.Invoice.urls')),
+    path('bp/', include('Finance.BusinessPartner.urls')),
     
     # Accounts Receivable URLs
-    path('ar/', include('Finance.BusinessPartner.urls')),
+    path('invoice/', include('Finance.Invoice.urls')),
 ]

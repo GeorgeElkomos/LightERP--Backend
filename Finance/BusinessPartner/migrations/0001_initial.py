@@ -11,6 +11,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('finance_core', '0002_country_currency_exchange_rate_to_base_currency_and_more'),
+        ('finance_invoice', '0003_delete_old_models'),  # Ensure old Supplier model is deleted first
     ]
 
     operations = [
