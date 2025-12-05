@@ -1,6 +1,6 @@
 """
-Invoice Models - Child-Driven Pattern with DRY Principle
-Follows the same architecture as BusinessPartner but with automatic field handling.
+Invoice Models - Using Generic Base Pattern
+Follows the same architecture as BusinessPartner with automatic field handling.
 
 IMPORTANT DESIGN PATTERN:
 ========================
@@ -36,27 +36,15 @@ from django.core.exceptions import ValidationError, PermissionDenied
 from Finance.core.models import Currency, Country
 from Finance.BusinessPartner.models import Customer, Supplier
 from Finance.GL.models import JournalEntry
+from Finance.core.base_models import (
+    ManagedParentModel,
+    ManagedParentManager,
+    ChildModelManagerMixin,
+    ChildModelMixin
+)
 
 
-class InvoiceManager(models.Manager):
-    """
-    Custom manager for Invoice that prevents direct creation.
-    """
-    def create(self, **kwargs):
-        raise PermissionDenied(
-            "Cannot create Invoice directly. "
-            "Use AP_Invoice.objects.create(), AR_Invoice.objects.create(), or "
-            "one_use_supplier.objects.create() instead."
-        )
-    
-    def bulk_create(self, objs, **kwargs):
-        raise PermissionDenied(
-            "Cannot bulk create Invoice directly. "
-            "Use AP_Invoice, AR_Invoice, or one_use_supplier models instead."
-        )
-
-
-class Invoice(models.Model):
+class Invoice(ManagedParentModel, models.Model):
     """
     General Invoice - MANAGED BASE CLASS (Interface-like)
     
@@ -148,7 +136,7 @@ class Invoice(models.Model):
     )
     
     # Custom manager to prevent direct creation
-    objects = InvoiceManager()
+    objects = ManagedParentManager()
     
     class Meta:
         db_table = 'invoice'
@@ -157,196 +145,24 @@ class Invoice(models.Model):
     
     def __str__(self):
         return f"Invoice {self.id} - {self.date}"
-    
-    def save(self, *args, **kwargs):
-        """Override save to prevent direct saves unless called from child class."""
-        
-        if not getattr(self, '_allow_direct_save', False):
-            raise PermissionDenied(
-                "Cannot save Invoice directly. "
-                "Use child class save() method instead."
-            )
-        
-        # Reset flag after use
-        self._allow_direct_save = False
-        super().save(*args, **kwargs)
-    
-    def delete(self, *args, **kwargs):
-        """Override delete to prevent direct deletion."""
-        raise PermissionDenied(
-            "Cannot delete Invoice directly. "
-            "Delete the associated child invoice instead."
-        )
-    
-    @classmethod
-    def get_field_names(cls):
-        """
-        Get all field names from Invoice.
-        This is used by child classes to auto-generate properties.
-        """
-        return [field.name for field in cls._meta.get_fields() 
-                if not field.many_to_many and not field.one_to_many 
-                and field.name != 'id']
-
-
-# ==================== BASE MANAGER MIXIN ====================
-
-class InvoiceChildManagerMixin:
-    """
-    Mixin for child invoice managers.
-    Automatically extracts Invoice fields from kwargs.
-    """
-    
-    def create(self, **kwargs):
-        """
-        Create a new child invoice along with its Invoice.
-        Automatically extracts Invoice fields - NO MANUAL LISTING NEEDED!
-        """
-        # Get all Invoice field names dynamically
-        invoice_field_names = Invoice.get_field_names()
-        
-        # Extract Invoice fields from kwargs
-        invoice_fields = {}
-        for field_name in invoice_field_names:
-            if field_name in kwargs:
-                invoice_fields[field_name] = kwargs.pop(field_name)
-        
-        # Set defaults for required fields if not provided
-        if 'approval_status' not in invoice_fields:
-            invoice_fields['approval_status'] = 'DRAFT'
-        if 'payment_status' not in invoice_fields:
-            invoice_fields['payment_status'] = 'UNPAID'
-        
-        # Create Invoice (with permission)
-        invoice = Invoice(**invoice_fields)
-        invoice._allow_direct_save = True
-        invoice.save()
-        
-        # Create child invoice with remaining fields
-        kwargs['invoice'] = invoice
-        child_invoice = super().create(**kwargs)
-        
-        return child_invoice
-
-
-# ==================== BASE MODEL MIXIN ====================
-
-class InvoiceChildModelMixin:
-    """
-    Mixin for child invoice models.
-    Automatically creates property proxies for ALL Invoice fields.
-    """
-    
-    def save(self, *args, **kwargs):
-        """
-        Override save to handle Invoice updates automatically.
-        """
-        # If invoice doesn't exist yet, raise error
-        if not self.invoice_id:
-            raise ValidationError(
-                f"Use {self.__class__.__name__}.objects.create() instead of "
-                f"{self.__class__.__name__}() constructor. "
-                "This ensures proper Invoice creation."
-            )
-        
-        # Get all Invoice field names dynamically
-        invoice_field_names = Invoice.get_field_names()
-        
-        # Update Invoice if any of its fields were set
-        invoice_updated = False
-        
-        for field_name in invoice_field_names:
-            temp_attr = f'_{field_name}_temp'
-            if hasattr(self, temp_attr):
-                setattr(self.invoice, field_name, getattr(self, temp_attr))
-                delattr(self, temp_attr)
-                invoice_updated = True
-        
-        if invoice_updated:
-            self.invoice._allow_direct_save = True
-            self.invoice.save()
-        
-        super().save(*args, **kwargs)
-    
-    def delete(self, *args, **kwargs):
-        """
-        Override delete to also delete the associated Invoice.
-        """
-        invoice = self.invoice
-
-        # Delete the child first
-        super().delete(*args, **kwargs)
-        
-        try:
-            invoice.refresh_from_db()
-
-            # Get all OneToOne reverse relations (children)
-            has_children = False
-            for related_object in invoice._meta.related_objects:
-                if related_object.one_to_one:
-                    # Check if this child still exists
-                    if hasattr(invoice, related_object.get_accessor_name()):
-                        has_children = True
-                        break
-             # If no children left, delete the BusinessPartner
-            if not has_children:
-                invoice._allow_direct_save = True
-                super(Invoice, invoice).delete(*args, **kwargs)
-        except Invoice.DoesNotExist:
-            # Already deleted, nothing to do
-            pass
-    
-    def __init__(self, *args, **kwargs):
-        """
-        Override __init__ to dynamically create property proxies.
-        """
-        super().__init__(*args, **kwargs)
-        
-        # Dynamically create property proxies for all Invoice fields
-        if not hasattr(self.__class__, '_properties_created'):
-            self.__class__._create_invoice_properties()
-            self.__class__._properties_created = True
-    
-    @classmethod
-    def _create_invoice_properties(cls):
-        """
-        Dynamically create property proxies for all Invoice fields.
-        This runs once per class and creates properties for ALL fields automatically!
-        """
-        invoice_field_names = Invoice.get_field_names()
-        
-        for field_name in invoice_field_names:
-            # Skip if property already exists
-            if hasattr(cls, field_name):
-                continue
-            
-            # Create getter and setter functions
-            def make_property(fname):
-                def getter(self):
-                    return getattr(self.invoice, fname)
-                
-                def setter(self, value):
-                    setattr(self, f'_{fname}_temp', value)
-                    if self.invoice_id:
-                        setattr(self.invoice, fname, value)
-                
-                return property(getter, setter)
-            
-            # Add property to class
-            setattr(cls, field_name, make_property(field_name))
 
 
 # ==================== AP INVOICE ====================
 
-class AP_InvoiceManager(InvoiceChildManagerMixin, models.Manager):
-    """Manager for AP_Invoice - inherits all auto-magic from mixin!"""
+class AP_InvoiceManager(ChildModelManagerMixin, models.Manager):
+    """Manager for AP_Invoice - uses generic pattern!"""
+    parent_model = Invoice
+    parent_defaults = {
+        'approval_status': 'DRAFT',
+        'payment_status': 'UNPAID'
+    }
     
     def active(self):
         """Get all active (not fully paid) AP invoices."""
         return self.exclude(invoice__payment_status='PAID')
 
 
-class AP_Invoice(InvoiceChildModelMixin, models.Model):
+class AP_Invoice(ChildModelMixin, models.Model):
     """
     Accounts Payable Invoice - represents invoices from suppliers.
     
@@ -364,6 +180,10 @@ class AP_Invoice(InvoiceChildModelMixin, models.Model):
         ap_invoice.total = 1200.00
         ap_invoice.save()
     """
+    
+    # Configuration for generic pattern
+    parent_model = Invoice
+    parent_field_name = 'invoice'
     
     invoice = models.OneToOneField(
         Invoice, 
@@ -393,15 +213,20 @@ class AP_Invoice(InvoiceChildModelMixin, models.Model):
 
 # ==================== AR INVOICE ====================
 
-class AR_InvoiceManager(InvoiceChildManagerMixin, models.Manager):
-    """Manager for AR_Invoice - inherits all auto-magic from mixin!"""
+class AR_InvoiceManager(ChildModelManagerMixin, models.Manager):
+    """Manager for AR_Invoice - uses generic pattern!"""
+    parent_model = Invoice
+    parent_defaults = {
+        'approval_status': 'DRAFT',
+        'payment_status': 'UNPAID'
+    }
     
     def active(self):
         """Get all active (not fully paid) AR invoices."""
         return self.exclude(invoice__payment_status='PAID')
 
 
-class AR_Invoice(InvoiceChildModelMixin, models.Model):
+class AR_Invoice(ChildModelMixin, models.Model):
     """
     Accounts Receivable Invoice - represents invoices to customers.
     
@@ -415,6 +240,10 @@ class AR_Invoice(InvoiceChildModelMixin, models.Model):
             customer=customer
         )
     """
+    
+    # Configuration for generic pattern
+    parent_model = Invoice
+    parent_field_name = 'invoice'
     
     invoice = models.OneToOneField(
         Invoice, 
@@ -444,12 +273,16 @@ class AR_Invoice(InvoiceChildModelMixin, models.Model):
 
 # ==================== ONE-TIME SUPPLIER ====================
 
-class one_use_supplierManager(InvoiceChildManagerMixin, models.Manager):
-    """Manager for one_use_supplier - inherits all auto-magic from mixin!"""
-    pass
+class one_use_supplierManager(ChildModelManagerMixin, models.Manager):
+    """Manager for one_use_supplier - uses generic pattern!"""
+    parent_model = Invoice
+    parent_defaults = {
+        'approval_status': 'DRAFT',
+        'payment_status': 'UNPAID'
+    }
 
 
-class one_use_supplier(InvoiceChildModelMixin, models.Model):
+class one_use_supplier(ChildModelMixin, models.Model):
     """
     One-Time Supplier - for ad-hoc suppliers without master data.
     
@@ -464,6 +297,10 @@ class one_use_supplier(InvoiceChildModelMixin, models.Model):
             supplier_address="123 Main St"
         )
     """
+    
+    # Configuration for generic pattern
+    parent_model = Invoice
+    parent_field_name = 'invoice'
     
     invoice = models.ForeignKey(
         Invoice, 
@@ -488,3 +325,4 @@ class one_use_supplier(InvoiceChildModelMixin, models.Model):
     
     def __str__(self):
         return f"One-Time: {self.supplier_name} - ${self.invoice.total}"
+
