@@ -1,11 +1,14 @@
 """
-Business Partner Models
+Business Partner Models - DRY Pattern with Mixins
 Handles unified business partner data with Customer and Supplier specializations.
 
 IMPORTANT DESIGN PATTERN:
 ========================
 BusinessPartner is a MANAGED BASE CLASS that should NEVER be directly created, 
 updated, or deleted. All operations MUST go through Customer or Supplier classes.
+
+The magic: Child classes automatically inherit ALL BusinessPartner fields as properties!
+No need to manually define getters/setters - they're auto-generated!
 
 Usage Examples:
 --------------
@@ -17,24 +20,14 @@ customer = Customer.objects.create(
     address_in_details="123 Main St"
 )
 
-# CORRECT - Create a supplier
-supplier = Supplier.objects.create(
-    name="Tech Supplies Inc",
-    email="sales@techsupplies.com",
-    vat_number="VAT123456"
-)
-
 # CORRECT - Update customer
 customer.name = "Acme Corporation"
 customer.email = "info@acme.com"
-customer.save()
+customer.save()  # Auto-updates BusinessPartner!
 
-# CORRECT - Query customers
-active_customers = Customer.objects.filter(is_active=True)
-
-# WRONG - Don't do this!
-# bp = BusinessPartner.objects.create(name="Test")  # This will raise an error!
+# Add new field to BusinessPartner? No changes needed in Customer/Supplier!
 """
+
 from django.db import models
 from django.core.exceptions import ValidationError, PermissionDenied
 from Finance.core.models import Country, ProtectedDeleteMixin
@@ -56,6 +49,7 @@ class BusinessPartnerManager(models.Manager):
             "Use Customer or Supplier models instead."
         )
 
+
 class BusinessPartner(ProtectedDeleteMixin, models.Model):
     """
     Business Partner - MANAGED BASE CLASS (Interface-like)
@@ -65,21 +59,6 @@ class BusinessPartner(ProtectedDeleteMixin, models.Model):
     This model serves as a shared data container for Customer and Supplier.
     All operations should be performed through Customer or Supplier classes,
     which will automatically manage the associated BusinessPartner instance.
-    
-    Fields:
-        name: Business partner name (required)
-        email: Contact email
-        phone: Contact phone number
-        country: Business partner's country
-        address: Physical address
-        notes: Internal notes
-        is_active: Whether the business partner is active
-        created_at: Timestamp of creation
-        updated_at: Timestamp of last update
-    
-    Relationships:
-        - customer: OneToOne relationship to Customer (if this BP is a customer)
-        - supplier: OneToOne relationship to Supplier (if this BP is a supplier)
     """
     
     # Core fields
@@ -117,23 +96,15 @@ class BusinessPartner(ProtectedDeleteMixin, models.Model):
         """
         Override save to prevent direct saves unless called from Customer/Supplier.
         """
-        # Check if this is being called from a child class (Customer/Supplier)
-        # by looking at the call stack
-        import inspect
-        frame = inspect.currentframe()
-        caller_locals = frame.f_back.f_locals
-        
-        # Allow save if it's being called from Customer or Supplier save method
-        # or if _allow_direct_save flag is set
+        # Allow save if _allow_direct_save flag is set
         if not getattr(self, '_allow_direct_save', False):
-            # Check if caller is Customer or Supplier
-            caller_self = caller_locals.get('self')
-            if not isinstance(caller_self, (Customer, Supplier)):
-                raise PermissionDenied(
-                    "Cannot save BusinessPartner directly. "
-                    "Use Customer or Supplier save() method instead."
-                )
+            raise PermissionDenied(
+                "Cannot save BusinessPartner directly. "
+                "Use Customer or Supplier save() method instead."
+            )
         
+        # Reset flag after use
+        self._allow_direct_save = False
         super().save(*args, **kwargs)
     
     def delete(self, *args, **kwargs):
@@ -147,65 +118,207 @@ class BusinessPartner(ProtectedDeleteMixin, models.Model):
     
     def get_partner_type(self):
         """
-        Get the type of business partner (Customer, Supplier, or Both).
+        Get the type of business partner based on child relationships.
+        Dynamically detects all OneToOne children.
         
         Returns:
-            str: 'Customer', 'Supplier', 'Both', or 'None'
+            str: Comma-separated list of child types, or 'None' if no children
         """
-        is_customer = hasattr(self, 'customer') and self.customer is not None
-        is_supplier = hasattr(self, 'supplier') and self.supplier is not None
+        child_types = []
         
-        if is_customer and is_supplier:
-            return 'Both'
-        elif is_customer:
-            return 'Customer'
-        elif is_supplier:
-            return 'Supplier'
-        else:
+        # Dynamically find all OneToOne reverse relations (children)
+        for related_object in self._meta.related_objects:
+            if related_object.one_to_one:
+                accessor_name = related_object.get_accessor_name()
+                if hasattr(self, accessor_name):
+                    # Get the child class name (e.g., 'Customer', 'Supplier')
+                    child_types.append(related_object.related_model.__name__)
+        
+        if not child_types:
             return 'None'
+        elif len(child_types) == 1:
+            return child_types[0]
+        else:
+            return ', '.join(child_types)
+    
+    @classmethod
+    def get_field_names(cls):
+        """
+        Get all field names from BusinessPartner.
+        This is used by child classes to auto-generate properties.
+        """
+        return [field.name for field in cls._meta.get_fields() 
+                if not field.many_to_many and not field.one_to_many 
+                and field.name != 'id']
 
-class CustomerManager(models.Manager):
+
+# ==================== BASE MANAGER MIXIN ====================
+
+class BusinessPartnerChildManagerMixin:
     """
-    Custom manager for Customer with convenience methods.
+    Mixin for child business partner managers.
+    Automatically extracts BusinessPartner fields from kwargs.
     """
+    
     def create(self, **kwargs):
         """
-        Create a new Customer along with its BusinessPartner.
-        
-        Automatically extracts BusinessPartner fields and creates both objects.
+        Create a new child partner along with its BusinessPartner.
+        Automatically extracts BusinessPartner fields - NO MANUAL LISTING NEEDED!
         """
-        # Extract BusinessPartner fields
-        bp_fields = {
-            'name': kwargs.pop('name', ''),
-            'email': kwargs.pop('email', ''),
-            'phone': kwargs.pop('phone', ''),
-            'country': kwargs.pop('country', None),
-            'address': kwargs.pop('address', ''),
-            'notes': kwargs.pop('notes', ''),
-            'is_active': kwargs.pop('is_active', True),
-        }
+        # Get all BusinessPartner field names dynamically
+        bp_field_names = BusinessPartner.get_field_names()
+        
+        # Extract BusinessPartner fields from kwargs
+        bp_fields = {}
+        for field_name in bp_field_names:
+            if field_name in kwargs:
+                bp_fields[field_name] = kwargs.pop(field_name)
+        
+        # Set defaults
+        if 'is_active' not in bp_fields:
+            bp_fields['is_active'] = True
         
         # Create BusinessPartner (with permission)
         business_partner = BusinessPartner(**bp_fields)
         business_partner._allow_direct_save = True
         business_partner.save()
         
-        # Create Customer with remaining fields
+        # Create child with remaining fields
         kwargs['business_partner'] = business_partner
-        customer = super().create(**kwargs)
+        child = super().create(**kwargs)
         
-        return customer
+        return child
     
     def active(self):
-        """Get all active customers."""
+        """Get all active partners."""
         return self.filter(business_partner__is_active=True)
 
-class Customer(ProtectedDeleteMixin, models.Model):
+
+# ==================== BASE MODEL MIXIN ====================
+
+class BusinessPartnerChildModelMixin:
+    """
+    Mixin for child business partner models.
+    Automatically creates property proxies for ALL BusinessPartner fields.
+    """
+    
+    def save(self, *args, **kwargs):
+        """
+        Override save to handle BusinessPartner updates automatically.
+        """
+        # If business_partner doesn't exist yet, raise error
+        if not self.business_partner_id:
+            raise ValidationError(
+                f"Use {self.__class__.__name__}.objects.create() instead of "
+                f"{self.__class__.__name__}() constructor. "
+                "This ensures proper BusinessPartner creation."
+            )
+        
+        # Get all BusinessPartner field names dynamically
+        bp_field_names = BusinessPartner.get_field_names()
+        
+        # Update BusinessPartner if any of its fields were set
+        bp_updated = False
+        
+        for field_name in bp_field_names:
+            temp_attr = f'_{field_name}_temp'
+            if hasattr(self, temp_attr):
+                setattr(self.business_partner, field_name, getattr(self, temp_attr))
+                delattr(self, temp_attr)
+                bp_updated = True
+        
+        if bp_updated:
+            self.business_partner._allow_direct_save = True
+            self.business_partner.save()
+        
+        super().save(*args, **kwargs)
+    
+    def delete(self, *args, **kwargs):
+        """
+        Override delete to also delete the associated BusinessPartner.
+        """
+        business_partner = self.business_partner
+        
+        # Delete the child first
+        super().delete(*args, **kwargs)
+        
+        # After deletion, check if BusinessPartner still has other children
+        # Dynamically check for any OneToOne relationships (children)
+        try:
+            business_partner.refresh_from_db()
+            
+            # Get all OneToOne reverse relations (children)
+            has_children = False
+            for related_object in business_partner._meta.related_objects:
+                if related_object.one_to_one:
+                    # Check if this child still exists
+                    if hasattr(business_partner, related_object.get_accessor_name()):
+                        has_children = True
+                        break
+            
+            # If no children left, delete the BusinessPartner
+            if not has_children:
+                business_partner._allow_direct_save = True
+                super(BusinessPartner, business_partner).delete(*args, **kwargs)
+        except BusinessPartner.DoesNotExist:
+            # Already deleted, nothing to do
+            pass
+
+    def __init__(self, *args, **kwargs):
+        """
+        Override __init__ to dynamically create property proxies.
+        """
+        super().__init__(*args, **kwargs)
+        
+        # Dynamically create property proxies for all BusinessPartner fields
+        if not hasattr(self.__class__, '_properties_created'):
+            self.__class__._create_bp_properties()
+            self.__class__._properties_created = True
+    
+    @classmethod
+    def _create_bp_properties(cls):
+        """
+        Dynamically create property proxies for all BusinessPartner fields.
+        This runs once per class and creates properties for ALL fields automatically!
+        """
+        bp_field_names = BusinessPartner.get_field_names()
+        
+        for field_name in bp_field_names:
+            # Skip if property already exists
+            if hasattr(cls, field_name):
+                continue
+            
+            # Create getter and setter functions
+            def make_property(fname):
+                def getter(self):
+                    return getattr(self.business_partner, fname)
+                
+                def setter(self, value):
+                    setattr(self, f'_{fname}_temp', value)
+                    if self.business_partner_id:
+                        setattr(self.business_partner, fname, value)
+                
+                return property(getter, setter)
+            
+            # Add property to class
+            setattr(cls, field_name, make_property(field_name))
+
+
+# ==================== CUSTOMER ====================
+
+class CustomerManager(BusinessPartnerChildManagerMixin, models.Manager):
+    """
+    Custom manager for Customer - inherits all auto-magic from mixin!
+    """
+    pass
+
+
+class Customer(BusinessPartnerChildModelMixin, ProtectedDeleteMixin, models.Model):
     """
     Customer - represents a business partner who purchases from us.
     
-    This class automatically manages the associated BusinessPartner instance.
-    All BusinessPartner fields are accessible as properties on the Customer.
+    ALL BusinessPartner fields are automatically available as properties!
+    No need to manually define them - they're auto-generated!
     
     Usage:
         # Create a customer
@@ -213,11 +326,11 @@ class Customer(ProtectedDeleteMixin, models.Model):
             name="Acme Corp",
             email="contact@acme.com",
             phone="+1234567890",
-            address_in_details="Detailed delivery address"
+            address_in_details="123 Main St"
         )
         
         # Update customer
-        customer.name = "Acme Corporation"  # Updates BusinessPartner.name
+        customer.name = "Acme Corporation"
         customer.save()
         
         # Access BusinessPartner fields
@@ -244,161 +357,22 @@ class Customer(ProtectedDeleteMixin, models.Model):
     
     def __str__(self):
         return f"{self.business_partner.name}"
-    
-    def save(self, *args, **kwargs):
-        """
-        Override save to handle BusinessPartner updates.
-        """
-        # If business_partner doesn't exist yet, create it
-        if not self.business_partner_id:
-            # This happens when creating via Customer() constructor instead of Customer.objects.create()
-            raise ValidationError(
-                "Use Customer.objects.create() instead of Customer() constructor. "
-                "This ensures proper BusinessPartner creation."
-            )
-        
-        # Update BusinessPartner if any of its fields were set on this Customer instance
-        bp_fields = ['name', 'email', 'phone', 'country', 'address', 'notes', 'is_active']
-        bp_updated = False
-        
-        for field in bp_fields:
-            if hasattr(self, f'_{field}_temp'):
-                setattr(self.business_partner, field, getattr(self, f'_{field}_temp'))
-                delattr(self, f'_{field}_temp')
-                bp_updated = True
-        
-        if bp_updated:
-            self.business_partner._allow_direct_save = True
-            self.business_partner.save()
-        
-        super().save(*args, **kwargs)
-    
-    def delete(self, *args, **kwargs):
-        """
-        Override delete to also delete the associated BusinessPartner.
-        """
-        business_partner = self.business_partner
-        super().delete(*args, **kwargs)
-        
-        # Delete BusinessPartner if it's not used by any other entity
-        if not hasattr(business_partner, 'supplier'):
-            business_partner._allow_direct_save = True
-            # Use the parent class delete to bypass our restriction
-            super(BusinessPartner, business_partner).delete(*args, **kwargs)
-    
-    # Property proxies for BusinessPartner fields (for easy access)
-    @property
-    def name(self):
-        return self.business_partner.name
-    
-    @name.setter
-    def name(self, value):
-        self._name_temp = value
-        if self.business_partner_id:
-            self.business_partner.name = value
-    
-    @property
-    def email(self):
-        return self.business_partner.email
-    
-    @email.setter
-    def email(self, value):
-        self._email_temp = value
-        if self.business_partner_id:
-            self.business_partner.email = value
-    
-    @property
-    def phone(self):
-        return self.business_partner.phone
-    
-    @phone.setter
-    def phone(self, value):
-        self._phone_temp = value
-        if self.business_partner_id:
-            self.business_partner.phone = value
-    
-    @property
-    def country(self):
-        return self.business_partner.country
-    
-    @country.setter
-    def country(self, value):
-        self._country_temp = value
-        if self.business_partner_id:
-            self.business_partner.country = value
-    
-    @property
-    def address(self):
-        return self.business_partner.address
-    
-    @address.setter
-    def address(self, value):
-        self._address_temp = value
-        if self.business_partner_id:
-            self.business_partner.address = value
-    
-    @property
-    def notes(self):
-        return self.business_partner.notes
-    
-    @notes.setter
-    def notes(self, value):
-        self._notes_temp = value
-        if self.business_partner_id:
-            self.business_partner.notes = value
-    
-    @property
-    def is_active(self):
-        return self.business_partner.is_active
-    
-    @is_active.setter
-    def is_active(self, value):
-        self._is_active_temp = value
-        if self.business_partner_id:
-            self.business_partner.is_active = value
 
-class SupplierManager(models.Manager):
-    """
-    Custom manager for Supplier with convenience methods.
-    """
-    def create(self, **kwargs):
-        """
-        Create a new Supplier along with its BusinessPartner.
-        
-        Automatically extracts BusinessPartner fields and creates both objects.
-        """
-        # Extract BusinessPartner fields
-        bp_fields = {
-            'name': kwargs.pop('name', ''),
-            'email': kwargs.pop('email', ''),
-            'phone': kwargs.pop('phone', ''),
-            'country': kwargs.pop('country', None),
-            'address': kwargs.pop('address', ''),
-            'notes': kwargs.pop('notes', ''),
-            'is_active': kwargs.pop('is_active', True),
-        }
-        
-        # Create BusinessPartner (with permission)
-        business_partner = BusinessPartner(**bp_fields)
-        business_partner._allow_direct_save = True
-        business_partner.save()
-        
-        # Create Supplier with remaining fields
-        kwargs['business_partner'] = business_partner
-        supplier = super().create(**kwargs)
-        
-        return supplier
-    
-    def active(self):
-        """Get all active suppliers."""
-        return self.filter(business_partner__is_active=True)
 
-class Supplier(ProtectedDeleteMixin, models.Model):
+# ==================== SUPPLIER ====================
+
+class SupplierManager(BusinessPartnerChildManagerMixin, models.Manager):
+    """
+    Custom manager for Supplier - inherits all auto-magic from mixin!
+    """
+    pass
+
+
+class Supplier(BusinessPartnerChildModelMixin, ProtectedDeleteMixin, models.Model):
     """
     Supplier/Vendor - represents a business partner who supplies to us.
     
-    This class automatically manages the associated BusinessPartner instance.
-    All BusinessPartner fields are accessible as properties on the Supplier.
+    ALL BusinessPartner fields are automatically available as properties!
     
     Usage:
         # Create a supplier
@@ -439,114 +413,3 @@ class Supplier(ProtectedDeleteMixin, models.Model):
     
     def __str__(self):
         return f"{self.business_partner.name}"
-    
-    def save(self, *args, **kwargs):
-        """
-        Override save to handle BusinessPartner updates.
-        """
-        # If business_partner doesn't exist yet, create it
-        if not self.business_partner_id:
-            raise ValidationError(
-                "Use Supplier.objects.create() instead of Supplier() constructor. "
-                "This ensures proper BusinessPartner creation."
-            )
-        
-        # Update BusinessPartner if any of its fields were set on this Supplier instance
-        bp_fields = ['name', 'email', 'phone', 'country', 'address', 'notes', 'is_active']
-        bp_updated = False
-        
-        for field in bp_fields:
-            if hasattr(self, f'_{field}_temp'):
-                setattr(self.business_partner, field, getattr(self, f'_{field}_temp'))
-                delattr(self, f'_{field}_temp')
-                bp_updated = True
-        
-        if bp_updated:
-            self.business_partner._allow_direct_save = True
-            self.business_partner.save()
-        
-        super().save(*args, **kwargs)
-    
-    def delete(self, *args, **kwargs):
-        """
-        Override delete to also delete the associated BusinessPartner.
-        """
-        business_partner = self.business_partner
-        super().delete(*args, **kwargs)
-        
-        # Delete BusinessPartner if it's not used by any other entity
-        if not hasattr(business_partner, 'customer'):
-            business_partner._allow_direct_save = True
-            # Use the parent class delete to bypass our restriction
-            super(BusinessPartner, business_partner).delete(*args, **kwargs)
-    
-    # Property proxies for BusinessPartner fields (for easy access)
-    @property
-    def name(self):
-        return self.business_partner.name
-    
-    @name.setter
-    def name(self, value):
-        self._name_temp = value
-        if self.business_partner_id:
-            self.business_partner.name = value
-    
-    @property
-    def email(self):
-        return self.business_partner.email
-    
-    @email.setter
-    def email(self, value):
-        self._email_temp = value
-        if self.business_partner_id:
-            self.business_partner.email = value
-    
-    @property
-    def phone(self):
-        return self.business_partner.phone
-    
-    @phone.setter
-    def phone(self, value):
-        self._phone_temp = value
-        if self.business_partner_id:
-            self.business_partner.phone = value
-    
-    @property
-    def country(self):
-        return self.business_partner.country
-    
-    @country.setter
-    def country(self, value):
-        self._country_temp = value
-        if self.business_partner_id:
-            self.business_partner.country = value
-    
-    @property
-    def address(self):
-        return self.business_partner.address
-    
-    @address.setter
-    def address(self, value):
-        self._address_temp = value
-        if self.business_partner_id:
-            self.business_partner.address = value
-    
-    @property
-    def notes(self):
-        return self.business_partner.notes
-    
-    @notes.setter
-    def notes(self, value):
-        self._notes_temp = value
-        if self.business_partner_id:
-            self.business_partner.notes = value
-    
-    @property
-    def is_active(self):
-        return self.business_partner.is_active
-    
-    @is_active.setter
-    def is_active(self, value):
-        self._is_active_temp = value
-        if self.business_partner_id:
-            self.business_partner.is_active = value
