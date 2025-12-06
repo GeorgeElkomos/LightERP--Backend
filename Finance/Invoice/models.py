@@ -44,6 +44,7 @@ from Finance.core.base_models import (
 )
 
 
+
 class Invoice(ManagedParentModel, models.Model):
     """
     General Invoice - MANAGED BASE CLASS (Interface-like)
@@ -72,7 +73,7 @@ class Invoice(ManagedParentModel, models.Model):
         ('APPROVED', 'Approved'),
         ('REJECTED', 'Rejected'),
     ]
-    
+    prefix_code = models.CharField(max_length=10, blank=True, null=True)
     # Core fields
     date = models.DateField()
     currency = models.ForeignKey(
@@ -146,6 +147,20 @@ class Invoice(ManagedParentModel, models.Model):
     def __str__(self):
         return f"Invoice {self.id} - {self.date}"
 
+class InvoiceItem(models.Model):
+    """Invoice Line Item"""
+    invoice = models.ForeignKey(Invoice, related_name="items", on_delete=models.CASCADE)
+    name = models.CharField(max_length=255)
+    description = models.CharField(max_length=255)
+    quantity = models.DecimalField(max_digits=12, decimal_places=2)
+    unit_price = models.DecimalField(max_digits=12, decimal_places=2)
+   
+    class Meta:
+        db_table = 'invoice_item'  # NEW table name
+    
+    def __str__(self):
+        return f"{self.invoice.id} - {self.description[:30]}"
+
 
 # ==================== AP INVOICE ====================
 
@@ -154,7 +169,8 @@ class AP_InvoiceManager(ChildModelManagerMixin, models.Manager):
     parent_model = Invoice
     parent_defaults = {
         'approval_status': 'DRAFT',
-        'payment_status': 'UNPAID'
+        'payment_status': 'UNPAID',
+        'prefix_code': 'Inv-AP'
     }
     
     def active(self):
@@ -218,7 +234,8 @@ class AR_InvoiceManager(ChildModelManagerMixin, models.Manager):
     parent_model = Invoice
     parent_defaults = {
         'approval_status': 'DRAFT',
-        'payment_status': 'UNPAID'
+        'payment_status': 'UNPAID',
+        'prefix_code': 'Inv-AR'
     }
     
     def active(self):
@@ -278,7 +295,8 @@ class one_use_supplierManager(ChildModelManagerMixin, models.Manager):
     parent_model = Invoice
     parent_defaults = {
         'approval_status': 'DRAFT',
-        'payment_status': 'UNPAID'
+        'payment_status': 'UNPAID',
+        'prefix_code': 'Inv-OT'
     }
 
 
