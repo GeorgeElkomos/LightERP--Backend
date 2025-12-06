@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'Finance.GL',        # General Ledger
     'Finance.Invoice',        # Accounts Payable
     'Finance.BusinessPartner',        # Accounts Receivable
+    'Finance.payments',  # Payments
 ]
 
 MIDDLEWARE = [

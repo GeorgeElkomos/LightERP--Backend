@@ -278,7 +278,6 @@ class Currency(ProtectedDeleteMixin, models.Model):
 class Country(ProtectedDeleteMixin, models.Model):
     code = models.CharField(max_length=2, unique=True)  # AE, SA, etc.
     name = models.CharField(max_length=100)
-    
     class Meta:
         verbose_name_plural = "Countries"
     
@@ -294,7 +293,7 @@ class TaxRate(ProtectedDeleteMixin, models.Model):
     ]
 
     name = models.CharField(max_length=64)
-    rate = models.DecimalField(max_digits=6, decimal_places=3, help_text="Percent (e.g. 5 = 5%)")
+    rate = models.DecimalField(max_digits=6, decimal_places=2, help_text="Percent (e.g. 5 = 5%)")
     # NEW:
     country = models.ForeignKey(Country, on_delete=models.PROTECT, related_name="tax_rates", default="AE")
     category = models.CharField(max_length=16, choices=CATEGORY_CHOICES, default="STANDARD")
