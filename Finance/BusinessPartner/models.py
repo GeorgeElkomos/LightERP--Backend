@@ -205,3 +205,60 @@ class Supplier(ChildModelMixin, ProtectedDeleteMixin, models.Model):
     
     def __str__(self):
         return f"{self.business_partner.name}"
+
+
+# ==================== ONE TIME SUPPLIER ====================
+class OneTimeManager(ChildModelManagerMixin, models.Manager):
+    """Manager for OneTime - uses generic pattern!"""
+    parent_model = BusinessPartner
+    parent_defaults = {'is_active': True}
+
+
+class OneTime(ChildModelMixin, ProtectedDeleteMixin, models.Model):
+    """
+    One Time - represents a business partner who supplies to us.
+    
+    ALL BusinessPartner fields are automatically available as properties!
+    
+    Usage:
+        # Create a one-time supplier
+        one_time_supplier = OneTime.objects.create(
+            name="Tech Supplies Inc",
+            email="sales@techsupplies.com",
+            vat_number="VAT123456",
+            website="https://techsupplies.com"
+        )
+        
+        # Update one-time supplier
+        one_time_supplier.name = "Tech Supplies International"
+        one_time_supplier.save()
+        
+        # Access BusinessPartner fields
+        print(one_time_supplier.name)  # Proxied from business_partner.name
+        print(one_time_supplier.email)  # Proxied from business_partner.email
+    """
+    
+    # Configuration for generic pattern
+    parent_model = BusinessPartner
+    parent_field_name = 'business_partner'
+    
+    business_partner = models.OneToOneField(
+        BusinessPartner, 
+        on_delete=models.PROTECT, 
+        related_name="one_time_supplier"
+    )
+    
+    # OneTime-specific fields
+    tax_id = models.CharField(max_length=50, blank=True, help_text="Tax ID/VAT number")
+    
+
+    # Custom manager
+    objects = OneTimeManager()
+    
+    class Meta:
+        db_table = 'one_time_supplier'
+        verbose_name = 'One Time Supplier'
+        verbose_name_plural = 'One Time Suppliers'
+    
+    def __str__(self):
+        return f"{self.business_partner.name}"

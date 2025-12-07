@@ -14,8 +14,8 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from datetime import date
 from decimal import Decimal
 
-from Finance.Invoice.models import Invoice, AP_Invoice, AR_Invoice, one_use_supplier
-from Finance.BusinessPartner.models import Customer, Supplier
+from Finance.Invoice.models import Invoice, AP_Invoice, AR_Invoice, OneTimeSupplier
+from Finance.BusinessPartner.models import Customer, OneTime, Supplier
 from Finance.core.models import Country, Currency
 from Finance.GL.models import JournalEntry
 
@@ -134,29 +134,33 @@ class InvoiceModelTests(TestCase):
         self.assertEqual(ar_invoice.invoice.currency, self.currency_gbp)
         self.assertEqual(ar_invoice.invoice.total, Decimal('5500.00'))
     
-    def test_one_use_supplier_create_with_manager(self):
-        """Create one-time supplier using one_use_supplier.objects.create()"""
-        one_time = one_use_supplier.objects.create(
+    def test_OneTimeSupplier_create_with_manager(self):
+        """Create one-time supplier using OneTimeSupplier.objects.create()"""
+        # Create a OneTime supplier first
+        from Finance.BusinessPartner.models import OneTime
+        one_time_supplier_instance = OneTime.objects.create(
+            name="John's Plumbing",
+            email="john@plumbing.com",
+            phone="+1-555-7777",
+            tax_id="TAX123"
+        )
+        
+        one_time = OneTimeSupplier.objects.create(
             # Invoice fields
             date=date.today(),
             currency=self.currency_usd,
             total=Decimal('275.00'),
             gl_distributions=self.journal_entry,
-            # One-time supplier fields
-            supplier_name="John's Plumbing",
-            supplier_address="123 Main St",
-            supplier_email="john@plumbing.com",
-            supplier_phone="+1-555-7777",
-            supplier_tax_id="TAX123"
+            # One-time supplier field
+            one_time_supplier=one_time_supplier_instance
         )
         
-        # Verify one_use_supplier created
+        # Verify OneTimeSupplier created
         self.assertIsNotNone(one_time.id)
-        self.assertEqual(one_time.supplier_name, "John's Plumbing")
-        self.assertEqual(one_time.supplier_address, "123 Main St")
-        self.assertEqual(one_time.supplier_email, "john@plumbing.com")
-        self.assertEqual(one_time.supplier_phone, "+1-555-7777")
-        self.assertEqual(one_time.supplier_tax_id, "TAX123")
+        self.assertEqual(one_time.one_time_supplier.name, "John's Plumbing")
+        self.assertEqual(one_time.one_time_supplier.email, "john@plumbing.com")
+        self.assertEqual(one_time.one_time_supplier.phone, "+1-555-7777")
+        self.assertEqual(one_time.one_time_supplier.tax_id, "TAX123")
         
         # Verify Invoice created
         self.assertIsNotNone(one_time.invoice)
@@ -328,14 +332,18 @@ class InvoiceModelTests(TestCase):
         # Verify Invoice also deleted
         self.assertFalse(Invoice.objects.filter(id=invoice_id).exists())
     
-    def test_one_use_supplier_delete(self):
+    def test_OneTimeSupplier_delete(self):
         """Delete one-time supplier and verify Invoice handling"""
-        one_time = one_use_supplier.objects.create(
+        # Create a OneTime supplier first
+        from Finance.BusinessPartner.models import OneTime
+        one_time_supplier_instance = OneTime.objects.create(name="Temp Supplier")
+        
+        one_time = OneTimeSupplier.objects.create(
             date=date.today(),
             currency=self.currency_usd,
             total=Decimal('150.00'),
             gl_distributions=self.journal_entry,
-            supplier_name="Temp Supplier"
+            one_time_supplier=one_time_supplier_instance
         )
         
         invoice_id = one_time.invoice.id
@@ -344,11 +352,11 @@ class InvoiceModelTests(TestCase):
         # Delete one-time supplier
         one_time.delete()
         
-        # Verify one_use_supplier deleted
-        self.assertFalse(one_use_supplier.objects.filter(id=one_time_id).exists())
+        # Verify OneTimeSupplier deleted
+        self.assertFalse(OneTimeSupplier.objects.filter(id=one_time_id).exists())
         
-        # Note: one_use_supplier uses ForeignKey, not OneToOneField
-        # So Invoice might still exist if there are other one_use_supplier records
+        # Note: OneTimeSupplier uses ForeignKey, not OneToOneField
+        # So Invoice might still exist if there are other OneTimeSupplier records
         # This test just verifies the deletion doesn't error
     
     def test_cannot_save_invoice_directly(self):
@@ -502,18 +510,22 @@ class InvoiceModelTests(TestCase):
         )
         
         # Create one-time supplier with same currency
-        one_time = one_use_supplier.objects.create(
+        # Create OneTime supplier for one-time invoice
+        from Finance.BusinessPartner.models import OneTime
+        one_time_supplier_instance = OneTime.objects.create(name="One Time Supplier")
+        
+        one_time_1 = OneTimeSupplier.objects.create(
             date=date.today(),
             currency=self.currency_usd,
-            total=Decimal('300.00'),
+            total=Decimal('200.00'),
             gl_distributions=self.journal_entry,
-            supplier_name="One Time"
+            one_time_supplier=one_time_supplier_instance
         )
         
         # Verify all created successfully
         self.assertEqual(ap.currency, self.currency_usd)
         self.assertEqual(ar.currency, self.currency_usd)
-        self.assertEqual(one_time.currency, self.currency_usd)
+        self.assertEqual(one_time_1.currency, self.currency_usd)
     
     def test_invoice_status_transitions(self):
         """Test transitioning invoice through different statuses"""
@@ -567,3 +579,762 @@ class InvoiceModelTests(TestCase):
         # Verify country is set
         self.assertEqual(ap_invoice.country, self.country_us)
         self.assertEqual(ap_invoice.invoice.country, self.country_us)
+
+
+class BusinessPartnerIntegrationTests(TestCase):
+    """Test business_partner field integration and auto-sync"""
+    
+    def setUp(self):
+        """Set up test data"""
+        # Create countries
+        self.country_us = Country.objects.create(code='US', name='United States')
+        
+        # Create currency
+        self.currency_usd = Currency.objects.create(
+            code='USD',
+            name='US Dollar',
+            symbol='$'
+        )
+        
+        # Create customer
+        self.customer = Customer.objects.create(
+            name="Acme Corp",
+            email="contact@acme.com",
+            country=self.country_us
+        )
+        
+        # Create supplier
+        self.supplier = Supplier.objects.create(
+            name="Tech Supplies Inc",
+            email="sales@techsupplies.com",
+            country=self.country_us
+        )
+        
+        # Create one-time supplier
+        self.one_time = OneTime.objects.create(
+            name="Quick Fix Plumbing",
+            email="john@plumbing.com",
+            country=self.country_us
+        )
+        
+        # Create journal entry
+        self.journal_entry = JournalEntry.objects.create(
+            date=date.today(),
+            currency=self.currency_usd,
+            memo='Test Journal Entry'
+        )
+    
+    def test_ap_invoice_business_partner_auto_set_on_create(self):
+        """Verify business_partner is auto-set from supplier on creation"""
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency_usd,
+            total=Decimal('1000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        # Verify business_partner was auto-set
+        self.assertEqual(
+            ap_invoice.invoice.business_partner,
+            self.supplier.business_partner
+        )
+        self.assertEqual(
+            ap_invoice.invoice.business_partner_id,
+            self.supplier.business_partner_id
+        )
+    
+    def test_ar_invoice_business_partner_auto_set_on_create(self):
+        """Verify business_partner is auto-set from customer on creation"""
+        ar_invoice = AR_Invoice.objects.create(
+            customer=self.customer,
+            date=date.today(),
+            currency=self.currency_usd,
+            total=Decimal('5000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        # Verify business_partner was auto-set
+        self.assertEqual(
+            ar_invoice.invoice.business_partner,
+            self.customer.business_partner
+        )
+        self.assertEqual(
+            ar_invoice.invoice.business_partner_id,
+            self.customer.business_partner_id
+        )
+    
+    def test_one_time_supplier_business_partner_auto_set_on_create(self):
+        """Verify business_partner is auto-set from one_time_supplier on creation"""
+        one_time_invoice = OneTimeSupplier.objects.create(
+            one_time_supplier=self.one_time,
+            date=date.today(),
+            currency=self.currency_usd,
+            total=Decimal('275.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        # Verify business_partner was auto-set
+        self.assertEqual(
+            one_time_invoice.invoice.business_partner,
+            self.one_time.business_partner
+        )
+        self.assertEqual(
+            one_time_invoice.invoice.business_partner_id,
+            self.one_time.business_partner_id
+        )
+    
+    def test_ap_invoice_business_partner_syncs_on_supplier_change(self):
+        """Verify business_partner auto-syncs when supplier changes"""
+        # Create initial invoice
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency_usd,
+            total=Decimal('1000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        original_bp = ap_invoice.invoice.business_partner
+        
+        # Create new supplier
+        new_supplier = Supplier.objects.create(
+            name="New Supplier Corp",
+            email="new@supplier.com"
+        )
+        
+        # Change supplier
+        ap_invoice.supplier = new_supplier
+        ap_invoice.save()
+        
+        # Refresh from database
+        ap_invoice.refresh_from_db()
+        
+        # Verify business_partner was auto-synced
+        self.assertNotEqual(ap_invoice.invoice.business_partner, original_bp)
+        self.assertEqual(
+            ap_invoice.invoice.business_partner,
+            new_supplier.business_partner
+        )
+    
+    def test_ar_invoice_business_partner_syncs_on_customer_change(self):
+        """Verify business_partner auto-syncs when customer changes"""
+        # Create initial invoice
+        ar_invoice = AR_Invoice.objects.create(
+            customer=self.customer,
+            date=date.today(),
+            currency=self.currency_usd,
+            total=Decimal('5000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        original_bp = ar_invoice.invoice.business_partner
+        
+        # Create new customer
+        new_customer = Customer.objects.create(
+            name="New Customer Inc",
+            email="new@customer.com"
+        )
+        
+        # Change customer
+        ar_invoice.customer = new_customer
+        ar_invoice.save()
+        
+        # Refresh from database
+        ar_invoice.refresh_from_db()
+        
+        # Verify business_partner was auto-synced
+        self.assertNotEqual(ar_invoice.invoice.business_partner, original_bp)
+        self.assertEqual(
+            ar_invoice.invoice.business_partner,
+            new_customer.business_partner
+        )
+    
+    def test_one_time_supplier_business_partner_syncs_on_change(self):
+        """Verify business_partner auto-syncs when one_time_supplier changes"""
+        # Create initial invoice
+        one_time_invoice = OneTimeSupplier.objects.create(
+            one_time_supplier=self.one_time,
+            date=date.today(),
+            currency=self.currency_usd,
+            total=Decimal('275.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        original_bp = one_time_invoice.invoice.business_partner
+        
+        # Create new one-time supplier
+        new_one_time = OneTime.objects.create(
+            name="Emergency Repairs",
+            email="emergency@repairs.com"
+        )
+        
+        # Change one_time_supplier
+        one_time_invoice.one_time_supplier = new_one_time
+        one_time_invoice.save()
+        
+        # Refresh from database
+        one_time_invoice.refresh_from_db()
+        
+        # Verify business_partner was auto-synced
+        self.assertNotEqual(one_time_invoice.invoice.business_partner, original_bp)
+        self.assertEqual(
+            one_time_invoice.invoice.business_partner,
+            new_one_time.business_partner
+        )
+    
+    def test_ap_invoice_business_partner_accessible_via_property(self):
+        """Verify business_partner is accessible as a property on AP_Invoice"""
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency_usd,
+            total=Decimal('1000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        # Access via property (should proxy from invoice.business_partner)
+        self.assertEqual(
+            ap_invoice.business_partner,
+            self.supplier.business_partner
+        )
+    
+    def test_ar_invoice_business_partner_accessible_via_property(self):
+        """Verify business_partner is accessible as a property on AR_Invoice"""
+        ar_invoice = AR_Invoice.objects.create(
+            customer=self.customer,
+            date=date.today(),
+            currency=self.currency_usd,
+            total=Decimal('5000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        # Access via property (should proxy from invoice.business_partner)
+        self.assertEqual(
+            ar_invoice.business_partner,
+            self.customer.business_partner
+        )
+    
+    def test_business_partner_consistency_across_multiple_updates(self):
+        """Test business_partner stays consistent across multiple field updates"""
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency_usd,
+            total=Decimal('1000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        # Update other fields multiple times
+        ap_invoice.total = Decimal('1500.00')
+        ap_invoice.save()
+        ap_invoice.refresh_from_db()
+        
+        ap_invoice.payment_status = 'PARTIALLY_PAID'
+        ap_invoice.save()
+        ap_invoice.refresh_from_db()
+        
+        # business_partner should still match supplier
+        self.assertEqual(
+            ap_invoice.invoice.business_partner,
+            self.supplier.business_partner
+        )
+
+
+class InvoicePaymentTests(TestCase):
+    """Test payment functionality: paid_amount field and helper functions"""
+    
+    def setUp(self):
+        """Set up test data"""
+        self.currency = Currency.objects.create(
+            code='USD',
+            name='US Dollar',
+            symbol='$'
+        )
+        
+        self.supplier = Supplier.objects.create(
+            name="Test Supplier",
+            email="supplier@test.com"
+        )
+        
+        self.customer = Customer.objects.create(
+            name="Test Customer",
+            email="customer@test.com"
+        )
+        
+        self.journal_entry = JournalEntry.objects.create(
+            date=date.today(),
+            currency=self.currency,
+            memo='Test Entry'
+        )
+    
+    def test_paid_amount_defaults_to_zero(self):
+        """Test that paid_amount defaults to 0 on creation"""
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency,
+            total=Decimal('1000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        self.assertEqual(ap_invoice.paid_amount, Decimal('0'))
+        self.assertEqual(ap_invoice.payment_status, 'UNPAID')
+    
+    def test_is_paid_returns_false_for_unpaid_invoice(self):
+        """Test is_paid() returns False for unpaid invoice"""
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency,
+            total=Decimal('1000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        self.assertFalse(ap_invoice.invoice.is_paid())
+    
+    def test_is_paid_returns_true_for_fully_paid_invoice(self):
+        """Test is_paid() returns True when paid_amount equals total"""
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency,
+            total=Decimal('1000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        ap_invoice.invoice.pay(Decimal('1000.00'))
+        ap_invoice.refresh_from_db()
+        
+        self.assertTrue(ap_invoice.invoice.is_paid())
+        self.assertEqual(ap_invoice.payment_status, 'PAID')
+    
+    def test_is_partially_paid_returns_false_for_unpaid(self):
+        """Test is_partially_paid() returns False for unpaid invoice"""
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency,
+            total=Decimal('1000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        self.assertFalse(ap_invoice.invoice.is_partially_paid())
+    
+    def test_is_partially_paid_returns_true_for_partial_payment(self):
+        """Test is_partially_paid() returns True for partial payment"""
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency,
+            total=Decimal('1000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        ap_invoice.invoice.pay(Decimal('400.00'))
+        ap_invoice.refresh_from_db()
+        
+        self.assertTrue(ap_invoice.invoice.is_partially_paid())
+        self.assertEqual(ap_invoice.payment_status, 'PARTIALLY_PAID')
+    
+    def test_is_partially_paid_returns_false_for_fully_paid(self):
+        """Test is_partially_paid() returns False when fully paid"""
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency,
+            total=Decimal('1000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        ap_invoice.invoice.pay(Decimal('1000.00'))
+        ap_invoice.refresh_from_db()
+        
+        self.assertFalse(ap_invoice.invoice.is_partially_paid())
+    
+    def test_remaining_amount_for_unpaid_invoice(self):
+        """Test remaining_amount() returns total for unpaid invoice"""
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency,
+            total=Decimal('1000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        self.assertEqual(ap_invoice.invoice.remaining_amount(), Decimal('1000.00'))
+    
+    def test_remaining_amount_for_partially_paid_invoice(self):
+        """Test remaining_amount() calculates correctly for partial payment"""
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency,
+            total=Decimal('1000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        ap_invoice.invoice.pay(Decimal('350.00'))
+        ap_invoice.refresh_from_db()
+        
+        self.assertEqual(ap_invoice.invoice.remaining_amount(), Decimal('650.00'))
+    
+    def test_remaining_amount_for_fully_paid_invoice(self):
+        """Test remaining_amount() returns 0 for fully paid invoice"""
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency,
+            total=Decimal('1000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        ap_invoice.invoice.pay(Decimal('1000.00'))
+        ap_invoice.refresh_from_db()
+        
+        self.assertEqual(ap_invoice.invoice.remaining_amount(), Decimal('0'))
+    
+    def test_pay_adds_to_paid_amount(self):
+        """Test pay() adds amount to paid_amount"""
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency,
+            total=Decimal('1000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        ap_invoice.invoice.pay(Decimal('400.00'))
+        ap_invoice.refresh_from_db()
+        
+        self.assertEqual(ap_invoice.paid_amount, Decimal('400.00'))
+    
+    def test_pay_multiple_times(self):
+        """Test multiple payments accumulate correctly"""
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency,
+            total=Decimal('1000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        ap_invoice.invoice.pay(Decimal('200.00'))
+        ap_invoice.invoice.pay(Decimal('300.00'))
+        ap_invoice.invoice.pay(Decimal('100.00'))
+        ap_invoice.refresh_from_db()
+        
+        self.assertEqual(ap_invoice.paid_amount, Decimal('600.00'))
+        self.assertEqual(ap_invoice.payment_status, 'PARTIALLY_PAID')
+    
+    def test_pay_updates_payment_status_to_paid(self):
+        """Test pay() auto-updates payment_status to PAID when fully paid"""
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency,
+            total=Decimal('1000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        ap_invoice.invoice.pay(Decimal('1000.00'))
+        ap_invoice.refresh_from_db()
+        
+        self.assertEqual(ap_invoice.payment_status, 'PAID')
+    
+    def test_pay_rejects_negative_amount(self):
+        """Test pay() raises error for negative amount"""
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency,
+            total=Decimal('1000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        with self.assertRaises(ValidationError) as context:
+            ap_invoice.invoice.pay(Decimal('-100.00'))
+        
+        self.assertIn('greater than zero', str(context.exception))
+    
+    def test_pay_rejects_zero_amount(self):
+        """Test pay() raises error for zero amount"""
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency,
+            total=Decimal('1000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        with self.assertRaises(ValidationError) as context:
+            ap_invoice.invoice.pay(Decimal('0'))
+        
+        self.assertIn('greater than zero', str(context.exception))
+    
+    def test_pay_rejects_overpayment(self):
+        """Test pay() raises error when payment exceeds remaining balance"""
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency,
+            total=Decimal('1000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        with self.assertRaises(ValidationError) as context:
+            ap_invoice.invoice.pay(Decimal('1500.00'))
+        
+        self.assertIn('exceeds remaining balance', str(context.exception))
+    
+    def test_pay_rejects_overpayment_on_partially_paid(self):
+        """Test pay() prevents overpayment on partially paid invoice"""
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency,
+            total=Decimal('1000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        ap_invoice.invoice.pay(Decimal('700.00'))
+        
+        with self.assertRaises(ValidationError) as context:
+            ap_invoice.invoice.pay(Decimal('400.00'))
+        
+        self.assertIn('exceeds remaining balance', str(context.exception))
+    
+    def test_refund_subtracts_from_paid_amount(self):
+        """Test refund() subtracts amount from paid_amount"""
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency,
+            total=Decimal('1000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        ap_invoice.invoice.pay(Decimal('1000.00'))
+        ap_invoice.invoice.refund(Decimal('200.00'))
+        ap_invoice.refresh_from_db()
+        
+        self.assertEqual(ap_invoice.paid_amount, Decimal('800.00'))
+    
+    def test_refund_updates_payment_status(self):
+        """Test refund() updates payment_status correctly"""
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency,
+            total=Decimal('1000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        ap_invoice.invoice.pay(Decimal('1000.00'))
+        ap_invoice.refresh_from_db()
+        self.assertEqual(ap_invoice.payment_status, 'PAID')
+        
+        ap_invoice.invoice.refund(Decimal('300.00'))
+        ap_invoice.refresh_from_db()
+        self.assertEqual(ap_invoice.payment_status, 'PARTIALLY_PAID')
+    
+    def test_refund_full_amount_sets_unpaid(self):
+        """Test refunding full amount sets status to UNPAID"""
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency,
+            total=Decimal('1000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        ap_invoice.invoice.pay(Decimal('500.00'))
+        ap_invoice.invoice.refund(Decimal('500.00'))
+        ap_invoice.refresh_from_db()
+        
+        self.assertEqual(ap_invoice.paid_amount, Decimal('0'))
+        self.assertEqual(ap_invoice.payment_status, 'UNPAID')
+    
+    def test_refund_rejects_negative_amount(self):
+        """Test refund() raises error for negative amount"""
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency,
+            total=Decimal('1000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        ap_invoice.invoice.pay(Decimal('500.00'))
+        
+        with self.assertRaises(ValidationError) as context:
+            ap_invoice.invoice.refund(Decimal('-100.00'))
+        
+        self.assertIn('greater than zero', str(context.exception))
+    
+    def test_refund_rejects_amount_exceeding_paid_amount(self):
+        """Test refund() raises error when refund exceeds paid_amount"""
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency,
+            total=Decimal('1000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        ap_invoice.invoice.pay(Decimal('400.00'))
+        
+        with self.assertRaises(ValidationError) as context:
+            ap_invoice.invoice.refund(Decimal('500.00'))
+        
+        self.assertIn('exceeds paid amount', str(context.exception))
+    
+    def test_can_pay_validates_positive_amount(self):
+        """Test can_pay() validates amount is positive"""
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency,
+            total=Decimal('1000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        is_valid, error = ap_invoice.invoice.can_pay(Decimal('-50.00'))
+        self.assertFalse(is_valid)
+        self.assertIn('greater than zero', error)
+    
+    def test_can_pay_validates_total_exists(self):
+        """Test can_pay() validates total is set"""
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency,
+            gl_distributions=self.journal_entry
+        )
+        
+        is_valid, error = ap_invoice.invoice.can_pay(Decimal('100.00'))
+        self.assertFalse(is_valid)
+        self.assertIn('without total amount', error)
+    
+    def test_can_pay_validates_no_overpayment(self):
+        """Test can_pay() prevents overpayment"""
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency,
+            total=Decimal('1000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        is_valid, error = ap_invoice.invoice.can_pay(Decimal('1500.00'))
+        self.assertFalse(is_valid)
+        self.assertIn('exceeds remaining balance', error)
+    
+    def test_can_pay_accepts_valid_amount(self):
+        """Test can_pay() accepts valid payment"""
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency,
+            total=Decimal('1000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        is_valid, error = ap_invoice.invoice.can_pay(Decimal('500.00'))
+        self.assertTrue(is_valid)
+        self.assertEqual(error, '')
+    
+    def test_update_payment_status_sets_unpaid(self):
+        """Test update_payment_status() sets UNPAID when paid_amount is 0"""
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency,
+            total=Decimal('1000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        ap_invoice.invoice.update_payment_status()
+        self.assertEqual(ap_invoice.invoice.payment_status, 'UNPAID')
+    
+    def test_update_payment_status_sets_partially_paid(self):
+        """Test update_payment_status() sets PARTIALLY_PAID correctly"""
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency,
+            total=Decimal('1000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        ap_invoice.invoice.pay(Decimal('600.00'))
+        ap_invoice.refresh_from_db()
+        self.assertEqual(ap_invoice.payment_status, 'PARTIALLY_PAID')
+    
+    def test_update_payment_status_sets_paid(self):
+        """Test update_payment_status() sets PAID when fully paid"""
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency,
+            total=Decimal('1000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        ap_invoice.invoice.pay(Decimal('1000.00'))
+        ap_invoice.refresh_from_db()
+        self.assertEqual(ap_invoice.payment_status, 'PAID')
+    
+    def test_payment_workflow_ar_invoice(self):
+        """Test complete payment workflow on AR_Invoice - child can call parent methods directly"""
+        ar_invoice = AR_Invoice.objects.create(
+            customer=self.customer,
+            date=date.today(),
+            currency=self.currency,
+            total=Decimal('5000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        # TEST: Child should be able to call parent methods directly!
+        # No need for ar_invoice.invoice.is_paid() - just ar_invoice.is_paid()
+        self.assertFalse(ar_invoice.is_paid())  # Direct call!
+        self.assertEqual(ar_invoice.remaining_amount(), Decimal('5000.00'))  # Direct call!
+        
+        # First payment
+        ar_invoice.pay(Decimal('2000.00'))  # Direct call!
+        ar_invoice.refresh_from_db()
+        self.assertTrue(ar_invoice.is_partially_paid())  # Direct call!
+        self.assertEqual(ar_invoice.remaining_amount(), Decimal('3000.00'))  # Direct call!
+        
+        # Second payment
+        ar_invoice.pay(Decimal('3000.00'))  # Direct call!
+        ar_invoice.refresh_from_db()
+        self.assertTrue(ar_invoice.is_paid())  # Direct call!
+        self.assertEqual(ar_invoice.remaining_amount(), Decimal('0'))  # Direct call!
+        self.assertEqual(ar_invoice.payment_status, 'PAID')
+    
+    def test_payment_workflow_with_refund(self):
+        """Test payment and refund workflow"""
+        ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency,
+            total=Decimal('1000.00'),
+            gl_distributions=self.journal_entry
+        )
+        
+        # Pay full amount
+        ap_invoice.invoice.pay(Decimal('1000.00'))
+        ap_invoice.refresh_from_db()
+        self.assertEqual(ap_invoice.payment_status, 'PAID')
+        
+        # Partial refund
+        ap_invoice.invoice.refund(Decimal('250.00'))
+        ap_invoice.refresh_from_db()
+        self.assertEqual(ap_invoice.paid_amount, Decimal('750.00'))
+        self.assertEqual(ap_invoice.payment_status, 'PARTIALLY_PAID')
+        
+        # Pay remaining
+        ap_invoice.invoice.pay(Decimal('250.00'))
+        ap_invoice.refresh_from_db()
+        self.assertEqual(ap_invoice.payment_status, 'PAID')

@@ -18,4 +18,7 @@ urlpatterns = [
     
     # Accounts Receivable URLs
     path('invoice/', include('Finance.Invoice.urls')),
+    
+    # Payment URLs
+    path('payments/', include('Finance.payments.urls')),
 ]

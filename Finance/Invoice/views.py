@@ -18,7 +18,7 @@ from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ValidationError
 
-from Finance.Invoice.models import AP_Invoice, AR_Invoice, one_use_supplier
+from Finance.Invoice.models import AP_Invoice, AR_Invoice, OneTimeSupplier
 from Finance.Invoice.serializers import (
     APInvoiceCreateSerializer, APInvoiceListSerializer, APInvoiceDetailSerializer,
     ARInvoiceCreateSerializer, ARInvoiceListSerializer,
@@ -482,16 +482,17 @@ def one_time_supplier_invoice_list(request):
     - Request body: OneTimeSupplierCreateSerializer fields
     """
     if request.method == 'GET':
-        invoices = one_use_supplier.objects.select_related(
+        invoices = OneTimeSupplier.objects.select_related(
             'invoice',
             'invoice__currency',
-            'invoice__country'
+            'invoice__country',
+            'one_time_supplier'
         ).all()
         
         # Apply filters
         supplier_name = request.query_params.get('supplier_name')
         if supplier_name:
-            invoices = invoices.filter(supplier_name__icontains=supplier_name)
+            invoices = invoices.filter(one_time_supplier__business_partner__name__icontains=supplier_name)
         
         currency_id = request.query_params.get('currency_id')
         if currency_id:
@@ -524,7 +525,7 @@ def one_time_supplier_invoice_list(request):
                 return Response(
                     {
                         'id': one_time_invoice.invoice_id,
-                        'supplier_name': one_time_invoice.supplier_name,
+                        'supplier_name': one_time_invoice.one_time_supplier.name,
                         'total': str(one_time_invoice.total),
                         'message': 'One-time supplier invoice created successfully'
                     },
@@ -558,7 +559,7 @@ def one_time_supplier_invoice_detail(request, pk):
     - Delete a one-time supplier invoice (if not posted to GL)
     """
     invoice = get_object_or_404(
-        one_use_supplier.objects.select_related(
+        OneTimeSupplier.objects.select_related(
             'invoice',
             'invoice__currency',
             'invoice__country'
@@ -612,7 +613,7 @@ def one_time_supplier_invoice_approve(request, pk):
     
     Changes status from DRAFT -> APPROVED/REJECTED.
     """
-    invoice = get_object_or_404(one_use_supplier, pk=pk)
+    invoice = get_object_or_404(OneTimeSupplier, pk=pk)
     
     action = request.data.get('action', 'APPROVED').upper()
     
@@ -633,7 +634,7 @@ def one_time_supplier_invoice_approve(request, pk):
     
     return Response({
         'id': invoice.invoice_id,
-        'supplier_name': invoice.supplier_name,
+        'supplier_name': invoice.one_time_supplier.name,
         'approval_status': invoice.approval_status,
         'message': f'Invoice {action.lower()} successfully'
     })
@@ -648,7 +649,7 @@ def one_time_supplier_invoice_post_to_gl(request, pk):
     
     Once posted, the journal entry becomes immutable.
     """
-    invoice = get_object_or_404(one_use_supplier, pk=pk)
+    invoice = get_object_or_404(OneTimeSupplier, pk=pk)
     journal_entry = invoice.gl_distributions
     
     if not journal_entry:

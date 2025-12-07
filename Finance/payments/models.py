@@ -1,132 +1,42 @@
-"""
-Payment Models - Extensible Parent-Child Design
-================================================
-
-IMPORTANT DESIGN PATTERN:
-========================
-Payment is a MANAGED BASE CLASS that should NEVER be directly created, 
-updated, or deleted. All operations MUST go through child payment classes
-like StandardInvoicePayment.
-
-This pattern allows adding new payment types in the future without 
-modifying the base Payment class.
-
-Usage Examples:
---------------
-# CORRECT - Create a customer payment for invoices
-payment = StandardInvoicePayment.objects.create(
-    direction=StandardInvoicePayment.INCOMING,
-    partner_type=StandardInvoicePayment.PARTNER_CUSTOMER,
-    business_partner=customer.partner,
-    amount=Decimal('1000.00'),
-    currency=usd,
-    date=date.today(),
-)
-
-# CORRECT - Use factory methods
-payment = StandardInvoicePayment.create_customer_payment(
-    customer=customer,
-    amount=Decimal('1000.00'),
-    currency=usd,
-    date=date.today(),
-)
-
-# WRONG - Don't do this!
-# payment = Payment.objects.create(...)  # This will raise an error!
-"""
 from django.db import models, transaction
 from django.core.exceptions import ValidationError, PermissionDenied
 from django.utils import timezone
+from django.db.models.signals import post_save, post_delete, pre_save
+from django.dispatch import receiver
 from decimal import Decimal
 from Finance.core.models import Currency, Country
 from Finance.BusinessPartner.models import BusinessPartner, Customer, Supplier
-from Finance.Invoice.models import Genral_Invoice, AP_Invoice, AR_Invoice
+from Finance.Invoice.models import Invoice, AP_Invoice, AR_Invoice
 from Finance.GL.models import JournalEntry
 
-
-# ==============================================================================
-# PAYMENT BASE CLASS (Managed - Do Not Create Directly)
-# ==============================================================================
-
-class PaymentManager(models.Manager):
-    """
-    Custom manager for Payment that prevents direct creation.
-    All payments must be created through child classes (e.g., StandardInvoicePayment).
-    """
-    def create(self, **kwargs):
-        raise PermissionDenied(
-            "Cannot create Payment directly. "
-            "Use StandardInvoicePayment.objects.create() or other payment type classes instead."
-        )
-    
-    def bulk_create(self, objs, **kwargs):
-        raise PermissionDenied(
-            "Cannot bulk create Payment directly. "
-            "Use child payment type classes instead."
-        )
-
-
 class Payment(models.Model):
-    """
-    Payment - MANAGED BASE CLASS
-    
-    ⚠️ WARNING: Do NOT create, update, or delete Payment instances directly!
-    
-    This model serves as a shared data container for all payment types.
-    All operations should be performed through child payment classes
-    (e.g., StandardInvoicePayment), which will automatically manage 
-    the associated Payment instance.
-    
-    Common Fields:
-        payment_number: Auto-generated unique reference number
-        date: Payment date
-        amount: Payment amount
-        currency: Payment currency
-        exchange_rate: Exchange rate to base currency
-        status: Workflow status (DRAFT → PENDING_APPROVAL → APPROVED → POSTED)
-        is_posted: Whether payment is posted to GL
-        gl_entry: Link to GL journal entry when posted
-        memo: Notes/comments
-    
-    Relationships:
-        - standard_invoice_payment: OneToOne to StandardInvoicePayment (if this is an invoice payment)
-        - allocations: PaymentAllocation records linking to invoices
-    """
     
     # Status choices (shared by all payment types)
     DRAFT = 'DRAFT'
     PENDING_APPROVAL = 'PENDING_APPROVAL'
     APPROVED = 'APPROVED'
     REJECTED = 'REJECTED'
-    VOIDED = 'VOIDED'
     STATUS_CHOICES = [
         (DRAFT, 'Draft'),
         (PENDING_APPROVAL, 'Pending Approval'),
         (APPROVED, 'Approved'),
         (REJECTED, 'Rejected'),
-        (VOIDED, 'Voided'),
     ]
     
-    # Core fields
-    payment_number = models.CharField(
-        max_length=50,
-        unique=True,
-        blank=True,
-        help_text="Auto-generated payment reference number"
-    )
     date = models.DateField()
     
-    # Amount fields
-    amount = models.DecimalField(
-        max_digits=14,
-        decimal_places=2,
-        help_text="Payment amount"
+    business_partner = models.ForeignKey(
+        BusinessPartner,
+        on_delete=models.PROTECT,
+        related_name='payments'
     )
+    
     currency = models.ForeignKey(
         Currency,
         on_delete=models.PROTECT,
         related_name='payments'
     )
+    
     exchange_rate = models.DecimalField(
         max_digits=10,
         decimal_places=4,
@@ -136,16 +46,13 @@ class Payment(models.Model):
     )
     
     # Status and workflow
-    status = models.CharField(
+    approval_status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
         default=DRAFT
     )
     rejection_reason = models.TextField(null=True, blank=True)
     
-    # Posting
-    is_posted = models.BooleanField(default=False)
-    posted_date = models.DateField(null=True, blank=True)
     gl_entry = models.ForeignKey(
         JournalEntry,
         on_delete=models.PROTECT,
@@ -154,15 +61,10 @@ class Payment(models.Model):
         related_name='payments'
     )
     
-    # Notes
-    memo = models.TextField(blank=True)
-    
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
-    # Custom manager to prevent direct creation
-    objects = PaymentManager()
+
     
     class Meta:
         db_table = 'payment'
@@ -171,751 +73,145 @@ class Payment(models.Model):
         ordering = ['-date', '-created_at']
     
     def __str__(self):
-        return f"{self.payment_number} - {self.amount} {self.currency.code}"
+        return f"Payment {self.id} - {self.business_partner} - {self.date}"
     
-    def save(self, *args, **kwargs):
-        """
-        Override save to prevent direct saves unless called from child class.
-        """
-        import inspect
-        frame = inspect.currentframe()
-        caller_locals = frame.f_back.f_locals
-        
-        # Allow save if it's being called from a child class or _allow_direct_save flag is set
-        if not getattr(self, '_allow_direct_save', False):
-            caller_self = caller_locals.get('self')
-            if not isinstance(caller_self, (StandardInvoicePayment,)):
-                raise PermissionDenied(
-                    "Cannot save Payment directly. "
-                    "Use StandardInvoicePayment or other child class save() method instead."
-                )
-        
-        # Auto-generate payment number if not set
-        if not self.payment_number:
-            self._generate_payment_number()
-        
-        super().save(*args, **kwargs)
-    
-    def _generate_payment_number(self):
-        """Generate a unique payment number. Can be overridden by child classes."""
-        last = Payment.objects.order_by('-pk').first()
-        next_num = (last.pk + 1) if last else 1
-        self.payment_number = f"PAY-{next_num:06d}"
-    
-    def delete(self, *args, **kwargs):
-        """
-        Override delete to prevent direct deletion.
-        """
-        raise PermissionDenied(
-            "Cannot delete Payment directly. "
-            "Delete the associated payment type (e.g., StandardInvoicePayment) instead."
-        )
-    
-    # ==================== PAYMENT TYPE DETECTION ====================
-    
-    def get_payment_type(self):
-        """
-        Get the type of payment.
-        
-        Returns:
-            str: 'StandardInvoicePayment' or 'Unknown'
-        """
-        if hasattr(self, 'standard_invoice_payment') and self.standard_invoice_payment is not None:
-            return 'StandardInvoicePayment'
-        return 'Unknown'
-    
-    def get_child_payment(self):
-        """
-        Get the child payment instance.
-        
-        Returns:
-            The child payment instance or None
-        """
-        if hasattr(self, 'standard_invoice_payment') and self.standard_invoice_payment is not None:
-            return self.standard_invoice_payment
-        return None
-    
-    # ==================== VALIDATION METHODS ====================
-    
-    def validate_amount(self):
-        """Validate payment amount is positive."""
-        if self.amount is None or self.amount <= 0:
-            raise ValidationError({'amount': 'Payment amount must be greater than zero'})
-    
-    def validate_for_submission(self):
-        """
-        Validate payment is ready for submission.
-        Child classes should override to add specific validation.
-        """
-        errors = {}
-        
-        if not self.amount or self.amount <= 0:
-            errors['amount'] = 'Payment amount must be greater than zero'
-        
-        if not self.date:
-            errors['date'] = 'Payment date is required'
-        
-        # Check if payment has allocations
-        if not self.allocations.exists():
-            errors['allocations'] = 'Payment must be allocated to at least one invoice'
-        
-        if errors:
-            raise ValidationError(errors)
-        
-        return True
-    
-    def validate_for_posting(self):
-        """Validate payment is ready to be posted."""
-        if self.status != self.APPROVED:
-            raise ValidationError('Payment must be approved before posting')
-        
-        if self.is_posted:
-            raise ValidationError('Payment is already posted')
-        
-        self.validate_amount()
-        return True
-    
-    # ==================== WORKFLOW METHODS ====================
-    
-    def can_submit(self):
-        """Check if payment can be submitted for approval."""
-        return self.status == self.DRAFT and not self.is_posted
-    
-    def submit_for_approval(self):
-        """Submit payment for approval."""
-        if not self.can_submit():
-            raise ValidationError(f'Cannot submit payment with status: {self.status}')
-        
-        self.validate_for_submission()
-        self.status = self.PENDING_APPROVAL
-        self._allow_direct_save = True
-        self.save(update_fields=['status', 'updated_at'])
-        return True
-    
-    def can_approve(self):
-        """Check if payment can be approved."""
-        return self.status == self.PENDING_APPROVAL and not self.is_posted
-    
-    def approve(self, approved_by=None):
-        """Approve the payment."""
-        if not self.can_approve():
-            raise ValidationError(f'Cannot approve payment with status: {self.status}')
-        
-        self.status = self.APPROVED
-        self._allow_direct_save = True
-        self.save(update_fields=['status', 'updated_at'])
-        return True
-    
-    def can_reject(self):
-        """Check if payment can be rejected."""
-        return self.status == self.PENDING_APPROVAL and not self.is_posted
-    
-    def reject(self, reason):
-        """Reject the payment."""
-        if not self.can_reject():
-            raise ValidationError(f'Cannot reject payment with status: {self.status}')
-        
-        if not reason:
-            raise ValidationError('Rejection reason is required')
-        
-        self.status = self.REJECTED
-        self.rejection_reason = reason
-        self._allow_direct_save = True
-        self.save(update_fields=['status', 'rejection_reason', 'updated_at'])
-        return True
-    
-    def revert_to_draft(self):
-        """Revert rejected payment back to draft."""
-        if self.status not in [self.REJECTED, self.PENDING_APPROVAL]:
-            raise ValidationError('Can only revert rejected or pending payments')
-        
-        if self.is_posted:
-            raise ValidationError('Cannot revert posted payment')
-        
-        self.status = self.DRAFT
-        self.rejection_reason = None
-        self._allow_direct_save = True
-        self.save(update_fields=['status', 'rejection_reason', 'updated_at'])
-        return True
-    
-    # ==================== POSTING METHODS ====================
-    
-    def can_post(self):
-        """Check if payment can be posted."""
-        return self.status == self.APPROVED and not self.is_posted
-    
-    @transaction.atomic
-    def post(self):
-        """Post payment to GL and update invoice payment statuses."""
-        self.validate_for_posting()
-        
-        # Create GL entries (child classes can override _create_gl_entries)
-        gl_entry = self._create_gl_entries()
-        if gl_entry:
-            self.gl_entry = gl_entry
-        
-        # Update invoice payment statuses
-        self._update_invoice_payment_statuses()
-        
-        self.is_posted = True
-        self.posted_date = timezone.now().date()
-        self._allow_direct_save = True
-        self.save(update_fields=['is_posted', 'posted_date', 'gl_entry', 'updated_at'])
-        return True
-    
-    def _create_gl_entries(self):
-        """
-        Create GL journal entries for payment posting.
-        Child classes should override this to implement specific GL logic.
-        """
-        # TODO: Implement based on your GL structure
-        return None
-    
-    def _update_invoice_payment_statuses(self):
-        """Update payment status on all allocated invoices."""
-        for allocation in self.allocations.all():
-            if allocation.invoice:
-                allocation.invoice.update_payment_status()
-    
-    def can_void(self):
-        """Check if payment can be voided."""
-        return self.is_posted and self.status == self.APPROVED
-    
-    @transaction.atomic
-    def void(self, reason=None):
-        """Void a posted payment."""
-        if not self.can_void():
-            raise ValidationError('Cannot void this payment')
-        
-        # Create reversing GL entries
-        self._create_reversing_gl_entries()
-        
-        # Update invoice payment statuses
-        self._update_invoice_payment_statuses()
-        
-        self.status = self.VOIDED
-        self._allow_direct_save = True
-        self.save(update_fields=['status', 'updated_at'])
-        return True
-    
-    def _create_reversing_gl_entries(self):
-        """
-        Create reversing GL entries.
-        Child classes should override this to implement specific GL logic.
-        """
-        # TODO: Implement based on your GL structure
-        pass
-    
-    # ==================== ALLOCATION METHODS ====================
+    # ==================== PAYMENT ALLOCATION HELPER METHODS ====================
     
     def get_total_allocated(self):
-        """Get total amount allocated to invoices."""
-        result = self.allocations.aggregate(
-            total=models.Sum('allocated_amount')
-        )
-        return result['total'] or Decimal('0.00')
-    
-    def get_unallocated_amount(self):
-        """Get amount not yet allocated to invoices."""
-        return self.amount - self.get_total_allocated()
-    
-    def is_fully_allocated(self):
-        """Check if payment is fully allocated."""
-        return self.get_unallocated_amount() <= Decimal('0.00')
-    
-    # ==================== CRUD METHODS ====================
-    
-    def can_modify(self):
-        """Check if payment can be modified."""
-        return not self.is_posted and self.status in [self.DRAFT, self.REJECTED]
-    
-    def can_delete(self):
-        """Check if payment can be deleted."""
-        return not self.is_posted and self.status == self.DRAFT
-    
-    # ==================== PROPERTIES ====================
-    
-    @property
-    def amount_in_base_currency(self):
-        """Get payment amount in base currency."""
-        if self.currency.is_base_currency:
-            return self.amount
-        
-        if self.exchange_rate:
-            return self.amount * self.exchange_rate
-        
-        return None
-
-
-# ==============================================================================
-# STANDARD INVOICE PAYMENT (Child Class for AP/AR Invoice Payments)
-# ==============================================================================
-
-class StandardInvoicePaymentManager(models.Manager):
-    """
-    Custom manager for StandardInvoicePayment with automatic Payment creation.
-    """
-    def create(self, **kwargs):
         """
-        Create a new StandardInvoicePayment along with its parent Payment.
+        Calculate total amount allocated from this payment to invoices.
         
-        Automatically extracts Payment fields and creates both objects.
+        Returns:
+            Decimal: Sum of all allocation amounts
         """
-        # Extract Payment fields
-        payment_fields = {
-            'date': kwargs.pop('date'),
-            'amount': kwargs.pop('amount'),
-            'currency': kwargs.pop('currency'),
-            'exchange_rate': kwargs.pop('exchange_rate', None),
-            'status': kwargs.pop('status', Payment.DRAFT),
-            'memo': kwargs.pop('memo', ''),
-        }
-        
-        # Create Payment (with permission)
-        payment = Payment(**payment_fields)
-        payment._allow_direct_save = True
-        
-        # Generate appropriate payment number based on direction
-        direction = kwargs.get('direction', StandardInvoicePayment.INCOMING)
-        prefix = 'RCP' if direction == StandardInvoicePayment.INCOMING else 'PMT'
-        last = Payment.objects.order_by('-pk').first()
-        next_num = (last.pk + 1) if last else 1
-        payment.payment_number = f"{prefix}-{next_num:06d}"
-        
-        payment.save()
-        
-        # Create StandardInvoicePayment with remaining fields
-        kwargs['payment'] = payment
-        std_payment = super().create(**kwargs)
-        
-        return std_payment
+        total = self.allocations.aggregate(
+            total=models.Sum('amount_allocated')
+        )['total'] or Decimal('0')
+        return total
     
-    def active(self):
-        """Get all active (non-voided) payments."""
-        return self.filter(payment__status__in=[
-            Payment.DRAFT, 
-            Payment.PENDING_APPROVAL, 
-            Payment.APPROVED
-        ])
-    
-    def incoming(self):
-        """Get all incoming (customer) payments."""
-        return self.filter(direction=StandardInvoicePayment.INCOMING)
-    
-    def outgoing(self):
-        """Get all outgoing (supplier) payments."""
-        return self.filter(direction=StandardInvoicePayment.OUTGOING)
-
-
-class StandardInvoicePayment(models.Model):
-    """
-    Standard Invoice Payment - for paying AP and AR invoices.
-    
-    This class automatically manages the associated Payment instance.
-    All Payment fields are accessible as properties on this class.
-    
-    Usage:
-        # Create a customer payment
-        payment = StandardInvoicePayment.objects.create(
-            direction=StandardInvoicePayment.INCOMING,
-            partner_type=StandardInvoicePayment.PARTNER_CUSTOMER,
-            business_partner=customer.partner,
-            amount=Decimal('1000.00'),
-            currency=usd,
-            date=date.today(),
-        )
-        
-        # Or use factory methods
-        payment = StandardInvoicePayment.create_customer_payment(
-            customer=customer,
-            amount=Decimal('1000.00'),
-            currency=usd,
-            date=date.today(),
-        )
-        
-        # Access Payment fields via properties
-        print(payment.payment_number)  # Proxied from payment
-        print(payment.status)  # Proxied from payment
-        
-        # Allocate to invoices
-        payment.allocate_to_invoice(invoice, amount=Decimal('500.00'))
-    """
-    
-    # Payment direction
-    INCOMING = 'IN'   # Customer payment (AR)
-    OUTGOING = 'OUT'  # Supplier payment (AP)
-    DIRECTION_CHOICES = [
-        (INCOMING, 'Incoming (Receipt)'),
-        (OUTGOING, 'Outgoing (Disbursement)'),
-    ]
-    
-    # Partner types
-    PARTNER_CUSTOMER = 'CUSTOMER'
-    PARTNER_SUPPLIER = 'SUPPLIER'
-    PARTNER_OTHER = 'OTHER'
-    PARTNER_TYPE_CHOICES = [
-        (PARTNER_CUSTOMER, 'Customer'),
-        (PARTNER_SUPPLIER, 'Supplier'),
-        (PARTNER_OTHER, 'Other'),
-    ]
-    
-    # Link to parent Payment
-    payment = models.OneToOneField(
-        Payment,
-        on_delete=models.CASCADE,
-        related_name='standard_invoice_payment'
-    )
-    
-    # Direction and partner info
-    
-    partner_type = models.CharField(
-        max_length=10,
-        choices=PARTNER_TYPE_CHOICES,
-        help_text="Type of business partner"
-    )
-    business_partner = models.ForeignKey(
-        BusinessPartner,
-        on_delete=models.PROTECT,
-        related_name='standard_invoice_payments',
-        help_text="The business partner (customer/supplier) for this payment"
-    )
-    
-    # Reference number (check number, wire transfer ID, etc.)
-    reference_number = models.CharField(
-        max_length=100,
-        blank=True,
-        help_text="External reference (check number, wire transfer ID, etc.)"
-    )
-    
-    # Custom manager
-    objects = StandardInvoicePaymentManager()
-    
-    class Meta:
-        db_table = 'standard_invoice_payment'
-        verbose_name = 'Standard Invoice Payment'
-        verbose_name_plural = 'Standard Invoice Payments'
-    
-    def __str__(self):
-        partner_name = self.business_partner.name if self.business_partner else 'N/A'
-        return f"{self.payment.payment_number} - {partner_name} - {self.payment.amount} {self.payment.currency.code}"
-    
-    def save(self, *args, **kwargs):
+    def get_allocated_invoices(self):
         """
-        Override save to handle Payment updates.
+        Get all invoices that have allocations from this payment.
+        
+        Returns:
+            QuerySet: Invoice objects with allocations
         """
-        if not self.payment_id:
-            raise ValidationError(
-                "Use StandardInvoicePayment.objects.create() instead of StandardInvoicePayment() constructor. "
-                "This ensures proper Payment creation."
-            )
-        
-        # Update Payment if any of its fields were set on this instance
-        payment_fields = ['date', 'amount', 'currency', 'exchange_rate', 'memo']
-        payment_updated = False
-        
-        for field in payment_fields:
-            if hasattr(self, f'_{field}_temp'):
-                setattr(self.payment, field, getattr(self, f'_{field}_temp'))
-                delattr(self, f'_{field}_temp')
-                payment_updated = True
-        
-        if payment_updated:
-            self.payment._allow_direct_save = True
-            self.payment.save()
-        
-        super().save(*args, **kwargs)
+        return Invoice.objects.filter(
+            payment_allocations__payment=self
+        ).distinct()
     
-    def clean(self):
-        """Validate payment consistency."""
-        super().clean()
-        
-        # Validate direction matches partner type
-        if self.partner_type == self.PARTNER_CUSTOMER and self.direction != self.INCOMING:
-            raise ValidationError('Customer payments must be incoming (receipts)')
-        if self.partner_type == self.PARTNER_SUPPLIER and self.direction != self.OUTGOING:
-            raise ValidationError('Supplier payments must be outgoing (disbursements)')
-    
-    def delete(self, *args, **kwargs):
+    def can_allocate_to_invoice(self, invoice, amount):
         """
-        Override delete to also delete the associated Payment.
-        """
-        payment = self.payment
-        super().delete(*args, **kwargs)
-        
-        # Delete parent Payment
-        payment._allow_direct_save = True
-        super(Payment, payment).delete(*args, **kwargs)
-    
-    # ==================== PROPERTY PROXIES FOR PAYMENT FIELDS ====================
-    
-    @property
-    def payment_number(self):
-        return self.payment.payment_number
-    
-    @property
-    def date(self):
-        return self.payment.date
-    
-    @date.setter
-    def date(self, value):
-        self._date_temp = value
-        if self.payment_id:
-            self.payment.date = value
-    
-    @property
-    def amount(self):
-        return self.payment.amount
-    
-    @amount.setter
-    def amount(self, value):
-        self._amount_temp = value
-        if self.payment_id:
-            self.payment.amount = value
-    
-    @property
-    def currency(self):
-        return self.payment.currency
-    
-    @currency.setter
-    def currency(self, value):
-        self._currency_temp = value
-        if self.payment_id:
-            self.payment.currency = value
-    
-    @property
-    def exchange_rate(self):
-        return self.payment.exchange_rate
-    
-    @exchange_rate.setter
-    def exchange_rate(self, value):
-        self._exchange_rate_temp = value
-        if self.payment_id:
-            self.payment.exchange_rate = value
-    
-    @property
-    def status(self):
-        return self.payment.status
-    
-    @property
-    def rejection_reason(self):
-        return self.payment.rejection_reason
-    
-    @property
-    def is_posted(self):
-        return self.payment.is_posted
-    
-    @property
-    def posted_date(self):
-        return self.payment.posted_date
-    
-    @property
-    def gl_entry(self):
-        return self.payment.gl_entry
-    
-    @property
-    def memo(self):
-        return self.payment.memo
-    
-    @memo.setter
-    def memo(self, value):
-        self._memo_temp = value
-        if self.payment_id:
-            self.payment.memo = value
-    
-    @property
-    def created_at(self):
-        return self.payment.created_at
-    
-    @property
-    def updated_at(self):
-        return self.payment.updated_at
-    
-    @property
-    def allocations(self):
-        """Get payment allocations from parent Payment."""
-        return self.payment.allocations
-    
-    @property
-    def amount_in_base_currency(self):
-        return self.payment.amount_in_base_currency
-    
-    # ==================== CONVENIENCE PROPERTIES ====================
-    
-    @property
-    def is_incoming(self):
-        return self.direction == self.INCOMING
-    
-    @property
-    def is_outgoing(self):
-        return self.direction == self.OUTGOING
-    
-    @property
-    def is_customer_payment(self):
-        return self.partner_type == self.PARTNER_CUSTOMER
-    
-    @property
-    def is_supplier_payment(self):
-        return self.partner_type == self.PARTNER_SUPPLIER
-    
-    # ==================== WORKFLOW METHOD PROXIES ====================
-    
-    def can_submit(self):
-        return self.payment.can_submit()
-    
-    def submit_for_approval(self):
-        return self.payment.submit_for_approval()
-    
-    def can_approve(self):
-        return self.payment.can_approve()
-    
-    def approve(self, approved_by=None):
-        return self.payment.approve(approved_by)
-    
-    def can_reject(self):
-        return self.payment.can_reject()
-    
-    def reject(self, reason):
-        return self.payment.reject(reason)
-    
-    def revert_to_draft(self):
-        return self.payment.revert_to_draft()
-    
-    def can_post(self):
-        return self.payment.can_post()
-    
-    def post(self):
-        return self.payment.post()
-    
-    def can_void(self):
-        return self.payment.can_void()
-    
-    def void(self, reason=None):
-        return self.payment.void(reason)
-    
-    # ==================== ALLOCATION METHODS ====================
-    
-    def get_total_allocated(self):
-        return self.payment.get_total_allocated()
-    
-    def get_unallocated_amount(self):
-        return self.payment.get_unallocated_amount()
-    
-    def is_fully_allocated(self):
-        return self.payment.is_fully_allocated()
-    
-    def allocate_to_invoice(self, invoice, amount, discount_amount=None, write_off_amount=None):
-        """
-        Allocate this payment to an invoice.
+        Check if this payment can allocate a specific amount to an invoice.
         
         Args:
-            invoice: Genral_Invoice (or AR_Invoice/AP_Invoice)
-            amount: Decimal - Amount to allocate
-            discount_amount: Decimal (optional) - Early payment discount
-            write_off_amount: Decimal (optional) - Write-off amount
+            invoice (Invoice): The invoice to allocate to
+            amount (Decimal): The amount to allocate
+            
         Returns:
-            PaymentAllocation: Created allocation
+            tuple: (bool, str) - (is_valid, error_message)
         """
-        # Handle AR/AP invoice types - get base Genral_Invoice
-        if hasattr(invoice, 'invoice'):
-            # It's an AP_Invoice or AR_Invoice
-            general_invoice = invoice.invoice
+        # Check currency match
+        if self.currency_id != invoice.currency_id:
+            return False, f"Currency mismatch: Payment is in {self.currency}, Invoice is in {invoice.currency}"
+        
+        # Check business partner match
+        if self.business_partner_id != invoice.business_partner_id:
+            return False, "Business partner mismatch between payment and invoice"
+        
+        # Check if invoice can accept this payment
+        can_pay, error_msg = invoice.can_pay(amount)
+        if not can_pay:
+            return False, error_msg
+        
+        return True, ""
+    
+    @transaction.atomic
+    def allocate_to_invoice(self, invoice, amount):
+        """
+        Create a payment allocation to an invoice.
+        
+        Args:
+            invoice (Invoice): The invoice to allocate payment to
+            amount (Decimal): The amount to allocate
+            
+        Returns:
+            PaymentAllocation: The created allocation
+            
+        Raises:
+            ValidationError: If allocation is invalid
+        """
+        # Validate
+        can_allocate, error_msg = self.can_allocate_to_invoice(invoice, amount)
+        if not can_allocate:
+            raise ValidationError(error_msg)
+        
+        # Check if allocation already exists
+        existing_allocation = self.allocations.filter(invoice=invoice).first()
+        if existing_allocation:
+            # Update existing allocation
+            existing_allocation.amount_allocated += Decimal(str(amount))
+            existing_allocation.save()
+            return existing_allocation
         else:
-            general_invoice = invoice
-        
-        return PaymentAllocation.objects.create(
-            payment=self.payment,
-            invoice=general_invoice,
-            allocated_amount=Decimal(str(amount)),
-            discount_amount=Decimal(str(discount_amount)) if discount_amount else None,
-            write_off_amount=Decimal(str(write_off_amount)) if write_off_amount else None
-        )
-    
-    # ==================== CRUD METHODS ====================
-    
-    def can_modify(self):
-        return self.payment.can_modify()
-    
-    def can_delete(self):
-        return self.payment.can_delete()
+            # Create new allocation
+            allocation = PaymentAllocation.objects.create(
+                payment=self,
+                invoice=invoice,
+                amount_allocated=amount
+            )
+            return allocation
     
     @transaction.atomic
-    def safe_delete(self):
-        """Safely delete payment and its allocations."""
-        if not self.can_delete():
-            raise ValidationError('Cannot delete this payment. Must be draft and not posted.')
-        
-        self.payment.allocations.all().delete()
-        self.delete()
-        return True
-    
-    # ==================== FACTORY METHODS ====================
-    
-    @classmethod
-    @transaction.atomic
-    def create_customer_payment(cls, customer, amount, currency, date, **kwargs):
+    def remove_allocation(self, invoice):
         """
-        Factory method to create a customer (incoming) payment.
+        Remove payment allocation from an invoice.
         
         Args:
-            customer: Customer - The customer making payment
-            amount: Decimal - Payment amount
-            currency: Currency - Payment currency
-            date: date - Payment date
-            **kwargs: Additional payment fields (reference_number, memo, exchange_rate)
+            invoice (Invoice): The invoice to remove allocation from
+            
         Returns:
-            StandardInvoicePayment: Created payment
+            bool: True if allocation was removed, False if no allocation existed
         """
-        # Get the business partner from customer
-        business_partner = customer.partner
-        
-        return cls.objects.create(
-            direction=cls.INCOMING,
-            partner_type=cls.PARTNER_CUSTOMER,
-            business_partner=business_partner,
-            amount=Decimal(str(amount)),
-            currency=currency,
-            date=date,
-            **kwargs
-        )
+        try:
+            allocation = self.allocations.get(invoice=invoice)
+            allocation.delete()
+            return True
+        except PaymentAllocation.DoesNotExist:
+            return False
     
-    @classmethod
     @transaction.atomic
-    def create_supplier_payment(cls, supplier, amount, currency, date, **kwargs):
+    def clear_all_allocations(self):
         """
-        Factory method to create a supplier (outgoing) payment.
+        Remove all payment allocations.
+        This will decrease paid_amount on all related invoices.
         
-        Args:
-            supplier: Supplier - The supplier receiving payment
-            amount: Decimal - Payment amount
-            currency: Currency - Payment currency
-            date: date - Payment date
-            **kwargs: Additional payment fields (reference_number, memo, exchange_rate)
+        NOTE: We must delete allocations individually to trigger the custom
+        delete() method which updates invoice.paid_amount. Bulk delete bypasses this.
+        
         Returns:
-            StandardInvoicePayment: Created payment
+            int: Number of allocations deleted
         """
-        # Get the business partner from supplier
-        business_partner = supplier.partner
+        allocations = list(self.allocations.all())  # Convert to list to avoid query issues
+        count = len(allocations)
         
-        return cls.objects.create(
-            direction=cls.OUTGOING,
-            partner_type=cls.PARTNER_SUPPLIER,
-            business_partner=business_partner,
-            amount=Decimal(str(amount)),
-            currency=currency,
-            date=date,
-            **kwargs
-        )
-
-
-# ==============================================================================
-# PAYMENT ALLOCATION
-# ==============================================================================
+        # Delete each allocation individually to trigger custom delete() logic
+        for allocation in allocations:
+            allocation.delete()
+        
+        return count
 
 class PaymentAllocation(models.Model):
     """
-    Allocation of a payment to one or more invoices.
-    A single payment can be split across multiple invoices.
-    Supports partial payments, discounts, and write-offs.
+    PaymentAllocation - Links Payments to Invoices
+    
+    This model records how payments are allocated to specific invoices.
+    Each allocation links one Payment to one Invoice with a specified amount.
+    
+    IMPORTANT: This model automatically syncs the Invoice.paid_amount field!
+    - When an allocation is created, it increases Invoice.paid_amount
+    - When an allocation is updated, it adjusts Invoice.paid_amount
+    - When an allocation is deleted, it decreases Invoice.paid_amount
     """
     
     payment = models.ForeignKey(
@@ -923,31 +219,17 @@ class PaymentAllocation(models.Model):
         on_delete=models.CASCADE,
         related_name='allocations'
     )
+    
     invoice = models.ForeignKey(
-        Genral_Invoice,
+        Invoice,
         on_delete=models.PROTECT,
         related_name='payment_allocations'
     )
     
-    # Allocation amounts
-    allocated_amount = models.DecimalField(
-        max_digits=14,
+    amount_allocated = models.DecimalField(
+        max_digits=15,
         decimal_places=2,
-        help_text="Amount allocated to this invoice from the payment"
-    )
-    discount_amount = models.DecimalField(
-        max_digits=14,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text="Early payment discount amount"
-    )
-    write_off_amount = models.DecimalField(
-        max_digits=14,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        help_text="Write-off amount (small balance write-off)"
+        help_text="Amount of the payment allocated to this invoice"
     )
     
     created_at = models.DateTimeField(auto_now_add=True)
@@ -957,68 +239,221 @@ class PaymentAllocation(models.Model):
         db_table = 'payment_allocation'
         verbose_name = 'Payment Allocation'
         verbose_name_plural = 'Payment Allocations'
-        unique_together = ['payment', 'invoice']
+        unique_together = ('payment', 'invoice')
     
     def __str__(self):
-        return f"{self.payment.payment_number} → Invoice #{self.invoice.invoice_number}: {self.allocated_amount}"
-    
-    @property
-    def total_settlement(self):
-        """Total amount settling the invoice (allocated + discount + write-off)."""
-        total = self.allocated_amount
-        if self.discount_amount:
-            total += self.discount_amount
-        if self.write_off_amount:
-            total += self.write_off_amount
-        return total
-    
-    def _get_payment_direction(self):
-        """
-        Get the payment direction from the child payment type.
-        Returns None if payment type doesn't have direction.
-        """
-        if hasattr(self.payment, 'standard_invoice_payment') and self.payment.standard_invoice_payment:
-            return self.payment.standard_invoice_payment.direction
-        return None
+        return f"Payment {self.payment_id} → Invoice {self.invoice_id}: {self.amount_allocated}"
     
     def clean(self):
-        """Validate the allocation."""
+        """
+        Validate the payment allocation before saving.
+        
+        Uses Invoice helper methods for validation:
+        - invoice.can_pay() for amount validation
+        - Validates currency and business partner match
+        
+        Handles both CREATE and UPDATE scenarios correctly.
+        """
         super().clean()
         
-        if self.allocated_amount is None or self.allocated_amount <= 0:
-            raise ValidationError({'allocated_amount': 'Allocation amount must be greater than zero'})
-        
-        # Check payment direction matches invoice type (for StandardInvoicePayment)
+        # Validate currency compatibility
         if self.payment and self.invoice:
-            direction = self._get_payment_direction()
-            
-            if direction is not None:
-                if direction == StandardInvoicePayment.INCOMING:
-                    # Incoming payment should be for AR invoices
-                    if not hasattr(self.invoice, 'ar_invoice'):
-                        raise ValidationError(
-                            'Incoming payments can only be allocated to AR invoices'
-                        )
-                else:
-                    # Outgoing payment should be for AP invoices
-                    if not hasattr(self.invoice, 'ap_invoice'):
-                        raise ValidationError(
-                            'Outgoing payments can only be allocated to AP invoices'
-                        )
-        
-        # Check allocation doesn't exceed invoice balance
-        if self.invoice:
-            balance = self.invoice.get_balance_due()
-            # Exclude current allocation if updating
-            if self.pk:
-                current = PaymentAllocation.objects.get(pk=self.pk)
-                balance += current.total_settlement
-            
-            if self.total_settlement > balance:
+            if self.payment.currency_id != self.invoice.currency_id:
                 raise ValidationError({
-                    'allocated_amount': f'Total settlement ({self.total_settlement}) exceeds invoice balance ({balance})'
+                    'amount_allocated': f'Payment currency ({self.payment.currency}) does not match invoice currency ({self.invoice.currency}).'
                 })
+        
+        # Validate business partner compatibility
+        if self.payment and self.invoice:
+            if self.payment.business_partner_id != self.invoice.business_partner_id:
+                raise ValidationError({
+                    'invoice': 'Payment business partner must match invoice business partner.'
+                })
+        
+        # Validate the allocation amount
+        if self.invoice and self.amount_allocated is not None:
+            # For updates, we need to check if the NEW amount is valid
+            # by temporarily removing the old amount from paid_amount
+            if self.pk:
+                try:
+                    old_allocation = PaymentAllocation.objects.get(pk=self.pk)
+                    old_amount = old_allocation.amount_allocated
+                    
+                    # Calculate what the paid_amount would be without this allocation
+                    temp_paid = self.invoice.paid_amount - old_amount
+                    
+                    # Now check if we can "pay" the new amount
+                    remaining = self.invoice.total - temp_paid
+                    if self.amount_allocated > remaining:
+                        raise ValidationError({
+                            'amount_allocated': f'Allocation amount {self.amount_allocated} exceeds invoice remaining balance of {remaining}.'
+                        })
+                    
+                    # Also validate it's positive
+                    if self.amount_allocated <= 0:
+                        raise ValidationError({
+                            'amount_allocated': 'Allocation amount must be greater than zero.'
+                        })
+                        
+                except PaymentAllocation.DoesNotExist:
+                    # Allocation was deleted, treat as new creation
+                    can_pay, error_msg = self.invoice.can_pay(self.amount_allocated)
+                    if not can_pay:
+                        raise ValidationError({
+                            'amount_allocated': error_msg
+                        })
+            else:
+                # For new allocations, use the invoice's can_pay() helper method
+                can_pay, error_msg = self.invoice.can_pay(self.amount_allocated)
+                if not can_pay:
+                    raise ValidationError({
+                        'amount_allocated': error_msg
+                    })
     
+    def get_payment_total_allocated(self):
+        """
+        Calculate total amount allocated from this payment (excluding current allocation if updating).
+        
+        Returns:
+            Decimal: Total allocated amount
+        """
+        allocations = PaymentAllocation.objects.filter(
+            payment=self.payment
+        ).exclude(pk=self.pk if self.pk else None)
+        
+        total = allocations.aggregate(
+            total=models.Sum('amount_allocated')
+        )['total'] or Decimal('0')
+        
+        return total
+    
+    def get_invoice_total_allocated(self):
+        """
+        Calculate total amount allocated to this invoice (excluding current allocation if updating).
+        
+        Returns:
+            Decimal: Total allocated amount
+        """
+        allocations = PaymentAllocation.objects.filter(
+            invoice=self.invoice
+        ).exclude(pk=self.pk if self.pk else None)
+        
+        total = allocations.aggregate(
+            total=models.Sum('amount_allocated')
+        )['total'] or Decimal('0')
+        
+        return total
+    
+    @transaction.atomic
     def save(self, *args, **kwargs):
+        """
+        Save the allocation and update the invoice paid_amount.
+        Uses database transaction to ensure data consistency.
+        
+        Handles three scenarios:
+        1. CREATE: New allocation - adds to paid_amount
+        2. UPDATE (increase): Allocation increased - adds difference
+        3. UPDATE (decrease): Allocation decreased - subtracts difference
+        """
+        # Run validation
         self.full_clean()
+        
+        # Determine if this is an update by checking if pk exists AND record exists in DB
+        is_update = False
+        old_amount = Decimal('0')
+        
+        if self.pk is not None:
+            try:
+                old_allocation = PaymentAllocation.objects.get(pk=self.pk)
+                old_amount = old_allocation.amount_allocated
+                is_update = True
+            except PaymentAllocation.DoesNotExist:
+                is_update = False
+        
+        # Save the allocation first
         super().save(*args, **kwargs)
+        
+        # Update invoice paid_amount using the helper method
+        if is_update:
+            # Calculate the difference (can be positive or negative)
+            amount_diff = self.amount_allocated - old_amount
+            if amount_diff != 0:  # Only update if there's actually a change
+                self._update_invoice_paid_amount(amount_diff)
+        else:
+            # New allocation - add the full amount
+            self._update_invoice_paid_amount(self.amount_allocated)
+    
+    def _update_invoice_paid_amount(self, amount_change):
+        """
+        Update the invoice paid_amount by the specified amount.
+        Uses Invoice.pay() or Invoice.refund() helper methods.
+        
+        Args:
+            amount_change (Decimal): Amount to add to paid_amount (can be positive or negative)
+            
+        Raises:
+            ValidationError: If the update would violate invoice constraints
+        """
+        # Skip if no change
+        if amount_change == 0:
+            return
+        
+        # Refresh invoice from database to avoid stale data
+        self.invoice.refresh_from_db()
+        
+        # Use the appropriate Invoice helper method
+        if amount_change > 0:
+            # Increasing allocation: Use pay() for positive amounts
+            self.invoice.pay(amount_change)
+        else:
+            # Decreasing allocation: Use refund() for negative amounts
+            # refund() expects positive values, so we pass the absolute value
+            self.invoice.refund(abs(amount_change))
+    
+    @transaction.atomic
+    def delete(self, *args, **kwargs):
+        """
+        Delete the allocation and update the invoice paid_amount.
+        Uses Invoice.refund() helper method to reverse the payment.
+        Uses database transaction to ensure data consistency.
+        """
+        # Store amount before deletion
+        amount_to_reverse = self.amount_allocated
+        invoice = self.invoice
+        
+        # Delete the allocation
+        super().delete(*args, **kwargs)
+        
+        # Reverse the payment using refund()
+        invoice.refresh_from_db()
+        invoice.refund(amount_to_reverse)
+
+
+# ==================== SIGNAL HANDLERS ====================
+
+# NOTE: Signal handler disabled because PaymentAllocation.save() already handles
+# invoice.paid_amount synchronization correctly. Having both causes double-updates.
+# 
+# @receiver(post_save, sender=PaymentAllocation)
+# def sync_invoice_paid_amount_on_save(sender, instance, created, **kwargs):
+#     """
+#     Signal handler to ensure invoice paid_amount is synced when allocation is saved.
+#     This is a backup to the save() method logic.
+#     """
+#     print(f"DEBUG signal: post_save fired, created={created}")
+#     # The save() method already handles this, but we keep this as a safety net
+#     # Only recalculate if we detect inconsistency
+#     if not created:  # Only for updates, creation is handled in save()
+#         expected_paid = PaymentAllocation.objects.filter(
+#             invoice=instance.invoice
+#         ).aggregate(total=models.Sum('amount_allocated'))['total'] or Decimal('0')
+#         
+#         print(f"DEBUG signal: invoice.paid_amount={instance.invoice.paid_amount}, expected_paid={expected_paid}")
+#         
+#         if instance.invoice.paid_amount != expected_paid:
+#             # Fix inconsistency
+#             print(f"DEBUG signal: INCONSISTENCY DETECTED! Fixing from {instance.invoice.paid_amount} to {expected_paid}")
+#             instance.invoice.paid_amount = expected_paid
+#             instance.invoice.update_payment_status()
+#             instance.invoice._allow_direct_save = True
+#             instance.invoice.save(update_fields=['paid_amount', 'payment_status'])

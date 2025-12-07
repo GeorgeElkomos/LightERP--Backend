@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 from datetime import date
 
-from Finance.Invoice.models import Invoice, InvoiceItem, AP_Invoice, AR_Invoice, one_use_supplier
+from Finance.Invoice.models import Invoice, InvoiceItem, AP_Invoice, AR_Invoice, OneTimeSupplier
 from Finance.GL.models import (
     JournalEntry, JournalLine, 
     XX_Segment_combination, segment_combination_detials,
@@ -112,11 +112,12 @@ class ARInvoiceDTO(InvoiceBaseDTO):
 @dataclass
 class OneTimeSupplierDTO(InvoiceBaseDTO):
     """One-time supplier invoice data"""
-    supplier_name: str
-    supplier_address: str = ""
-    supplier_email: str = ""
-    supplier_phone: str = ""
-    supplier_tax_id: str = ""
+    one_time_supplier_id: Optional[int] = None
+    # Supplier info for creating new OneTime if needed
+    supplier_name: Optional[str] = None
+    supplier_email: Optional[str] = ""
+    supplier_phone: Optional[str] = ""
+    supplier_tax_id: Optional[str] = ""
 
 
 # ==================== SERVICE LAYER ====================
@@ -240,7 +241,7 @@ class InvoiceService:
     
     @staticmethod
     @transaction.atomic
-    def create_one_time_supplier_invoice(dto: OneTimeSupplierDTO) -> one_use_supplier:
+    def create_one_time_supplier_invoice(dto: OneTimeSupplierDTO) -> OneTimeSupplier:
         """Create a one-time supplier invoice."""
         # Validate and calculate
         currency = InvoiceService._validate_currency(dto.currency_id)
@@ -253,8 +254,23 @@ class InvoiceService:
         journal_entry = InvoiceService._create_journal_entry(dto.journal_entry, currency)
         InvoiceService._validate_journal_balance(journal_entry, calculated_total)
         
+        # Get or create OneTime business partner
+        from Finance.BusinessPartner.models import OneTime
+        if dto.one_time_supplier_id:
+            one_time_supplier = OneTime.objects.get(id=dto.one_time_supplier_id)
+        else:
+            # Create new OneTime business partner
+            if not dto.supplier_name:
+                raise ValidationError("supplier_name is required when creating a new one-time supplier")
+            one_time_supplier = OneTime.objects.create(
+                name=dto.supplier_name,
+                email=dto.supplier_email or "",
+                phone=dto.supplier_phone or "",
+                tax_id=dto.supplier_tax_id or ""
+            )
+        
         # Create one-time supplier invoice
-        one_time = one_use_supplier.objects.create(
+        one_time = OneTimeSupplier.objects.create(
             date=dto.date,
             currency=currency,
             country=country,
@@ -264,11 +280,7 @@ class InvoiceService:
             tax_amount=dto.tax_amount or Decimal('0.00'),
             total=calculated_total,
             gl_distributions=journal_entry,
-            supplier_name=dto.supplier_name,
-            supplier_address=dto.supplier_address,
-            supplier_email=dto.supplier_email,
-            supplier_phone=dto.supplier_phone,
-            supplier_tax_id=dto.supplier_tax_id
+            one_time_supplier=one_time_supplier
         )
         
         InvoiceService._create_invoice_items(one_time.invoice, dto.items)

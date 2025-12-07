@@ -15,7 +15,7 @@ from rest_framework import serializers
 from decimal import Decimal
 from datetime import date
 
-from Finance.Invoice.models import AP_Invoice, AR_Invoice, one_use_supplier, InvoiceItem
+from Finance.Invoice.models import AP_Invoice, AR_Invoice, OneTimeSupplier, InvoiceItem
 from Finance.Invoice.services import (
     InvoiceService,
     APInvoiceDTO, ARInvoiceDTO, OneTimeSupplierDTO,
@@ -447,12 +447,20 @@ class OneTimeSupplierCreateSerializer(serializers.Serializer):
         default='UNPAID'
     )
     
-    # One-time supplier specific
-    supplier_name = serializers.CharField(max_length=255)
-    supplier_address = serializers.CharField(required=False, allow_blank=True, default="")
+    # One-time supplier specific (either provide one_time_supplier_id OR supplier_name to create new)
+    one_time_supplier_id = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    supplier_name = serializers.CharField(max_length=255, required=False, allow_null=True)
     supplier_email = serializers.EmailField(required=False, allow_blank=True, default="")
     supplier_phone = serializers.CharField(max_length=50, required=False, allow_blank=True, default="")
     supplier_tax_id = serializers.CharField(max_length=50, required=False, allow_blank=True, default="")
+    
+    def validate(self, attrs):
+        """Ensure either one_time_supplier_id or supplier_name is provided"""
+        if not attrs.get('one_time_supplier_id') and not attrs.get('supplier_name'):
+            raise serializers.ValidationError(
+                "Either 'one_time_supplier_id' or 'supplier_name' must be provided"
+            )
+        return attrs
     
     # Nested data
     items = InvoiceItemSerializer(many=True)
@@ -495,8 +503,8 @@ class OneTimeSupplierCreateSerializer(serializers.Serializer):
             total=validated_data.get('total'),
             approval_status=validated_data.get('approval_status', 'DRAFT'),
             payment_status=validated_data.get('payment_status', 'UNPAID'),
-            supplier_name=validated_data['supplier_name'],
-            supplier_address=validated_data.get('supplier_address', ''),
+            one_time_supplier_id=validated_data.get('one_time_supplier_id'),
+            supplier_name=validated_data.get('supplier_name'),
             supplier_email=validated_data.get('supplier_email', ''),
             supplier_phone=validated_data.get('supplier_phone', ''),
             supplier_tax_id=validated_data.get('supplier_tax_id', ''),
@@ -510,6 +518,7 @@ class OneTimeSupplierCreateSerializer(serializers.Serializer):
 class OneTimeSupplierListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for listing one-time supplier invoices"""
     
+    supplier_name = serializers.CharField(source='one_time_supplier.name', read_only=True)
     currency_code = serializers.CharField(source='invoice.currency.code', read_only=True)
     
     # Invoice fields (proxied through properties)
@@ -519,7 +528,7 @@ class OneTimeSupplierListSerializer(serializers.ModelSerializer):
     payment_status = serializers.CharField()
     
     class Meta:
-        model = one_use_supplier
+        model = OneTimeSupplier
         fields = [
             'invoice_id', 'date', 'supplier_name', 
             'currency_code', 'total', 
@@ -530,6 +539,12 @@ class OneTimeSupplierListSerializer(serializers.ModelSerializer):
 
 class OneTimeSupplierDetailSerializer(serializers.ModelSerializer):
     """Detailed serializer for one-time supplier invoice"""
+    
+    # Supplier info
+    supplier_name = serializers.CharField(source='one_time_supplier.name', read_only=True)
+    supplier_email = serializers.CharField(source='one_time_supplier.email', read_only=True)
+    supplier_phone = serializers.CharField(source='one_time_supplier.phone', read_only=True)
+    supplier_tax_id = serializers.CharField(source='one_time_supplier.tax_id', read_only=True)
     
     # Invoice fields
     date = serializers.DateField()
@@ -546,9 +561,9 @@ class OneTimeSupplierDetailSerializer(serializers.ModelSerializer):
     journal_entry = serializers.SerializerMethodField()
     
     class Meta:
-        model = one_use_supplier
+        model = OneTimeSupplier
         fields = [
-            'invoice_id', 'date', 'supplier_name', 'supplier_address',
+            'invoice_id', 'date', 'supplier_name',
             'supplier_email', 'supplier_phone', 'supplier_tax_id',
             'currency_code', 'country_code',
             'subtotal', 'tax_amount', 'total',

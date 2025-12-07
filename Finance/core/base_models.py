@@ -121,6 +121,36 @@ class ManagedParentModel(models.Model):
                 and not field.one_to_many 
                 and field.name != 'id']
     
+    @classmethod
+    def get_method_names(cls):
+        """
+        Get all public method names from this parent model.
+        Used by child classes to auto-generate method proxies.
+        
+        Returns:
+            list: Method names (excluding private/protected methods and Django internals)
+        """
+        # Get all attributes
+        methods = []
+        for attr_name in dir(cls):
+            # Skip private/protected attributes
+            if attr_name.startswith('_'):
+                continue
+            # Skip Django internal methods
+            if attr_name in ['DoesNotExist', 'MultipleObjectsReturned', 'delete', 'save', 
+                            'get_field_names', 'get_method_names', 'get_child_types',
+                            'clean', 'clean_fields', 'full_clean', 'validate_unique',
+                            'refresh_from_db', 'serializable_value', 'get_deferred_fields',
+                            'check', 'from_db', 'prepare_database_save']:
+                continue
+            
+            attr = getattr(cls, attr_name)
+            # Check if it's a callable method (not a field or property)
+            if callable(attr) and not isinstance(attr, property):
+                methods.append(attr_name)
+        
+        return methods
+    
     def get_child_types(self):
         """
         Dynamically detect all child types attached to this parent instance.
@@ -367,8 +397,8 @@ class ChildModelMixin:
     @classmethod
     def _create_parent_properties(cls):
         """
-        Dynamically create property proxies for all parent fields.
-        This runs once per class and creates properties for ALL fields automatically!
+        Dynamically create property proxies for all parent fields AND method proxies.
+        This runs once per class and creates properties for ALL fields and methods automatically!
         """
         if cls.parent_model is None or cls.parent_field_name is None:
             raise NotImplementedError(
@@ -376,6 +406,7 @@ class ChildModelMixin:
                 f"'parent_field_name' class attributes"
             )
         
+        # 1. Create field properties
         parent_field_names = cls.parent_model.get_field_names()
         
         for field_name in parent_field_names:
@@ -400,3 +431,25 @@ class ChildModelMixin:
             
             # Add property to class
             setattr(cls, field_name, make_property(field_name, cls.parent_field_name))
+        
+        # 2. Create method proxies
+        parent_method_names = cls.parent_model.get_method_names()
+        
+        for method_name in parent_method_names:
+            # Skip if method already exists in child
+            if hasattr(cls, method_name):
+                continue
+            
+            # Create method proxy with closure
+            def make_method_proxy(mname, parent_attr):
+                def method_proxy(self, *args, **kwargs):
+                    parent = getattr(self, parent_attr)
+                    parent_method = getattr(parent, mname)
+                    return parent_method(*args, **kwargs)
+                
+                # Preserve method name for debugging
+                method_proxy.__name__ = mname
+                return method_proxy
+            
+            # Add method to class
+            setattr(cls, method_name, make_method_proxy(method_name, cls.parent_field_name))

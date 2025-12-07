@@ -25,8 +25,9 @@ from rest_framework import status
 from decimal import Decimal
 from datetime import date, timedelta
 
-from Finance.Invoice.models import one_use_supplier, Invoice
+from Finance.Invoice.models import OneTimeSupplier, Invoice
 from Finance.core.models import Currency, Country
+from Finance.BusinessPartner.models import OneTime
 from Finance.GL.models import JournalEntry, XX_SegmentType as SegmentType, XX_Segment
 
 
@@ -145,9 +146,9 @@ class OneTimeSupplierInvoiceCreateTests(TestCase):
         self.assertEqual(response.data['supplier_name'], 'ABC Catering Services')
         
         # Verify invoice was created
-        invoice = one_use_supplier.objects.get(invoice_id=response.data['id'])
-        self.assertEqual(invoice.supplier_name, 'ABC Catering Services')
-        self.assertEqual(invoice.supplier_email, 'contact@abccatering.com')
+        invoice = OneTimeSupplier.objects.get(invoice_id=response.data['id'])
+        self.assertEqual(invoice.one_time_supplier.name, 'ABC Catering Services')
+        self.assertEqual(invoice.one_time_supplier.email, 'contact@abccatering.com')
     
     def test_create_one_time_invoice_minimal_data(self):
         """Test creation with minimal supplier info (only name required)"""
@@ -163,12 +164,12 @@ class OneTimeSupplierInvoiceCreateTests(TestCase):
         response = self.client.post(url, data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        invoice = one_use_supplier.objects.get(invoice_id=response.data['id'])
-        self.assertEqual(invoice.supplier_name, 'Quick Fix Repairs')
-        self.assertEqual(invoice.supplier_address, '')
+        invoice = OneTimeSupplier.objects.get(invoice_id=response.data['id'])
+        self.assertEqual(invoice.one_time_supplier.name, 'Quick Fix Repairs')
+        self.assertIn(invoice.one_time_supplier.email, ['', None])  # Optional field
     
     def test_create_one_time_invoice_missing_supplier_name(self):
-        """Test creation fails without supplier_name"""
+        """Test creation fails without supplier_name or one_time_supplier_id"""
         data = self.valid_data.copy()
         del data['supplier_name']
         
@@ -176,7 +177,7 @@ class OneTimeSupplierInvoiceCreateTests(TestCase):
         response = self.client.post(url, data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('supplier_name', response.data)
+        self.assertIn('non_field_errors', response.data)
     
     def test_create_one_time_invoice_no_items(self):
         """Test creation fails without items"""
@@ -228,28 +229,36 @@ class OneTimeSupplierInvoiceListTests(TestCase):
             memo='Test Journal Entry'
         )
         
+        # Create OneTime business partners
+        self.one_time_partner1 = OneTime.objects.create(
+            name='ABC Catering',
+            email='abc@example.com'
+        )
+        self.one_time_partner2 = OneTime.objects.create(
+            name='XYZ Repairs',
+            email='xyz@example.com'
+        )
+        
         # Create invoices through child model
-        self.one_time1 = one_use_supplier.objects.create(
+        self.one_time1 = OneTimeSupplier.objects.create(
             date=date.today(),
             currency=self.currency,
             country=self.country,
             subtotal=Decimal('500.00'),
             total=Decimal('500.00'),
             gl_distributions=self.journal_entry,
-            supplier_name='ABC Catering',
-            supplier_email='abc@example.com',
+            one_time_supplier=self.one_time_partner1,
             approval_status='DRAFT'
         )
         
-        self.one_time2 = one_use_supplier.objects.create(
+        self.one_time2 = OneTimeSupplier.objects.create(
             date=date.today() - timedelta(days=7),
             currency=self.currency,
             country=self.country,
             subtotal=Decimal('1000.00'),
             total=Decimal('1000.00'),
             gl_distributions=self.journal_entry,
-            supplier_name='XYZ Repairs',
-            supplier_email='xyz@example.com',
+            one_time_supplier=self.one_time_partner2,
             approval_status='APPROVED'
         )
     
@@ -322,15 +331,20 @@ class OneTimeSupplierInvoiceDetailTests(TestCase):
             memo='Test Journal Entry'
         )
         
-        self.one_time_invoice = one_use_supplier.objects.create(
+        # Create OneTime business partner
+        one_time_partner = OneTime.objects.create(
+            name='Test Vendor',
+            email='test@example.com'
+        )
+        
+        self.one_time_invoice = OneTimeSupplier.objects.create(
             date=date.today(),
             currency=currency,
             country=country,
             subtotal=Decimal('500.00'),
             total=Decimal('500.00'),
             gl_distributions=journal_entry,
-            supplier_name='Test Vendor',
-            supplier_email='test@example.com',
+            one_time_supplier=one_time_partner,
             approval_status='DRAFT'
         )
     
@@ -377,15 +391,19 @@ class OneTimeSupplierInvoiceDeleteTests(TestCase):
             memo='Test Journal Entry'
         )
         
+        # Create OneTime business partners
+        deletable_partner = OneTime.objects.create(name='Deletable Vendor')
+        posted_partner = OneTime.objects.create(name='Posted Vendor')
+        
         # Invoice without posted journal (can be deleted)
-        self.deletable = one_use_supplier.objects.create(
+        self.deletable = OneTimeSupplier.objects.create(
             date=date.today(),
             currency=currency,
             country=country,
             subtotal=Decimal('500.00'),
             total=Decimal('500.00'),
             gl_distributions=journal_entry,
-            supplier_name='Deletable Vendor'
+            one_time_supplier=deletable_partner
         )
         
         # Invoice with posted journal (cannot be deleted)
@@ -395,14 +413,14 @@ class OneTimeSupplierInvoiceDeleteTests(TestCase):
             memo='Posted',
             posted=True
         )
-        self.posted = one_use_supplier.objects.create(
+        self.posted = OneTimeSupplier.objects.create(
             date=date.today(),
             currency=currency,
             country=country,
             subtotal=Decimal('1000.00'),
             total=Decimal('1000.00'),
             gl_distributions=self.journal_posted,
-            supplier_name='Posted Vendor'
+            one_time_supplier=posted_partner
         )
     
     def test_delete_one_time_invoice_success(self):
@@ -412,7 +430,7 @@ class OneTimeSupplierInvoiceDeleteTests(TestCase):
         response = self.client.delete(url)
         
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertFalse(one_use_supplier.objects.filter(
+        self.assertFalse(OneTimeSupplier.objects.filter(
             invoice_id=self.deletable.invoice_id
         ).exists())
     
@@ -441,14 +459,17 @@ class OneTimeSupplierInvoiceApproveTests(TestCase):
             memo='Test Journal Entry'
         )
         
-        self.one_time_invoice = one_use_supplier.objects.create(
+        # Create OneTime business partner
+        one_time_partner = OneTime.objects.create(name='Test Vendor')
+        
+        self.one_time_invoice = OneTimeSupplier.objects.create(
             date=date.today(),
             currency=currency,
             country=country,
             subtotal=Decimal('500.00'),
             total=Decimal('500.00'),
             gl_distributions=journal_entry,
-            supplier_name='Test Vendor',
+            one_time_supplier=one_time_partner,
             approval_status='DRAFT'
         )
     
@@ -515,6 +536,10 @@ class OneTimeSupplierInvoicePostToGLTests(TestCase):
         currency = Currency.objects.create(code='USD', name='US Dollar', symbol='$', is_base_currency=True)
         country = Country.objects.create(code='US', name='United States')
         
+        # Create OneTime business partners
+        test_partner = OneTime.objects.create(name='Test Vendor')
+        draft_partner = OneTime.objects.create(name='Draft Vendor')
+        
         # Approved invoice with unposted journal
         self.journal = JournalEntry.objects.create(
             date=date.today(),
@@ -522,14 +547,14 @@ class OneTimeSupplierInvoicePostToGLTests(TestCase):
             memo='Test Unposted',
             posted=False
         )
-        self.approved_invoice = one_use_supplier.objects.create(
+        self.approved_invoice = OneTimeSupplier.objects.create(
             date=date.today(),
             currency=currency,
             country=country,
             subtotal=Decimal('500.00'),
             total=Decimal('500.00'),
             gl_distributions=self.journal,
-            supplier_name='Test Vendor',
+            one_time_supplier=test_partner,
             approval_status='APPROVED'
         )
         
@@ -540,14 +565,14 @@ class OneTimeSupplierInvoicePostToGLTests(TestCase):
             memo='Draft',
             posted=False
         )
-        self.draft_invoice = one_use_supplier.objects.create(
+        self.draft_invoice = OneTimeSupplier.objects.create(
             date=date.today(),
             currency=currency,
             country=country,
             subtotal=Decimal('1000.00'),
             total=Decimal('1000.00'),
             gl_distributions=journal2,
-            supplier_name='Draft Vendor',
+            one_time_supplier=draft_partner,
             approval_status='DRAFT'
         )
     
