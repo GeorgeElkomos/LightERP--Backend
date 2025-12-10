@@ -482,7 +482,7 @@ class ARInvoiceApproveTests(TestCase):
         """Test approving AR invoice"""
         self.client.force_authenticate(user=self.user)
         
-        url = reverse('finance:invoice:ar-invoice-approve', 
+        url = reverse('finance:invoice:ar-invoice-approval-action', 
                      kwargs={'pk': self.ar_invoice.invoice_id})
         response = self.client.post(url, {'action': 'APPROVED'}, format='json')
         
@@ -494,7 +494,7 @@ class ARInvoiceApproveTests(TestCase):
         """Test rejecting AR invoice"""
         self.client.force_authenticate(user=self.user)
         
-        url = reverse('finance:invoice:ar-invoice-approve', 
+        url = reverse('finance:invoice:ar-invoice-approval-action', 
                      kwargs={'pk': self.ar_invoice.invoice_id})
         response = self.client.post(url, {'action': 'REJECTED'}, format='json')
         
@@ -506,7 +506,7 @@ class ARInvoiceApproveTests(TestCase):
         """Test action is case insensitive"""
         self.client.force_authenticate(user=self.user)
         
-        url = reverse('finance:invoice:ar-invoice-approve', 
+        url = reverse('finance:invoice:ar-invoice-approval-action', 
                      kwargs={'pk': self.ar_invoice.invoice_id})
         response = self.client.post(url, {'action': 'approved'}, format='json')
         

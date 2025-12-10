@@ -340,11 +340,22 @@ def ar_invoice_approval_action(request, pk):
             status=status.HTTP_401_UNAUTHORIZED
         )
     
-    action = request.data.get('action', '').lower()
+    action = request.data.get('action', 'approve').lower()  # Default to 'approve'
     comment = request.data.get('comment', '')
     target_user_id = request.data.get('target_user_id')
     
-    if action not in ['approve', 'reject', 'delegate', 'comment']:
+    # Map status values to workflow actions
+    action_mapping = {
+        'approved': 'approve',
+        'rejected': 'reject',
+        'approve': 'approve',
+        'reject': 'reject',
+        'delegate': 'delegate',
+        'comment': 'comment'
+    }
+    
+    action = action_mapping.get(action)
+    if not action:
         return Response(
             {'error': 'Invalid action. Must be approve, reject, delegate, or comment'},
             status=status.HTTP_400_BAD_REQUEST
@@ -367,6 +378,19 @@ def ar_invoice_approval_action(request, pk):
             )
     
     try:
+        # Check if invoice is already approved or rejected
+        if hasattr(ar_invoice, 'approval_status'):
+            if ar_invoice.approval_status == 'APPROVED' and action == 'approve':
+                return Response(
+                    {'error': 'Invoice is already approved'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            elif ar_invoice.approval_status == 'REJECTED' and action == 'reject':
+                return Response(
+                    {'error': 'Invoice is already rejected'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        
         workflow_instance = ApprovalManager.process_action(
             ar_invoice.invoice,
             user=user,

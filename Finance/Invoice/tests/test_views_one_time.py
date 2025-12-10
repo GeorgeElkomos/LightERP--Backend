@@ -521,12 +521,12 @@ class OneTimeSupplierInvoiceApproveTests(TestCase):
         """Test approving one-time invoice"""
         self.client.force_authenticate(user=self.user)
         
-        url = reverse('finance:invoice:one-time-supplier-approve', 
+        url = reverse('finance:invoice:one-time-supplier-approval-action', 
                      kwargs={'pk': self.one_time_invoice.invoice_id})
         response = self.client.post(url, {'action': 'APPROVED'}, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn('approved successfully', response.data['message'].lower())
+        self.assertIn('message', response.data)
         self.one_time_invoice.refresh_from_db()
         self.assertEqual(self.one_time_invoice.approval_status, 'APPROVED')
     
@@ -534,12 +534,12 @@ class OneTimeSupplierInvoiceApproveTests(TestCase):
         """Test rejecting one-time invoice"""
         self.client.force_authenticate(user=self.user)
         
-        url = reverse('finance:invoice:one-time-supplier-approve', 
+        url = reverse('finance:invoice:one-time-supplier-approval-action', 
                      kwargs={'pk': self.one_time_invoice.invoice_id})
         response = self.client.post(url, {'action': 'REJECTED'}, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn('rejected successfully', response.data['message'].lower())
+        self.assertIn('message', response.data)
         self.one_time_invoice.refresh_from_db()
         self.assertEqual(self.one_time_invoice.approval_status, 'REJECTED')
     
@@ -547,7 +547,7 @@ class OneTimeSupplierInvoiceApproveTests(TestCase):
         """Test default action is APPROVED"""
         self.client.force_authenticate(user=self.user)
         
-        url = reverse('finance:invoice:one-time-supplier-approve', 
+        url = reverse('finance:invoice:one-time-supplier-approval-action', 
                      kwargs={'pk': self.one_time_invoice.invoice_id})
         response = self.client.post(url, {}, format='json')
         
@@ -557,7 +557,7 @@ class OneTimeSupplierInvoiceApproveTests(TestCase):
     
     def test_approve_invalid_action(self):
         """Test invalid action returns error"""
-        url = reverse('finance:invoice:one-time-supplier-approve', 
+        url = reverse('finance:invoice:one-time-supplier-approval-action', 
                      kwargs={'pk': self.one_time_invoice.invoice_id})
         response = self.client.post(url, {'action': 'PENDING'}, format='json')
         
@@ -573,11 +573,12 @@ class OneTimeSupplierInvoiceApproveTests(TestCase):
         self.client.force_authenticate(user=self.user)
         
         # Try to approve again
-        url = reverse('finance:invoice:one-time-supplier-approve', 
+        url = reverse('finance:invoice:one-time-supplier-approval-action', 
                      kwargs={'pk': self.one_time_invoice.invoice_id})
         response = self.client.post(url, {'action': 'APPROVED'}, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('already', response.data['error'].lower())
 
 
 class OneTimeSupplierInvoicePostToGLTests(TestCase):

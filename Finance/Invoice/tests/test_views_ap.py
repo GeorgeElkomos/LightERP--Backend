@@ -539,7 +539,7 @@ class APInvoiceApproveTests(TestCase):
         # Authenticate the API client
         self.client.force_authenticate(user=self.user)
         
-        url = reverse('finance:invoice:ap-invoice-approve', 
+        url = reverse('finance:invoice:ap-invoice-approval-action', 
                      kwargs={'pk': self.ap_invoice.invoice_id})
         response = self.client.post(url, {'action': 'APPROVED'}, format='json')
         
@@ -554,7 +554,7 @@ class APInvoiceApproveTests(TestCase):
         """Test rejecting AP invoice"""
         self.client.force_authenticate(user=self.user)
         
-        url = reverse('finance:invoice:ap-invoice-approve', 
+        url = reverse('finance:invoice:ap-invoice-approval-action', 
                      kwargs={'pk': self.ap_invoice.invoice_id})
         response = self.client.post(url, {'action': 'REJECTED', 'comment': 'Test rejection'}, format='json')
         
@@ -566,7 +566,7 @@ class APInvoiceApproveTests(TestCase):
         """Test default action is APPROVED when not specified"""
         self.client.force_authenticate(user=self.user)
         
-        url = reverse('finance:invoice:ap-invoice-approve', 
+        url = reverse('finance:invoice:ap-invoice-approval-action', 
                      kwargs={'pk': self.ap_invoice.invoice_id})
         response = self.client.post(url, {}, format='json')
         
@@ -576,7 +576,7 @@ class APInvoiceApproveTests(TestCase):
     
     def test_approve_invalid_action(self):
         """Test invalid action returns error"""
-        url = reverse('finance:invoice:ap-invoice-approve', 
+        url = reverse('finance:invoice:ap-invoice-approval-action', 
                      kwargs={'pk': self.ap_invoice.invoice_id})
         response = self.client.post(url, {'action': 'INVALID'}, format='json')
         
@@ -589,12 +589,12 @@ class APInvoiceApproveTests(TestCase):
         self.ap_invoice.approve(self.user, comment="First approval")
         self.ap_invoice.refresh_from_db()
         
-        url = reverse('finance:invoice:ap-invoice-approve', 
+        url = reverse('finance:invoice:ap-invoice-approval-action', 
                      kwargs={'pk': self.ap_invoice.invoice_id})
         response = self.client.post(url, {'action': 'APPROVED'}, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('already', response.data['message'].lower())
+        self.assertIn('already', response.data['error'].lower())
 
 
 class APInvoicePostToGLTests(TestCase):
