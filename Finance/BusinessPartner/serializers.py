@@ -13,6 +13,7 @@ class CustomerSerializer(serializers.ModelSerializer):
     Includes all fields from both Customer and BusinessPartner.
     """
     # BusinessPartner fields (read from business_partner relation)
+    business_partner_id = serializers.IntegerField(source='business_partner.id', read_only=True)
     name = serializers.CharField()
     email = serializers.EmailField(required=False, allow_blank=True)
     phone = serializers.CharField(required=False, allow_blank=True)
@@ -38,6 +39,7 @@ class CustomerSerializer(serializers.ModelSerializer):
         model = Customer
         fields = [
             'id',
+            'business_partner_id',
             'name',
             'email',
             'phone',
@@ -51,7 +53,7 @@ class CustomerSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
-        read_only_fields = ['id', 'country_name', 'country_code', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'business_partner_id', 'country_name', 'country_code', 'created_at', 'updated_at']
     
     def create(self, validated_data):
         """
@@ -82,6 +84,7 @@ class CustomerListSerializer(serializers.ModelSerializer):
     """
     Lightweight serializer for listing customers.
     """
+    business_partner_id = serializers.IntegerField(source='business_partner.id', read_only=True)
     name = serializers.CharField(source='business_partner.name', read_only=True)
     email = serializers.CharField(source='business_partner.email', read_only=True)
     phone = serializers.CharField(source='business_partner.phone', read_only=True)
@@ -92,6 +95,7 @@ class CustomerListSerializer(serializers.ModelSerializer):
         model = Customer
         fields = [
             'id',
+            'business_partner_id',
             'name',
             'email',
             'phone',
@@ -106,6 +110,7 @@ class SupplierSerializer(serializers.ModelSerializer):
     Includes all fields from both Supplier and BusinessPartner.
     """
     # BusinessPartner fields (read from business_partner relation)
+    business_partner_id = serializers.IntegerField(source='business_partner.id', read_only=True)
     name = serializers.CharField()
     email = serializers.EmailField(required=False, allow_blank=True)
     phone = serializers.CharField(required=False, allow_blank=True)
@@ -133,6 +138,7 @@ class SupplierSerializer(serializers.ModelSerializer):
         model = Supplier
         fields = [
             'id',
+            'business_partner_id',
             'name',
             'email',
             'phone',
@@ -148,7 +154,7 @@ class SupplierSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
-        read_only_fields = ['id', 'country_name', 'country_code', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'business_partner_id', 'country_name', 'country_code', 'created_at', 'updated_at']
     
     def create(self, validated_data):
         """
@@ -181,6 +187,7 @@ class SupplierListSerializer(serializers.ModelSerializer):
     """
     Lightweight serializer for listing suppliers.
     """
+    business_partner_id = serializers.IntegerField(source='business_partner.id', read_only=True)
     name = serializers.CharField(source='business_partner.name', read_only=True)
     email = serializers.CharField(source='business_partner.email', read_only=True)
     phone = serializers.CharField(source='business_partner.phone', read_only=True)
@@ -191,6 +198,7 @@ class SupplierListSerializer(serializers.ModelSerializer):
         model = Supplier
         fields = [
             'id',
+            'business_partner_id',
             'name',
             'email',
             'phone',

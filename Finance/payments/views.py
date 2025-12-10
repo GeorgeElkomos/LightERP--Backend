@@ -50,13 +50,14 @@ def payment_list(request):
         - has_allocations: Filter by allocation status (true/false)
     
     POST /payments/
-    - Create a new payment with optional allocations
+    - Create a new payment with optional allocations and GL entry
     - Request body: PaymentCreateSerializer fields
     """
     if request.method == 'GET':
         payments = Payment.objects.select_related(
             'business_partner',
-            'currency'
+            'currency',
+            'gl_entry'
         ).prefetch_related('allocations').all()
         
         # Apply filters

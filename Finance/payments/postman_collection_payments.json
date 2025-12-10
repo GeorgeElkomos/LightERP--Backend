@@ -1,0 +1,581 @@
+{
+	"info": {
+		"_postman_id": "payment-api-complete-v2",
+		"name": "Payment API - Complete Collection",
+		"description": "Complete Postman collection for all Payment API endpoints including CRUD, allocations, approval workflow, GL posting, and utility endpoints",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Payment CRUD",
+			"description": "Core payment endpoints for Create, Read, Update, Delete operations",
+			"item": [
+				{
+					"name": "List Payments (All Filters)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/?business_partner_id=&currency_id=&approval_status=&date_from=&date_to=&has_allocations=",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", ""],
+							"query": [
+								{
+									"key": "business_partner_id",
+									"value": "",
+									"description": "Filter by business partner ID",
+									"disabled": true
+								},
+								{
+									"key": "currency_id",
+									"value": "",
+									"description": "Filter by currency ID",
+									"disabled": true
+								},
+								{
+									"key": "approval_status",
+									"value": "",
+									"description": "DRAFT, PENDING_APPROVAL, APPROVED, or REJECTED",
+									"disabled": true
+								},
+								{
+									"key": "date_from",
+									"value": "",
+									"description": "Start date (YYYY-MM-DD)",
+									"disabled": true
+								},
+								{
+									"key": "date_to",
+									"value": "",
+									"description": "End date (YYYY-MM-DD)",
+									"disabled": true
+								},
+								{
+									"key": "has_allocations",
+									"value": "",
+									"description": "true or false",
+									"disabled": true
+								}
+							]
+						},
+						"description": "**GET /finance/payments/**\n\nList all payments with optional filters. Enable any combination of query parameters."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Payment (Full Body with GL)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"date\": \"2025-12-10\",\n  \"business_partner_id\": 1,\n  \"currency_id\": 1,\n  \"exchange_rate\": \"1.0000\",\n  \"allocations\": [\n    {\n      \"invoice_id\": 1,\n      \"amount_allocated\": \"1000.00\"\n    }\n  ],\n  \"gl_entry\": {\n    \"date\": \"2025-12-10\",\n    \"currency_id\": 1,\n    \"memo\": \"Payment to supplier for invoices #1 and #2\",\n    \"lines\": [\n      {\n        \"amount\": \"1500.00\",\n        \"type\": \"DEBIT\",\n        \"segments\": [\n          {\n            \"segment_type_id\": 1,\n            \"segment_code\": \"2110\"\n          },\n          {\n            \"segment_type_id\": 2,\n            \"segment_code\": \"MKT-BD\"\n          }\n        ]\n      },\n      {\n        \"amount\": \"1500.00\",\n        \"type\": \"CREDIT\",\n        \"segments\": [\n          {\n            \"segment_type_id\": 1,\n            \"segment_code\": \"2120\"\n          },\n          {\n            \"segment_type_id\": 2,\n            \"segment_code\": \"MKT-PR\"\n          }\n        ]\n      }\n    ]\n  }\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", ""]
+						},
+						"description": "**POST /finance/payments/**\n\nCreate payment with optional allocations and GL entry.\n\n**Required:** date, business_partner_id, currency_id\n**Optional:** exchange_rate, allocations, gl_entry"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Payment Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", ""]
+						},
+						"description": "**GET /finance/payments/{id}/**\n\nRetrieve complete payment details including allocations and GL entry."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Payment (PATCH)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"date\": \"2025-12-15\",\n  \"exchange_rate\": \"1.0500\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", ""]
+						},
+						"description": "**PATCH /finance/payments/{id}/**\n\nPartial update of payment. Can update: date, exchange_rate, approval_status, rejection_reason.\nCannot modify: business_partner, currency (after creation)."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Payment (PUT)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"date\": \"2025-12-15\",\n  \"exchange_rate\": \"1.0500\",\n  \"approval_status\": \"DRAFT\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", ""]
+						},
+						"description": "**PUT /finance/payments/{id}/**\n\nFull update of payment fields."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Payment",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", ""]
+						},
+						"description": "**DELETE /finance/payments/{id}/**\n\nDelete payment and all its allocations. This will decrease paid_amount on all allocated invoices."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Payment Allocations",
+			"description": "Manage invoice allocations for payments",
+			"item": [
+				{
+					"name": "List Payment Allocations",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/allocations/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "allocations", ""]
+						},
+						"description": "**GET /finance/payments/{payment_id}/allocations/**\n\nList all invoice allocations for a specific payment."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Allocation",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"invoice_id\": 3,\n  \"amount_allocated\": \"750.00\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/allocations/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "allocations", ""]
+						},
+						"description": "**POST /finance/payments/{payment_id}/allocations/**\n\nAdd new allocation to payment. Invoice must belong to same business partner and use same currency."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Allocation Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/allocations/{{allocation_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "allocations", "{{allocation_id}}", ""]
+						},
+						"description": "**GET /finance/payments/{payment_id}/allocations/{allocation_id}/**\n\nRetrieve specific allocation details."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Allocation Amount",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"amount_allocated\": \"850.00\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/allocations/{{allocation_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "allocations", "{{allocation_id}}", ""]
+						},
+						"description": "**PATCH /finance/payments/{payment_id}/allocations/{allocation_id}/**\n\nUpdate allocation amount. New amount must not exceed invoice remaining balance."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Allocation",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/allocations/{{allocation_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "allocations", "{{allocation_id}}", ""]
+						},
+						"description": "**DELETE /finance/payments/{payment_id}/allocations/{allocation_id}/**\n\nRemove allocation from payment. This decreases invoice paid_amount."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Approval Workflow",
+			"description": "Payment approval workflow endpoints",
+			"item": [
+				{
+					"name": "Submit for Approval",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/submit-for-approval/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "submit-for-approval", ""]
+						},
+						"description": "**POST /finance/payments/{id}/submit-for-approval/**\n\nStart approval workflow for payment. Changes status to PENDING_APPROVAL."
+					},
+					"response": []
+				},
+				{
+					"name": "List Pending Approvals",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/pending-approvals/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "pending-approvals", ""]
+						},
+						"description": "**GET /finance/payments/pending-approvals/**\n\nList payments pending approval for current user. Shows workflow info and available actions."
+					},
+					"response": []
+				},
+				{
+					"name": "Approve Payment",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"action\": \"approve\",\n  \"comment\": \"Approved - all documentation verified\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/approval-action/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "approval-action", ""]
+						},
+						"description": "**POST /finance/payments/{id}/approval-action/**\n\nApprove payment. Changes status to APPROVED if all stages completed."
+					},
+					"response": []
+				},
+				{
+					"name": "Reject Payment",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"action\": \"reject\",\n  \"comment\": \"Missing supporting documents\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/approval-action/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "approval-action", ""]
+						},
+						"description": "**POST /finance/payments/{id}/approval-action/**\n\nReject payment. Changes status to REJECTED."
+					},
+					"response": []
+				},
+				{
+					"name": "Delegate Approval",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"action\": \"delegate\",\n  \"target_user_id\": 2,\n  \"comment\": \"Delegating to manager while on vacation\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/approval-action/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "approval-action", ""]
+						},
+						"description": "**POST /finance/payments/{id}/approval-action/**\n\nDelegate approval to another user. Requires target_user_id."
+					},
+					"response": []
+				},
+				{
+					"name": "Add Comment to Workflow",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"action\": \"comment\",\n  \"comment\": \"Please verify vendor details before approval\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/approval-action/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "approval-action", ""]
+						},
+						"description": "**POST /finance/payments/{id}/approval-action/**\n\nAdd comment to workflow without changing status."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "GL Posting",
+			"description": "General Ledger posting endpoints",
+			"item": [
+				{
+					"name": "Post to GL",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/post-to-gl/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "post-to-gl", ""]
+						},
+						"description": "**POST /finance/payments/{id}/post-to-gl/**\n\nPost journal entry to GL. Payment must be APPROVED. Once posted, entry becomes immutable."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Utility Endpoints",
+			"description": "Helper endpoints for invoice information and payment summaries",
+			"item": [
+				{
+					"name": "Get Available Invoices for Payment",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/available-invoices/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "available-invoices", ""]
+						},
+						"description": "**GET /finance/payments/{payment_id}/available-invoices/**\n\nList invoices that can be allocated to this payment:\n- Same business partner\n- Same currency\n- Not fully paid\n- Not already allocated to this payment"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Invoice Payment Info",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/ap/{{invoice_id}}/payments/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "ap", "{{invoice_id}}", "payments", ""]
+						},
+						"description": "**GET /finance/ap/{invoice_id}/payments/**\n\nGet payment information for a specific invoice including:\n- Total and paid amounts\n- Remaining balance\n- Payment status\n- All allocations with payment details"
+					},
+					"response": []
+				},
+				{
+					"name": "Recalculate Invoice Payments",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/ap/{{invoice_id}}/recalculate-payments/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "ap", "{{invoice_id}}", "recalculate-payments", ""]
+						},
+						"description": "**POST /finance/ap/{invoice_id}/recalculate-payments/**\n\nRecalculate invoice paid_amount from allocations. Fixes any inconsistencies."
+					},
+					"response": []
+				},
+				{
+					"name": "Business Partner Payment Summary",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/suppliers/{{business_partner_id}}/payment-summary/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "suppliers", "{{business_partner_id}}", "payment-summary", ""]
+						},
+						"description": "**GET /finance/suppliers/{bp_id}/payment-summary/**\n\nGet comprehensive payment summary for a business partner:\n- Total payments count\n- Total invoices count\n- Total invoice amounts\n- Total paid amounts\n- Unpaid amounts\n- Invoice status counts (paid, partially paid, unpaid)\n\nAlso available at: /finance/customers/{bp_id}/payment-summary/"
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "payment_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "allocation_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "invoice_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "business_partner_id",
+			"value": "1",
+			"type": "string"
+		}
+	]
+}

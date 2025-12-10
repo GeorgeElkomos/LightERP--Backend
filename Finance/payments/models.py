@@ -339,6 +339,11 @@ class Payment(ApprovableMixin, ApprovableInterface, models.Model):
             raise ValidationError(
                 "GL entry must be balanced before submission."
             )
+        
+        if self.gl_entry.get_total_credit() != self.get_total_allocated():
+            raise ValidationError(
+                "Total allocated amount must equal GL entry total credit."
+            )
     
     def submit_for_approval(self):
         """Submit payment for approval workflow.
