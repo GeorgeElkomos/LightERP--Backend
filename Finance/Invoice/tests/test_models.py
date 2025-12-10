@@ -14,7 +14,7 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from datetime import date
 from decimal import Decimal
 
-from Finance.Invoice.models import Invoice, AP_Invoice, AR_Invoice, OneTimeSupplier
+from Finance.Invoice.models import Invoice, AP_Invoice, AR_Invoice, OneTimeSupplier, InvoiceItem
 from Finance.BusinessPartner.models import Customer, OneTime, Supplier
 from Finance.core.models import Country, Currency
 from Finance.GL.models import JournalEntry
@@ -211,7 +211,6 @@ class InvoiceModelTests(TestCase):
         ap_invoice.subtotal = Decimal('3000.00')
         ap_invoice.tax_amount = Decimal('300.00')
         ap_invoice.total = Decimal('3300.00')
-        ap_invoice.approval_status = 'APPROVED'
         ap_invoice.payment_status = 'PAID'
         ap_invoice.save()
         
@@ -224,12 +223,10 @@ class InvoiceModelTests(TestCase):
         self.assertEqual(ap_invoice.subtotal, Decimal('3000.00'))
         self.assertEqual(ap_invoice.tax_amount, Decimal('300.00'))
         self.assertEqual(ap_invoice.total, Decimal('3300.00'))
-        self.assertEqual(ap_invoice.approval_status, 'APPROVED')
         self.assertEqual(ap_invoice.payment_status, 'PAID')
         
         # Verify Invoice was updated
         self.assertEqual(ap_invoice.invoice.total, Decimal('3300.00'))
-        self.assertEqual(ap_invoice.invoice.approval_status, 'APPROVED')
         self.assertEqual(ap_invoice.invoice.payment_status, 'PAID')
     
     def test_ap_invoice_update(self):
@@ -278,14 +275,12 @@ class InvoiceModelTests(TestCase):
         
         # Update both types of fields
         ar_invoice.total = Decimal('8000.00')
-        ar_invoice.approval_status = 'APPROVED'
         ar_invoice.customer = new_customer
         ar_invoice.save()
         
         # Refresh and verify
         ar_invoice.refresh_from_db()
         self.assertEqual(ar_invoice.total, Decimal('8000.00'))
-        self.assertEqual(ar_invoice.approval_status, 'APPROVED')
         self.assertEqual(ar_invoice.customer, new_customer)
     
     def test_ap_invoice_delete(self):
@@ -528,40 +523,89 @@ class InvoiceModelTests(TestCase):
         self.assertEqual(one_time_1.currency, self.currency_usd)
     
     def test_invoice_status_transitions(self):
-        """Test transitioning invoice through different statuses"""
+        """Test transitioning invoice through different statuses using approval workflow"""
+        from Finance.Invoice.tests.test_helpers import create_simple_approval_template_for_invoice, get_or_create_test_user
+        from Finance.GL.models import JournalLine, XX_SegmentType, XX_Segment, XX_Segment_combination
+        from decimal import Decimal
+        
+        # Set up approval workflow
+        create_simple_approval_template_for_invoice()
+        user = get_or_create_test_user('test_user@example.com')
+        
+        # Create balanced journal entry
+        journal_entry = JournalEntry.objects.create(
+            date=date.today(),
+            currency=self.currency_usd,
+            memo='Test Journal Entry'
+        )
+        
+        # Create segments for balanced journal
+        segment_type_1 = XX_SegmentType.objects.create(segment_name='Company', description='Company')
+        segment_type_2 = XX_SegmentType.objects.create(segment_name='Account', description='Account')
+        segment_100 = XX_Segment.objects.create(segment_type=segment_type_1, code='100', alias='Co 100', node_type='detail')
+        segment_6100 = XX_Segment.objects.create(segment_type=segment_type_2, code='6100', alias='Expense', node_type='detail')
+        segment_2100 = XX_Segment.objects.create(segment_type=segment_type_2, code='2100', alias='AP', node_type='detail')
+        
+        combination_dr_id = XX_Segment_combination.get_combination_id([
+            (segment_type_1.id, '100'),
+            (segment_type_2.id, '6100')
+        ])
+        combination_cr_id = XX_Segment_combination.get_combination_id([
+            (segment_type_1.id, '100'),
+            (segment_type_2.id, '2100')
+        ])
+        
+        combination_dr = XX_Segment_combination.objects.get(id=combination_dr_id)
+        combination_cr = XX_Segment_combination.objects.get(id=combination_cr_id)
+        
+        JournalLine.objects.create(entry=journal_entry, type='DEBIT',
+                                   segment_combination=combination_dr, amount=Decimal('1000.00'))
+        JournalLine.objects.create(entry=journal_entry, type='CREDIT',
+                                   segment_combination=combination_cr, amount=Decimal('1000.00'))
+        
         ap_invoice = AP_Invoice.objects.create(
             date=date.today(),
             currency=self.currency_usd,
             total=Decimal('1000.00'),
-            gl_distributions=self.journal_entry,
+            subtotal=Decimal('1000.00'),
+            gl_distributions=journal_entry,
             supplier=self.supplier
+        )
+        
+        # Create invoice items to pass validation
+        InvoiceItem.objects.create(
+            invoice=ap_invoice.invoice,
+            name='Test Item',
+            description='Test Description',
+            quantity=Decimal('10.00'),
+            unit_price=Decimal('100.00')
         )
         
         # Initial status
         self.assertEqual(ap_invoice.approval_status, 'DRAFT')
         self.assertEqual(ap_invoice.payment_status, 'UNPAID')
         
-        # Move to pending approval
-        ap_invoice.approval_status = 'PENDING_APPROVAL'
-        ap_invoice.save()
+        # Submit for approval (moves to PENDING_APPROVAL)
+        ap_invoice.submit_for_approval()
         ap_invoice.refresh_from_db()
         self.assertEqual(ap_invoice.approval_status, 'PENDING_APPROVAL')
         
-        # Approve
-        ap_invoice.approval_status = 'APPROVED'
-        ap_invoice.save()
+        # Approve (moves to APPROVED)
+        ap_invoice.approve(user, comment='Approved for testing')
         ap_invoice.refresh_from_db()
         self.assertEqual(ap_invoice.approval_status, 'APPROVED')
         
         # Partial payment
-        ap_invoice.payment_status = 'PARTIALLY_PAID'
-        ap_invoice.save()
+        ap_invoice.invoice.payment_status = 'PARTIALLY_PAID'
+        ap_invoice.invoice._allow_direct_save = True
+        ap_invoice.invoice.save()
         ap_invoice.refresh_from_db()
         self.assertEqual(ap_invoice.payment_status, 'PARTIALLY_PAID')
         
         # Full payment
-        ap_invoice.payment_status = 'PAID'
-        ap_invoice.save()
+        ap_invoice.invoice.payment_status = 'PAID'
+        ap_invoice.invoice._allow_direct_save = True
+        ap_invoice.invoice.save()
         ap_invoice.refresh_from_db()
         self.assertEqual(ap_invoice.payment_status, 'PAID')
     

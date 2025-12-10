@@ -25,10 +25,10 @@ from rest_framework import status
 from decimal import Decimal
 from datetime import date, timedelta
 
-from Finance.Invoice.models import OneTimeSupplier, Invoice
+from Finance.Invoice.models import OneTimeSupplier, Invoice, InvoiceItem
 from Finance.core.models import Currency, Country
 from Finance.BusinessPartner.models import OneTime
-from Finance.GL.models import JournalEntry, XX_SegmentType as SegmentType, XX_Segment
+from Finance.GL.models import JournalEntry, XX_SegmentType, XX_Segment, XX_Segment_combination, JournalLine
 
 
 class OneTimeSupplierInvoiceCreateTests(TestCase):
@@ -61,11 +61,11 @@ class OneTimeSupplierInvoiceCreateTests(TestCase):
         )
         
         # Create segment types
-        self.segment_type_1 = SegmentType.objects.create(
+        self.segment_type_1 = XX_SegmentType.objects.create(
             segment_name='Company',
             description='Company code'
         )
-        self.segment_type_2 = SegmentType.objects.create(
+        self.segment_type_2 = XX_SegmentType.objects.create(
             segment_name='Account',
             description='Account number'
         )
@@ -449,7 +449,15 @@ class OneTimeSupplierInvoiceApproveTests(TestCase):
     
     def setUp(self):
         """Set up test data"""
+        from Finance.Invoice.tests.test_helpers import create_simple_approval_template_for_invoice, get_or_create_test_user
+        
         self.client = APIClient()
+        
+        # Create approval workflow template
+        create_simple_approval_template_for_invoice()
+        
+        # Create test user
+        self.user = get_or_create_test_user('approver1@test.com')
         
         currency = Currency.objects.create(code='USD', name='US Dollar', symbol='$', is_base_currency=True)
         country = Country.objects.create(code='US', name='United States')
@@ -458,6 +466,31 @@ class OneTimeSupplierInvoiceApproveTests(TestCase):
             currency=currency,
             memo='Test Journal Entry'
         )
+        
+        # Create segment types and segments for balanced journal entries
+        segment_type_1 = XX_SegmentType.objects.create(segment_name='Company', description='Company')
+        segment_type_2 = XX_SegmentType.objects.create(segment_name='Account', description='Account')
+        segment_100 = XX_Segment.objects.create(segment_type=segment_type_1, code='100', alias='Co 100', node_type='detail')
+        segment_6100 = XX_Segment.objects.create(segment_type=segment_type_2, code='6100', alias='Expense', node_type='detail')
+        segment_2100 = XX_Segment.objects.create(segment_type=segment_type_2, code='2100', alias='AP', node_type='detail')
+        
+        # Create segment combinations using get_combination_id
+        combination_dr_id = XX_Segment_combination.get_combination_id([
+            (segment_type_1.id, '100'),
+            (segment_type_2.id, '6100')
+        ])
+        combination_cr_id = XX_Segment_combination.get_combination_id([
+            (segment_type_1.id, '100'),
+            (segment_type_2.id, '2100')
+        ])
+        
+        combination_dr = XX_Segment_combination.objects.get(id=combination_dr_id)
+        combination_cr = XX_Segment_combination.objects.get(id=combination_cr_id)
+        
+        JournalLine.objects.create(entry=journal_entry, type='DEBIT',
+                                   segment_combination=combination_dr, amount=Decimal('500.00'))
+        JournalLine.objects.create(entry=journal_entry, type='CREDIT',
+                                   segment_combination=combination_cr, amount=Decimal('500.00'))
         
         # Create OneTime business partner
         one_time_partner = OneTime.objects.create(name='Test Vendor')
@@ -469,12 +502,25 @@ class OneTimeSupplierInvoiceApproveTests(TestCase):
             subtotal=Decimal('500.00'),
             total=Decimal('500.00'),
             gl_distributions=journal_entry,
-            one_time_supplier=one_time_partner,
-            approval_status='DRAFT'
+            one_time_supplier=one_time_partner
         )
+        
+        # Create invoice items matching the journal entry total
+        InvoiceItem.objects.create(
+            invoice=self.one_time_invoice.invoice,
+            name='Test Item',
+            description='Test Item Description',
+            quantity=Decimal('5.00'),
+            unit_price=Decimal('100.00')
+        )
+        
+        # Submit invoice for approval so it can be approved/rejected
+        self.one_time_invoice.submit_for_approval()
     
     def test_approve_one_time_invoice(self):
         """Test approving one-time invoice"""
+        self.client.force_authenticate(user=self.user)
+        
         url = reverse('finance:invoice:one-time-supplier-approve', 
                      kwargs={'pk': self.one_time_invoice.invoice_id})
         response = self.client.post(url, {'action': 'APPROVED'}, format='json')
@@ -486,6 +532,8 @@ class OneTimeSupplierInvoiceApproveTests(TestCase):
     
     def test_reject_one_time_invoice(self):
         """Test rejecting one-time invoice"""
+        self.client.force_authenticate(user=self.user)
+        
         url = reverse('finance:invoice:one-time-supplier-approve', 
                      kwargs={'pk': self.one_time_invoice.invoice_id})
         response = self.client.post(url, {'action': 'REJECTED'}, format='json')
@@ -497,6 +545,8 @@ class OneTimeSupplierInvoiceApproveTests(TestCase):
     
     def test_approve_default_action(self):
         """Test default action is APPROVED"""
+        self.client.force_authenticate(user=self.user)
+        
         url = reverse('finance:invoice:one-time-supplier-approve', 
                      kwargs={'pk': self.one_time_invoice.invoice_id})
         response = self.client.post(url, {}, format='json')
@@ -516,9 +566,13 @@ class OneTimeSupplierInvoiceApproveTests(TestCase):
     
     def test_approve_already_approved(self):
         """Test approving already approved invoice"""
-        self.one_time_invoice.approval_status = 'APPROVED'
-        self.one_time_invoice.save()
+        # First approve the invoice using the workflow
+        self.one_time_invoice.approve(self.user, comment='Approved for testing')
         
+        # Authenticate client
+        self.client.force_authenticate(user=self.user)
+        
+        # Try to approve again
         url = reverse('finance:invoice:one-time-supplier-approve', 
                      kwargs={'pk': self.one_time_invoice.invoice_id})
         response = self.client.post(url, {'action': 'APPROVED'}, format='json')

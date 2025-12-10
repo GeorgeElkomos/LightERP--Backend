@@ -1,0 +1,397 @@
+"""
+One-Time Supplier Invoice Views - API Endpoints
+
+These views are THIN WRAPPERS around serializers (which call the service layer).
+They handle:
+1. HTTP request/response
+2. Authentication/permissions
+3. Routing
+4. Error formatting
+
+Business logic is in services.py, validation in serializers.py.
+Views should be as simple as possible!
+"""
+
+from rest_framework import status
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from django.shortcuts import get_object_or_404
+from django.core.exceptions import ValidationError
+
+from Finance.Invoice.models import OneTimeSupplier
+from Finance.Invoice.serializers import (
+    OneTimeSupplierCreateSerializer, 
+    OneTimeSupplierListSerializer, 
+    OneTimeSupplierDetailSerializer
+)
+
+
+@api_view(['GET', 'POST'])
+def one_time_supplier_invoice_list(request):
+    """
+    List all one-time supplier invoices or create a new one.
+    
+    GET /invoices/one-time-supplier/
+    - Returns list of all one-time supplier invoices
+    - Query params:
+        - supplier_name: Filter by supplier name (contains)
+        - currency_id: Filter by currency
+        - country_id: Filter by country
+        - approval_status: Filter by status (DRAFT/APPROVED/REJECTED)
+        - date_from: Filter by date range start
+        - date_to: Filter by date range end
+    
+    POST /invoices/one-time-supplier/
+    - Create a new one-time supplier invoice
+    - Request body: OneTimeSupplierCreateSerializer fields
+    """
+    if request.method == 'GET':
+        invoices = OneTimeSupplier.objects.select_related(
+            'invoice',
+            'invoice__currency',
+            'invoice__country',
+            'one_time_supplier'
+        ).all()
+        
+        # Apply filters
+        supplier_name = request.query_params.get('supplier_name')
+        if supplier_name:
+            invoices = invoices.filter(one_time_supplier__business_partner__name__icontains=supplier_name)
+        
+        currency_id = request.query_params.get('currency_id')
+        if currency_id:
+            invoices = invoices.filter(invoice__currency_id=currency_id)
+        
+        country_id = request.query_params.get('country_id')
+        if country_id:
+            invoices = invoices.filter(invoice__country_id=country_id)
+        
+        approval_status = request.query_params.get('approval_status')
+        if approval_status:
+            invoices = invoices.filter(invoice__approval_status=approval_status.upper())
+        
+        date_from = request.query_params.get('date_from')
+        if date_from:
+            invoices = invoices.filter(invoice__date__gte=date_from)
+        
+        date_to = request.query_params.get('date_to')
+        if date_to:
+            invoices = invoices.filter(invoice__date__lte=date_to)
+        
+        serializer = OneTimeSupplierListSerializer(invoices, many=True)
+        return Response(serializer.data)
+    
+    elif request.method == 'POST':
+        serializer = OneTimeSupplierCreateSerializer(data=request.data)
+        if serializer.is_valid():
+            try:
+                one_time_invoice = serializer.save()
+                return Response(
+                    {
+                        'id': one_time_invoice.invoice_id,
+                        'supplier_name': one_time_invoice.one_time_supplier.name,
+                        'total': str(one_time_invoice.total),
+                        'message': 'One-time supplier invoice created successfully'
+                    },
+                    status=status.HTTP_201_CREATED
+                )
+            except ValidationError as e:
+                return Response(
+                    {'error': str(e)},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            except Exception as e:
+                return Response(
+                    {'error': f'An error occurred: {str(e)}'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
+def one_time_supplier_invoice_detail(request, pk):
+    """
+    Retrieve, update, or delete a specific one-time supplier invoice.
+    
+    GET /invoices/one-time-supplier/{id}/
+    - Returns detailed information about a one-time supplier invoice
+    
+    PUT/PATCH /invoices/one-time-supplier/{id}/
+    - Update a one-time supplier invoice (future implementation)
+    
+    DELETE /invoices/one-time-supplier/{id}/
+    - Delete a one-time supplier invoice (if not posted to GL)
+    """
+    invoice = get_object_or_404(
+        OneTimeSupplier.objects.select_related(
+            'invoice',
+            'invoice__currency',
+            'invoice__country'
+        ),
+        pk=pk
+    )
+    
+    if request.method == 'GET':
+        serializer = OneTimeSupplierDetailSerializer(invoice)
+        return Response(serializer.data)
+    
+    elif request.method in ['PUT', 'PATCH']:
+        return Response(
+            {'error': 'Update functionality not yet implemented'},
+            status=status.HTTP_501_NOT_IMPLEMENTED
+        )
+    
+    elif request.method == 'DELETE':
+        journal_entry = invoice.gl_distributions
+        if journal_entry and journal_entry.posted:
+            return Response(
+                {'error': 'Cannot delete invoice with posted journal entry'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            invoice_id = invoice.invoice_id
+            invoice.delete()
+            return Response(
+                {'message': f'One-time supplier invoice {invoice_id} deleted successfully'},
+                status=status.HTTP_204_NO_CONTENT
+            )
+        except Exception as e:
+            return Response(
+                {'error': f'Cannot delete invoice: {str(e)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+@api_view(['POST'])
+def one_time_supplier_invoice_post_to_gl(request, pk):
+    """
+    Post the journal entry to GL (mark as posted).
+    
+    POST /invoices/one-time-supplier/{id}/post-to-gl/
+    
+    Once posted, the journal entry becomes immutable.
+    """
+    invoice = get_object_or_404(OneTimeSupplier, pk=pk)
+    journal_entry = invoice.gl_distributions
+    
+    if not journal_entry:
+        return Response(
+            {'error': 'No journal entry associated with this invoice'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    if journal_entry.posted:
+        return Response(
+            {'message': 'Journal entry is already posted'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    if invoice.approval_status != 'APPROVED':
+        return Response(
+            {'error': 'Invoice must be approved before posting to GL'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    invoice.post_to_gl()
+    
+    return Response({
+        'message': 'Journal entry posted successfully',
+        'journal_entry_id': journal_entry.id,
+        'invoice_id': invoice.invoice_id
+    })
+
+
+@api_view(['POST'])
+def one_time_supplier_invoice_submit_for_approval(request, pk):
+    """
+    Submit a one-time supplier invoice for approval workflow.
+    
+    POST /invoices/one-time-supplier/{id}/submit-for-approval/
+    
+    Starts the approval workflow for the invoice.
+    """
+    invoice = get_object_or_404(OneTimeSupplier, pk=pk)
+    
+    try:
+        workflow_instance = invoice.submit_for_approval()
+        
+        return Response({
+            'message': 'Invoice submitted for approval',
+            'invoice_id': invoice.invoice_id,
+            'workflow_id': workflow_instance.id,
+            'status': workflow_instance.status,
+            'approval_status': invoice.approval_status
+        }, status=status.HTTP_200_OK)
+    except (ValueError, ValidationError) as e:
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    except Exception as e:
+        return Response(
+            {'error': f'An error occurred: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+def one_time_supplier_invoice_pending_approvals(request):
+    """
+    List one-time supplier invoices pending approval for the current user.
+    
+    GET /invoices/one-time-supplier/pending-approvals/
+    
+    Returns only invoices where the current user has an active approval assignment.
+    """
+    from django.contrib.auth import get_user_model
+    from core.approval.managers import ApprovalManager
+    from core.approval.models import ApprovalAssignment
+    from django.contrib.contenttypes.models import ContentType
+    from Finance.Invoice.models import Invoice
+    
+    # Get user from request (use first user if not authenticated for testing)
+    User = get_user_model()
+    user = getattr(request, 'user', None)
+    if not user or not user.is_authenticated:
+        user = User.objects.first()
+    
+    if not user:
+        return Response(
+            {'error': 'No authenticated user'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+    
+    # Use ApprovalManager to get all pending workflows for this user
+    pending_workflows = ApprovalManager.get_user_pending_approvals(user)
+    
+    # Filter to only Invoice content type, then get one-time supplier invoices
+    invoice_content_type = ContentType.objects.get_for_model(Invoice)
+    invoice_workflows = pending_workflows.filter(content_type=invoice_content_type)
+    
+    invoice_ids = [wf.object_id for wf in invoice_workflows]
+    one_time_invoices = OneTimeSupplier.objects.filter(
+        invoice_id__in=invoice_ids
+    ).select_related(
+        'invoice',
+        'invoice__currency',
+        'invoice__country',
+        'one_time_supplier'
+    )
+    
+    # Build response with approval info
+    result = []
+    for ots_invoice in one_time_invoices:
+        workflow = ApprovalManager.get_workflow_instance(ots_invoice.invoice)
+        if workflow:
+            active_stage = workflow.stage_instances.filter(status='active').first()
+            assignment = None
+            
+            if active_stage:
+                assignment = active_stage.assignments.filter(
+                    user=user,
+                    status=ApprovalAssignment.STATUS_PENDING
+                ).first()
+            
+            result.append({
+                'invoice_id': ots_invoice.invoice_id,
+                'supplier_name': ots_invoice.one_time_supplier.name,
+                'date': ots_invoice.date,
+                'total': str(ots_invoice.total),
+                'currency': ots_invoice.currency.code,
+                'approval_status': ots_invoice.approval_status,
+                'workflow_id': workflow.id,
+                'current_stage': active_stage.stage_template.name if active_stage else None,
+                'can_approve': assignment is not None,
+                'can_reject': active_stage.stage_template.allow_reject if active_stage else False,
+                'can_delegate': active_stage.stage_template.allow_delegate if active_stage else False,
+            })
+    
+    return Response(result)
+
+
+@api_view(['POST'])
+def one_time_supplier_invoice_approval_action(request, pk):
+    """
+    Perform an approval action on a one-time supplier invoice.
+    
+    POST /invoices/one-time-supplier/{id}/approval-action/
+    
+    Request body:
+        {
+            "action": "approve" | "reject" | "delegate" | "comment",
+            "comment": "Optional comment",
+            "target_user_id": 123  // Required for delegation
+        }
+    """
+    from django.contrib.auth import get_user_model
+    from core.approval.managers import ApprovalManager
+    
+    invoice = get_object_or_404(OneTimeSupplier, pk=pk)
+    
+    # Get user from request
+    User = get_user_model()
+    user = getattr(request, 'user', None)
+    if not user or not user.is_authenticated:
+        user = User.objects.first()
+    
+    if not user:
+        return Response(
+            {'error': 'No authenticated user'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+    
+    action = request.data.get('action', '').lower()
+    comment = request.data.get('comment', '')
+    target_user_id = request.data.get('target_user_id')
+    
+    if action not in ['approve', 'reject', 'delegate', 'comment']:
+        return Response(
+            {'error': 'Invalid action. Must be approve, reject, delegate, or comment'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Get target user for delegation
+    target_user = None
+    if action == 'delegate':
+        if not target_user_id:
+            return Response(
+                {'error': 'target_user_id required for delegation'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            target_user = User.objects.get(pk=target_user_id)
+        except User.DoesNotExist:
+            return Response(
+                {'error': f'User with id {target_user_id} not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+    
+    try:
+        workflow_instance = ApprovalManager.process_action(
+            invoice.invoice,
+            user=user,
+            action=action,
+            comment=comment,
+            target_user=target_user
+        )
+        
+        invoice.refresh_from_db()
+        
+        return Response({
+            'message': f'Action {action} completed successfully',
+            'invoice_id': invoice.invoice_id,
+            'workflow_id': workflow_instance.id,
+            'workflow_status': workflow_instance.status,
+            'approval_status': invoice.approval_status
+        })
+    except ValueError as e:
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    except Exception as e:
+        return Response(
+            {'error': f'An error occurred: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

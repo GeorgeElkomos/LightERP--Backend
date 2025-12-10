@@ -25,10 +25,10 @@ from rest_framework import status
 from decimal import Decimal
 from datetime import date, timedelta
 
-from Finance.Invoice.models import AR_Invoice, Invoice
+from Finance.Invoice.models import AR_Invoice, Invoice, InvoiceItem
 from Finance.BusinessPartner.models import Customer
 from Finance.core.models import Currency, Country
-from Finance.GL.models import XX_SegmentType as SegmentType, XX_Segment, XX_Segment_combination, JournalEntry
+from Finance.GL.models import XX_SegmentType, XX_Segment, XX_Segment_combination, JournalEntry, JournalLine
 
 
 class ARInvoiceCreateTests(TestCase):
@@ -66,11 +66,11 @@ class ARInvoiceCreateTests(TestCase):
         )
         
         # Create segment types
-        self.segment_type_1 = SegmentType.objects.create(
+        self.segment_type_1 = XX_SegmentType.objects.create(
             segment_name='Company',
             description='Company code'
         )
-        self.segment_type_2 = SegmentType.objects.create(
+        self.segment_type_2 = XX_SegmentType.objects.create(
             segment_name='Account',
             description='Account number'
         )
@@ -416,12 +416,45 @@ class ARInvoiceApproveTests(TestCase):
     
     def setUp(self):
         """Set up test data"""
+        from Finance.Invoice.tests.test_helpers import create_simple_approval_template_for_invoice, get_or_create_test_user
+        
         self.client = APIClient()
+        
+        # Create approval workflow template
+        create_simple_approval_template_for_invoice()
+        
+        # Create test user
+        self.user = get_or_create_test_user('approver1@test.com')
         
         currency = Currency.objects.create(code='USD', name='US Dollar', symbol='$', is_base_currency=True)
         country = Country.objects.create(code='US', name='United States')
         journal_entry = JournalEntry.objects.create(date=date.today(), currency=currency, memo='Test Journal Entry')
         customer = Customer.objects.create(name='Test Customer')
+        
+        # Create segment types and segments for balanced journal entries
+        segment_type_1 = XX_SegmentType.objects.create(segment_name='Company', description='Company')
+        segment_type_2 = XX_SegmentType.objects.create(segment_name='Account', description='Account')
+        segment_100 = XX_Segment.objects.create(segment_type=segment_type_1, code='100', alias='Co 100', node_type='detail')
+        segment_1100 = XX_Segment.objects.create(segment_type=segment_type_2, code='1100', alias='AR', node_type='detail')
+        segment_4000 = XX_Segment.objects.create(segment_type=segment_type_2, code='4000', alias='Revenue', node_type='detail')
+        
+        # Create segment combinations using get_combination_id
+        combination_dr_id = XX_Segment_combination.get_combination_id([
+            (segment_type_1.id, '100'),
+            (segment_type_2.id, '1100')
+        ])
+        combination_cr_id = XX_Segment_combination.get_combination_id([
+            (segment_type_1.id, '100'),
+            (segment_type_2.id, '4000')
+        ])
+        
+        combination_dr = XX_Segment_combination.objects.get(id=combination_dr_id)
+        combination_cr = XX_Segment_combination.objects.get(id=combination_cr_id)
+        
+        JournalLine.objects.create(entry=journal_entry, type='DEBIT',
+                                   segment_combination=combination_dr, amount=Decimal('1000.00'))
+        JournalLine.objects.create(entry=journal_entry, type='CREDIT',
+                                   segment_combination=combination_cr, amount=Decimal('1000.00'))
         
         self.ar_invoice = AR_Invoice.objects.create(
             date=date.today(),
@@ -430,12 +463,25 @@ class ARInvoiceApproveTests(TestCase):
             subtotal=Decimal('1000.00'),
             total=Decimal('1000.00'),
             gl_distributions=journal_entry,
-            customer=customer,
-            approval_status='DRAFT'
+            customer=customer
         )
+        
+        # Create invoice items matching the journal entry total
+        InvoiceItem.objects.create(
+            invoice=self.ar_invoice.invoice,
+            name='Test Item',
+            description='Test Item Description',
+            quantity=Decimal('10.00'),
+            unit_price=Decimal('100.00')
+        )
+        
+        # Submit invoice for approval so it can be approved/rejected
+        self.ar_invoice.submit_for_approval()
     
     def test_approve_ar_invoice(self):
         """Test approving AR invoice"""
+        self.client.force_authenticate(user=self.user)
+        
         url = reverse('finance:invoice:ar-invoice-approve', 
                      kwargs={'pk': self.ar_invoice.invoice_id})
         response = self.client.post(url, {'action': 'APPROVED'}, format='json')
@@ -446,6 +492,8 @@ class ARInvoiceApproveTests(TestCase):
     
     def test_reject_ar_invoice(self):
         """Test rejecting AR invoice"""
+        self.client.force_authenticate(user=self.user)
+        
         url = reverse('finance:invoice:ar-invoice-approve', 
                      kwargs={'pk': self.ar_invoice.invoice_id})
         response = self.client.post(url, {'action': 'REJECTED'}, format='json')
@@ -456,6 +504,8 @@ class ARInvoiceApproveTests(TestCase):
     
     def test_approve_case_insensitive(self):
         """Test action is case insensitive"""
+        self.client.force_authenticate(user=self.user)
+        
         url = reverse('finance:invoice:ar-invoice-approve', 
                      kwargs={'pk': self.ar_invoice.invoice_id})
         response = self.client.post(url, {'action': 'approved'}, format='json')
@@ -470,11 +520,39 @@ class ARInvoicePostToGLTests(TestCase):
     
     def setUp(self):
         """Set up test data"""
+        from Finance.Invoice.tests.test_helpers import create_simple_approval_template_for_invoice, get_or_create_test_user, approve_invoice_for_testing
+        
         self.client = APIClient()
+        
+        # Create approval workflow template
+        create_simple_approval_template_for_invoice()
+        
+        # Create test user
+        self.user = get_or_create_test_user('approver1@test.com')
         
         currency = Currency.objects.create(code='USD', name='US Dollar', symbol='$', is_base_currency=True)
         country = Country.objects.create(code='US', name='United States')
         customer = Customer.objects.create(name='Test Customer')
+        
+        # Create segment types and segments for balanced journal entries
+        segment_type_1 = XX_SegmentType.objects.create(segment_name='Company', description='Company')
+        segment_type_2 = XX_SegmentType.objects.create(segment_name='Account', description='Account')
+        segment_100 = XX_Segment.objects.create(segment_type=segment_type_1, code='100', alias='Co 100', node_type='detail')
+        segment_1100 = XX_Segment.objects.create(segment_type=segment_type_2, code='1100', alias='AR', node_type='detail')
+        segment_4000 = XX_Segment.objects.create(segment_type=segment_type_2, code='4000', alias='Revenue', node_type='detail')
+        
+        # Create segment combinations using get_combination_id
+        combination_dr_id = XX_Segment_combination.get_combination_id([
+            (segment_type_1.id, '100'),
+            (segment_type_2.id, '1100')
+        ])
+        combination_cr_id = XX_Segment_combination.get_combination_id([
+            (segment_type_1.id, '100'),
+            (segment_type_2.id, '4000')
+        ])
+        
+        combination_dr = XX_Segment_combination.objects.get(id=combination_dr_id)
+        combination_cr = XX_Segment_combination.objects.get(id=combination_cr_id)
         
         # Approved invoice with unposted journal
         self.journal = JournalEntry.objects.create(
@@ -483,6 +561,11 @@ class ARInvoicePostToGLTests(TestCase):
             memo='Test',
             posted=False
         )
+        JournalLine.objects.create(entry=self.journal, type='DEBIT',
+                                   segment_combination=combination_dr, amount=Decimal('1000.00'))
+        JournalLine.objects.create(entry=self.journal, type='CREDIT',
+                                   segment_combination=combination_cr, amount=Decimal('1000.00'))
+        
         self.ar_approved = AR_Invoice.objects.create(
             date=date.today(),
             currency=currency,
@@ -490,8 +573,47 @@ class ARInvoicePostToGLTests(TestCase):
             subtotal=Decimal('1000.00'),
             total=Decimal('1000.00'),
             gl_distributions=self.journal,
-            customer=customer,
-            approval_status='APPROVED'
+            customer=customer
+        )
+        # Create invoice items
+        InvoiceItem.objects.create(
+            invoice=self.ar_approved.invoice,
+            name='Test Item',
+            description='Test Item Description',
+            quantity=Decimal('10.00'),
+            unit_price=Decimal('100.00')
+        )
+        # Approve using workflow
+        approve_invoice_for_testing(self.ar_approved, self.user)
+        
+        # Draft invoice (not approved)
+        self.journal2 = JournalEntry.objects.create(
+            date=date.today(),
+            currency=currency,
+            memo='Test Draft',
+            posted=False
+        )
+        JournalLine.objects.create(entry=self.journal2, type='DEBIT',
+                                   segment_combination=combination_dr, amount=Decimal('2000.00'))
+        JournalLine.objects.create(entry=self.journal2, type='CREDIT',
+                                   segment_combination=combination_cr, amount=Decimal('2000.00'))
+        
+        self.ar_draft = AR_Invoice.objects.create(
+            date=date.today(),
+            currency=currency,
+            country=country,
+            subtotal=Decimal('2000.00'),
+            total=Decimal('2000.00'),
+            gl_distributions=self.journal2,
+            customer=customer
+        )
+        # Create invoice items
+        InvoiceItem.objects.create(
+            invoice=self.ar_draft.invoice,
+            name='Test Item',
+            description='Test Item Description',
+            quantity=Decimal('20.00'),
+            unit_price=Decimal('100.00')
         )
     
     def test_post_to_gl_success(self):
@@ -507,11 +629,8 @@ class ARInvoicePostToGLTests(TestCase):
     
     def test_post_to_gl_not_approved(self):
         """Test posting fails for non-approved invoice"""
-        self.ar_approved.approval_status = 'DRAFT'
-        self.ar_approved.save()
-        
         url = reverse('finance:invoice:ar-invoice-post-to-gl', 
-                     kwargs={'pk': self.ar_approved.invoice_id})
+                     kwargs={'pk': self.ar_draft.invoice_id})
         response = self.client.post(url)
         
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

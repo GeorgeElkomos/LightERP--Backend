@@ -69,3 +69,50 @@ class OneTimeSupplier(InvoiceChildModelMixin, models.Model):
     
     def __str__(self):
         return f"One-Time: {self.one_time_supplier.name} - ${self.invoice.total}"
+    
+    # ==================== APPROVAL CONVENIENCE METHODS ====================
+    
+    def submit_for_approval(self):
+        """Submit one-time supplier invoice for approval.
+        
+        Convenience method that delegates to parent Invoice.
+        
+        Returns:
+            ApprovalWorkflowInstance
+        """
+        return self.invoice.submit_for_approval()
+    
+    def approve(self, user, comment=None):
+        """Approve this one-time supplier invoice.
+        
+        Convenience method that delegates to parent Invoice.
+        
+        Args:
+            user: User performing the approval
+            comment: Optional approval comment
+            
+        Returns:
+            ApprovalWorkflowInstance
+        """
+        return self.invoice.approve_by_user(user, comment)
+    
+    def reject(self, user, comment=None):
+        """Reject this one-time supplier invoice.
+        
+        Convenience method that delegates to parent Invoice.
+        
+        Args:
+            user: User performing the rejection
+            comment: Optional rejection reason
+            
+        Returns:
+            ApprovalWorkflowInstance
+        """
+        return self.invoice.reject_by_user(user, comment)
+    
+    # Approval properties
+    @property
+    def approval_status(self):
+        """Get approval status from parent Invoice."""
+        return self.invoice.approval_status
+    

@@ -10,13 +10,15 @@ All operations should be performed through child classes.
 
 from django.db import models
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 from Finance.core.models import Currency, Country
 from Finance.BusinessPartner.models import BusinessPartner
 from Finance.GL.models import JournalEntry
 from Finance.core.base_models import ManagedParentModel, ManagedParentManager
+from core.approval.mixins import ApprovableMixin, ApprovableInterface
 
 
-class Invoice(ManagedParentModel, models.Model):
+class Invoice(ApprovableMixin, ApprovableInterface, ManagedParentModel, models.Model):
     """
     General Invoice - MANAGED BASE CLASS (Interface-like)
     
@@ -37,12 +39,17 @@ class Invoice(ManagedParentModel, models.Model):
         (PAID, "Paid"),
     ]
     
-    # Approval status choices
+    # Approval status choices - Define as constants for easy reference
+    DRAFT = 'DRAFT'
+    PENDING_APPROVAL = 'PENDING_APPROVAL'
+    APPROVED = 'APPROVED'
+    REJECTED = 'REJECTED'
+    
     APPROVAL_STATUSES = [
-        ('DRAFT', 'Draft'),
-        ('PENDING_APPROVAL', 'Pending Approval'),
-        ('APPROVED', 'Approved'),
-        ('REJECTED', 'Rejected'),
+        (DRAFT, 'Draft'),
+        (PENDING_APPROVAL, 'Pending Approval'),
+        (APPROVED, 'Approved'),
+        (REJECTED, 'Rejected'),
     ]
     
     prefix_code = models.CharField(max_length=10, blank=True, null=True)
@@ -75,7 +82,7 @@ class Invoice(ManagedParentModel, models.Model):
     approval_status = models.CharField(
         max_length=20,
         choices=APPROVAL_STATUSES,
-        default='DRAFT',
+        default=DRAFT,
         help_text="Approval workflow status"
     )
     
@@ -84,6 +91,28 @@ class Invoice(ManagedParentModel, models.Model):
         choices=PAYMENT_STATUSES, 
         default=UNPAID,
         help_text="Payment status of the invoice"
+    )
+    
+    # Approval tracking fields
+    submitted_for_approval_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When invoice was submitted for approval"
+    )
+    approved_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When invoice was approved"
+    )
+    rejected_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When invoice was rejected"
+    )
+    rejection_reason = models.TextField(
+        blank=True,
+        default='',
+        help_text="Reason for rejection"
     )
     
     # Financial fields
@@ -337,8 +366,267 @@ class Invoice(ManagedParentModel, models.Model):
         difference = actual - expected
         
         return (is_valid, expected, actual, difference)
+    
+    # ==================== APPROVAL WORKFLOW HELPER METHODS ====================
+    
+    def _get_child(self):
+        """Get the child invoice instance dynamically.
+        
+        This automatically discovers ANY child model with a OneToOneField to Invoice.
+        No need to modify this method when adding new invoice types!
+        
+        Returns:
+            Child instance (AP_Invoice, AR_Invoice, etc.) or None
+        """
+        # Get all OneToOne related objects dynamically
+        for related_object in self._meta.related_objects:
+            # Check if it's a OneToOneField (not ForeignKey)
+            if related_object.one_to_one:
+                # Get the accessor name (e.g., 'ap_invoice', 'ar_invoice')
+                accessor_name = related_object.get_accessor_name()
+                # Check if this instance has that child
+                if hasattr(self, accessor_name):
+                    try:
+                        return getattr(self, accessor_name)
+                    except related_object.related_model.DoesNotExist:
+                        # Child doesn't exist for this invoice
+                        continue
+        return None
+    
+    def _call_child_hook(self, method_name, *args, **kwargs):
+        """Call child-specific hook method if it exists.
+        
+        This is the core of the callback pattern. Parent methods call this
+        to delegate to child-specific implementations.
+        
+        Args:
+            method_name: Name of the child method to call (e.g., 'on_stage_approved_child')
+            *args: Positional arguments to pass to child method
+            **kwargs: Keyword arguments to pass to child method
+        
+        Example:
+            self._call_child_hook('on_stage_approved_child', stage_instance)
+        """
+        child = self._get_child()
+        if child and hasattr(child, method_name):
+            method = getattr(child, method_name)
+            if callable(method):
+                method(*args, **kwargs)
+    
+    # ==================== APPROVAL INTERFACE IMPLEMENTATION ====================
+    
+    def on_approval_started(self, workflow_instance):
+        """Called when approval workflow starts.
+        
+        Parent logic: Update status and timestamp.
+        Then delegates to child for type-specific logic.
+        """
+        # PARENT LOGIC (common to all invoice types)
+        self.approval_status = Invoice.PENDING_APPROVAL
+        self.submitted_for_approval_at = timezone.now()
+        self._allow_direct_save = True
+        self.save(update_fields=['approval_status', 'submitted_for_approval_at'])
+        
+        # DELEGATE TO CHILD (if child has custom logic)
+        self._call_child_hook('on_approval_started_child', workflow_instance)
+    
+    def on_stage_approved(self, stage_instance):
+        """Called when a stage is approved.
+        
+        Parent logic: Log the stage completion.
+        Then delegates to child for type-specific logic.
+        """
+        # PARENT LOGIC
+        stage_name = stage_instance.stage_template.name
+        
+        # DELEGATE TO CHILD
+        self._call_child_hook('on_stage_approved_child', stage_instance)
+    
+    def on_fully_approved(self, workflow_instance):
+        """Called when all stages are approved.
+        
+        Parent logic: Update status and timestamp.
+        Then delegates to child for type-specific business logic.
+        """
+        # PARENT LOGIC
+        self.approval_status = Invoice.APPROVED
+        self.approved_at = timezone.now()
+        self._allow_direct_save = True
+        self.save(update_fields=['approval_status', 'approved_at'])
+        
+        # DELEGATE TO CHILD
+        self._call_child_hook('on_fully_approved_child', workflow_instance)
+    
+    def on_rejected(self, workflow_instance, stage_instance=None):
+        """Called when workflow is rejected.
+        
+        Parent logic: Update status, timestamp, and capture rejection reason.
+        Then delegates to child for type-specific logic.
+        """
+        # PARENT LOGIC
+        self.approval_status = Invoice.REJECTED
+        self.rejected_at = timezone.now()
+        
+        # Get rejection reason from last action
+        if stage_instance:
+            from core.approval.models import ApprovalAction
+            last_action = stage_instance.actions.filter(
+                action=ApprovalAction.ACTION_REJECT
+            ).order_by('-created_at').first()
+            if last_action and last_action.comment:
+                self.rejection_reason = last_action.comment
+        
+        self._allow_direct_save = True
+        self.save(update_fields=['approval_status', 'rejected_at', 'rejection_reason'])
+        
+        # DELEGATE TO CHILD
+        self._call_child_hook('on_rejected_child', workflow_instance, stage_instance)
+    
+    def on_cancelled(self, workflow_instance, reason=None):
+        """Called when workflow is cancelled.
+        
+        Parent logic: Reset to draft state.
+        Then delegates to child for type-specific logic.
+        """
+        # PARENT LOGIC
+        self.approval_status = Invoice.DRAFT
+        self.submitted_for_approval_at = None
+        self.approved_at = None
+        self.rejected_at = None
+        self.rejection_reason = reason or ''
+        self._allow_direct_save = True
+        self.save(update_fields=[
+            'approval_status',
+            'submitted_for_approval_at',
+            'approved_at',
+            'rejected_at',
+            'rejection_reason'
+        ])
+        
+        # DELEGATE TO CHILD
+        self._call_child_hook('on_cancelled_child', workflow_instance, reason)
+    
+    # ==================== APPROVAL CONVENIENCE METHODS ====================
+    
+    def validate_for_submission(self):
+        """Validate if invoice can be submitted for approval.
+        
+        Raises:
+            ValidationError: If invoice cannot be submitted
+        """
+        if self.approval_status not in [Invoice.DRAFT]:
+            raise ValidationError(
+                f"Cannot submit invoice with status '{self.approval_status}'. "
+                "Only DRAFT or REJECTED invoices can be submitted."
+            )
+        
+        # Calculate subtotal from all invoice items
+        from decimal import Decimal
+        subtotal = Decimal('0')
+        for item in self.items.all():
+            item_total = item.quantity * item.unit_price
+            subtotal += item_total
+        
+        # Assign calculated subtotal
+        self.subtotal = subtotal
+        
+        # Calculate tax amount (if tax_amount is not already set)
+        if self.tax_amount is None:
+            self.tax_amount = Decimal('0')
+        
+        # Calculate total (subtotal + tax)
+        self.total = self.subtotal + self.tax_amount
+        
+        if not self.gl_distributions.is_balanced() or self.gl_distributions.get_total_debit() != self.total:
+            raise ValidationError(
+                "GL Distributions must be balanced and match the invoice total."
+            )
+        
+        # Save the calculated values
+        self._allow_direct_save = True
+        self.save(update_fields=['subtotal', 'tax_amount', 'total'])
+    
+    def submit_for_approval(self):
+        """Submit invoice for approval workflow.
+        
+        Returns:
+            ApprovalWorkflowInstance
+            
+        Raises:
+            ValueError: If invoice cannot be submitted
+        """
+        from core.approval.managers import ApprovalManager
+        
+        self.validate_for_submission()
+        
+        return ApprovalManager.start_workflow(self)
+    
+    def approve_by_user(self, user, comment=None):
+        """Approve invoice (by user).
+        
+        Args:
+            user: User performing the approval
+            comment: Optional approval comment
+            
+        Returns:
+            ApprovalWorkflowInstance
+        """
+        from core.approval.managers import ApprovalManager
+        return ApprovalManager.process_action(
+            self, user, 'approve', comment=comment
+        )
+    
+    def reject_by_user(self, user, comment=None):
+        """Reject invoice (by user).
+        
+        Args:
+            user: User performing the rejection
+            comment: Optional rejection reason
+            
+        Returns:
+            ApprovalWorkflowInstance
+        """
+        from core.approval.managers import ApprovalManager
+        return ApprovalManager.process_action(
+            self, user, 'reject', comment=comment
+        )
+    
+    def can_be_approved_by(self, user):
+        """Check if user can approve this invoice.
+        
+        Args:
+            user: User to check
+            
+        Returns:
+            bool: True if user can approve
+        """
+        if not self.has_pending_approval():
+            return False
+        
+        current_approvers = self.get_current_approvers()
+        return user in current_approvers
 
-
+    def can_post_tp_gl(self):
+        """Check if the invoice can post third-party GL entries.
+        
+        Returns:
+            bool: True if invoice is approved and fully paid
+        """
+        return self.approval_status == Invoice.APPROVED
+    
+    def post_to_gl(self):
+        """Post the invoice to the GL system.
+        
+        Raises:
+            ValueError: If invoice cannot post to GL
+        """
+        if not self.can_post_tp_gl():
+            raise ValueError("Invoice must be approved to post to GL.")
+        
+        # Logic to post to GL would go here
+        print(f"Posting Invoice {self.id} to GL.")
+        self.gl_distributions.post()
+        
 class InvoiceItem(models.Model):
     """Invoice Line Item"""
     invoice = models.ForeignKey(Invoice, related_name="items", on_delete=models.CASCADE)
