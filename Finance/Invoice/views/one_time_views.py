@@ -86,13 +86,9 @@ def one_time_supplier_invoice_list(request):
         if serializer.is_valid():
             try:
                 one_time_invoice = serializer.save()
+                response_serializer = OneTimeSupplierDetailSerializer(one_time_invoice)
                 return Response(
-                    {
-                        'id': one_time_invoice.invoice_id,
-                        'supplier_name': one_time_invoice.one_time_supplier.name,
-                        'total': str(one_time_invoice.total),
-                        'message': 'One-time supplier invoice created successfully'
-                    },
+                    response_serializer.data,
                     status=status.HTTP_201_CREATED
                 )
             except ValidationError as e:

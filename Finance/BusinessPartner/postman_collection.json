@@ -1,0 +1,623 @@
+{
+	"info": {
+		"_postman_id": "business-partner-api-collection",
+		"name": "Business Partner API",
+		"description": "Complete Postman collection for Business Partner module endpoints including Customer and Supplier APIs with comprehensive CRUD operations and filters",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Customer",
+			"description": "Customer management endpoints - All operations automatically manage the associated BusinessPartner",
+			"item": [
+				{
+					"name": "List Customers",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/bp/customers/?is_active=&country=&country_code=&name=&email=&phone=&search=",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "bp", "customers", ""],
+							"query": [
+								{
+									"key": "is_active",
+									"value": "",
+									"description": "Filter by active status (true/false)",
+									"disabled": true
+								},
+								{
+									"key": "country",
+									"value": "",
+									"description": "Filter by country ID",
+									"disabled": true
+								},
+								{
+									"key": "country_code",
+									"value": "",
+									"description": "Filter by country code (e.g., US, AE)",
+									"disabled": true
+								},
+								{
+									"key": "name",
+									"value": "",
+									"description": "Filter by name (case-insensitive contains)",
+									"disabled": true
+								},
+								{
+									"key": "email",
+									"value": "",
+									"description": "Filter by email (case-insensitive contains)",
+									"disabled": true
+								},
+								{
+									"key": "phone",
+									"value": "",
+									"description": "Filter by phone (contains)",
+									"disabled": true
+								},
+								{
+									"key": "search",
+									"value": "",
+									"description": "Search across name, email, phone, address, address_in_details",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Retrieve list of all customers with optional filters. Returns lightweight CustomerListSerializer data."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Active Customers",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/bp/customers/active/?country=&country_code=&name=&search=",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "bp", "customers", "active", ""],
+							"query": [
+								{
+									"key": "country",
+									"value": "",
+									"description": "Filter by country ID",
+									"disabled": true
+								},
+								{
+									"key": "country_code",
+									"value": "",
+									"description": "Filter by country code",
+									"disabled": true
+								},
+								{
+									"key": "name",
+									"value": "",
+									"description": "Filter by name (case-insensitive contains)",
+									"disabled": true
+								},
+								{
+									"key": "search",
+									"value": "",
+									"description": "Search across name, email, phone",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Get all active customers only (is_active=true filter pre-applied)"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Customer",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Acme Corporation\",\n  \"email\": \"contact@acme.com\",\n  \"phone\": \"+1-555-1234\",\n  \"country\": 1,\n  \"address\": \"123 Main Street, New York, NY 10001\",\n  \"notes\": \"Important client - handle with priority\",\n  \"is_active\": true,\n  \"address_in_details\": \"Suite 500, Building A, Floor 5\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/bp/customers/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "bp", "customers", ""]
+						},
+						"description": "Create a new customer. Automatically creates associated BusinessPartner.\n\nRequired fields:\n- name (string)\n\nOptional fields:\n- email (email, blank allowed)\n- phone (string, blank allowed)\n- country (integer FK to Country ID)\n- address (text, blank allowed)\n- notes (text, blank allowed)\n- is_active (boolean, default: true)\n- address_in_details (text, blank allowed)"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Customer (Minimal)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Simple Customer\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/bp/customers/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "bp", "customers", ""]
+						},
+						"description": "Create a customer with only required field (name)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Customer Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/bp/customers/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "bp", "customers", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Customer ID"
+								}
+							]
+						},
+						"description": "Retrieve detailed information about a specific customer including all BusinessPartner fields and timestamps"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Customer (PUT)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Acme Corporation Ltd\",\n  \"email\": \"info@acme.com\",\n  \"phone\": \"+1-555-5678\",\n  \"country\": 1,\n  \"address\": \"456 Business Ave, New York, NY 10002\",\n  \"notes\": \"Updated contact information\",\n  \"is_active\": true,\n  \"address_in_details\": \"Suite 600, Building B\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/bp/customers/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "bp", "customers", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Customer ID"
+								}
+							]
+						},
+						"description": "Full update of a customer (all fields should be provided). Updates both Customer and BusinessPartner fields automatically."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Customer (PATCH)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"newemail@acme.com\",\n  \"phone\": \"+1-555-9999\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/bp/customers/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "bp", "customers", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Customer ID"
+								}
+							]
+						},
+						"description": "Partial update of a customer (only modified fields). Updates BusinessPartner fields automatically."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Customer",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/bp/customers/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "bp", "customers", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "3",
+									"description": "Customer ID"
+								}
+							]
+						},
+						"description": "Delete a customer (also deletes associated BusinessPartner if not used elsewhere). Only allowed if not referenced by other models."
+					},
+					"response": []
+				},
+				{
+					"name": "Toggle Customer Active Status",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/bp/customers/:id/toggle-active/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "bp", "customers", ":id", "toggle-active", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Customer ID"
+								}
+							]
+						},
+						"description": "Toggle the active status of a customer (active to inactive or vice versa). No request body needed."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Customer Payment Summary",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/bp/customers/:bp_pk/payment-summary/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "bp", "customers", ":bp_pk", "payment-summary", ""],
+							"variable": [
+								{
+									"key": "bp_pk",
+									"value": "1",
+									"description": "BusinessPartner ID (not Customer ID)"
+								}
+							]
+						},
+						"description": "Get payment summary for a customer (uses BusinessPartner ID). Returns total payments, pending amounts, etc."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Supplier",
+			"description": "Supplier management endpoints - All operations automatically manage the associated BusinessPartner",
+			"item": [
+				{
+					"name": "List Suppliers",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/bp/suppliers/?is_active=&country=&country_code=&name=&email=&phone=&vat_number=&tax_id=&search=",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "bp", "suppliers", ""],
+							"query": [
+								{
+									"key": "is_active",
+									"value": "",
+									"description": "Filter by active status (true/false)",
+									"disabled": true
+								},
+								{
+									"key": "country",
+									"value": "",
+									"description": "Filter by country ID",
+									"disabled": true
+								},
+								{
+									"key": "country_code",
+									"value": "",
+									"description": "Filter by country code (e.g., US, AE)",
+									"disabled": true
+								},
+								{
+									"key": "name",
+									"value": "",
+									"description": "Filter by name (case-insensitive contains)",
+									"disabled": true
+								},
+								{
+									"key": "email",
+									"value": "",
+									"description": "Filter by email (case-insensitive contains)",
+									"disabled": true
+								},
+								{
+									"key": "phone",
+									"value": "",
+									"description": "Filter by phone (contains)",
+									"disabled": true
+								},
+								{
+									"key": "vat_number",
+									"value": "",
+									"description": "Filter by VAT number (contains)",
+									"disabled": true
+								},
+								{
+									"key": "tax_id",
+									"value": "",
+									"description": "Filter by tax ID (contains)",
+									"disabled": true
+								},
+								{
+									"key": "search",
+									"value": "",
+									"description": "Search across name, email, phone, address, vat_number, tax_id, website",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Retrieve list of all suppliers with optional filters. Returns lightweight SupplierListSerializer data."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Active Suppliers",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/bp/suppliers/active/?country=&country_code=&name=&vat_number=&search=",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "bp", "suppliers", "active", ""],
+							"query": [
+								{
+									"key": "country",
+									"value": "",
+									"description": "Filter by country ID",
+									"disabled": true
+								},
+								{
+									"key": "country_code",
+									"value": "",
+									"description": "Filter by country code",
+									"disabled": true
+								},
+								{
+									"key": "name",
+									"value": "",
+									"description": "Filter by name (case-insensitive contains)",
+									"disabled": true
+								},
+								{
+									"key": "vat_number",
+									"value": "",
+									"description": "Filter by VAT number",
+									"disabled": true
+								},
+								{
+									"key": "search",
+									"value": "",
+									"description": "Search across name, email, phone, vat_number",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Get all active suppliers only (is_active=true filter pre-applied)"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Supplier",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Tech Supplies International\",\n  \"email\": \"sales@techsupplies.com\",\n  \"phone\": \"+971-4-123-4567\",\n  \"country\": 1,\n  \"address\": \"Dubai Silicon Oasis, Building 5, Dubai, UAE\",\n  \"notes\": \"Preferred supplier for IT equipment\",\n  \"is_active\": true,\n  \"website\": \"https://techsupplies.com\",\n  \"vat_number\": \"AE123456789012345\",\n  \"tax_id\": \"TAX-987654\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/bp/suppliers/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "bp", "suppliers", ""]
+						},
+						"description": "Create a new supplier. Automatically creates associated BusinessPartner.\n\nRequired fields:\n- name (string)\n\nOptional fields:\n- email (email, blank allowed)\n- phone (string, blank allowed)\n- country (integer FK to Country ID)\n- address (text, blank allowed)\n- notes (text, blank allowed)\n- is_active (boolean, default: true)\n- website (URL, blank allowed)\n- vat_number (string, blank allowed) - VAT/Tax registration number (TRN)\n- tax_id (string, blank allowed) - Alternative tax ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Supplier (Minimal)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Simple Supplier\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/bp/suppliers/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "bp", "suppliers", ""]
+						},
+						"description": "Create a supplier with only required field (name)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Supplier Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/bp/suppliers/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "bp", "suppliers", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Supplier ID"
+								}
+							]
+						},
+						"description": "Retrieve detailed information about a specific supplier including all BusinessPartner fields and timestamps"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Supplier (PUT)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Tech Supplies Global Ltd\",\n  \"email\": \"info@techsupplies.global\",\n  \"phone\": \"+971-4-987-6543\",\n  \"country\": 1,\n  \"address\": \"Dubai Marina, Tower 3, Dubai, UAE\",\n  \"notes\": \"Primary IT supplier - updated details\",\n  \"is_active\": true,\n  \"website\": \"https://techsupplies.global\",\n  \"vat_number\": \"AE987654321098765\",\n  \"tax_id\": \"TAX-123456\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/bp/suppliers/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "bp", "suppliers", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Supplier ID"
+								}
+							]
+						},
+						"description": "Full update of a supplier (all fields should be provided). Updates both Supplier and BusinessPartner fields automatically."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Supplier (PATCH)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"vat_number\": \"AE111222333444555\",\n  \"website\": \"https://newsuppliersite.com\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/bp/suppliers/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "bp", "suppliers", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Supplier ID"
+								}
+							]
+						},
+						"description": "Partial update of a supplier (only modified fields). Updates both Supplier and BusinessPartner fields automatically."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Supplier",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/bp/suppliers/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "bp", "suppliers", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "3",
+									"description": "Supplier ID"
+								}
+							]
+						},
+						"description": "Delete a supplier (also deletes associated BusinessPartner if not used elsewhere). Only allowed if not referenced by other models."
+					},
+					"response": []
+				},
+				{
+					"name": "Toggle Supplier Active Status",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/bp/suppliers/:id/toggle-active/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "bp", "suppliers", ":id", "toggle-active", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Supplier ID"
+								}
+							]
+						},
+						"description": "Toggle the active status of a supplier (active to inactive or vice versa). No request body needed."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Supplier Payment Summary",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/bp/suppliers/:bp_pk/payment-summary/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "bp", "suppliers", ":bp_pk", "payment-summary", ""],
+							"variable": [
+								{
+									"key": "bp_pk",
+									"value": "1",
+									"description": "BusinessPartner ID (not Supplier ID)"
+								}
+							]
+						},
+						"description": "Get payment summary for a supplier (uses BusinessPartner ID). Returns total payments, pending amounts, etc."
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		}
+	]
+}

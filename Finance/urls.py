@@ -8,7 +8,7 @@ app_name = 'finance'
 
 urlpatterns = [
     # Core Finance URLs
-    path('', include('Finance.core.urls')),
+    path('core/', include('Finance.core.urls')),
     
     # General Ledger URLs
     path('gl/', include('Finance.GL.urls')),

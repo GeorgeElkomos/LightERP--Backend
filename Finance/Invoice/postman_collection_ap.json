@@ -1,0 +1,381 @@
+{
+	"info": {
+		"_postman_id": "ap-invoice-api-collection",
+		"name": "AP Invoice API",
+		"description": "Complete Postman collection for Accounts Payable Invoice endpoints with approval workflow, GL integration, and payment tracking",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "AP Invoice",
+			"description": "Accounts Payable Invoice management endpoints with full CRUD, approval workflow, and GL posting",
+			"item": [
+				{
+					"name": "List AP Invoices",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/invoice/ap/?supplier_id=&currency_id=&country_id=&approval_status=&date_from=&date_to=",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "invoice", "ap", ""],
+							"query": [
+								{
+									"key": "supplier_id",
+									"value": "",
+									"description": "Filter by supplier ID",
+									"disabled": true
+								},
+								{
+									"key": "currency_id",
+									"value": "",
+									"description": "Filter by currency ID",
+									"disabled": true
+								},
+								{
+									"key": "country_id",
+									"value": "",
+									"description": "Filter by country ID",
+									"disabled": true
+								},
+								{
+									"key": "approval_status",
+									"value": "",
+									"description": "Filter by approval status (DRAFT/PENDING_APPROVAL/APPROVED/REJECTED)",
+									"disabled": true
+								},
+								{
+									"key": "date_from",
+									"value": "",
+									"description": "Filter by date range start (YYYY-MM-DD)",
+									"disabled": true
+								},
+								{
+									"key": "date_to",
+									"value": "",
+									"description": "Filter by date range end (YYYY-MM-DD)",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Retrieve list of all AP invoices with optional filters. Returns lightweight APInvoiceListSerializer data with supplier info."
+					},
+					"response": []
+				},
+				{
+					"name": "Create AP Invoice",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"date\": \"2025-12-06\",\n  \"currency_id\": 1,\n  \"country_id\": 1,\n  \"supplier_id\": 1,\n  \"tax_amount\": \"100.00\",\n  \"items\": [\n    {\n      \"name\": \"Laptops\",\n      \"description\": \"Dell XPS 15\",\n      \"quantity\": \"10\",\n      \"unit_price\": \"1000.00\"\n    }\n  ],\n  \"journal_entry\": {\n    \"date\": \"2025-12-06\",\n    \"currency_id\": 1,\n    \"memo\": \"IT equipment purchase\",\n    \"lines\": [\n      {\n        \"amount\": \"10100.00\",\n        \"type\": \"DEBIT\",\n        \"segments\": [\n          {\"segment_type_id\": 1, \"segment_code\": \"1110\"},\n          {\"segment_type_id\": 2, \"segment_code\": \"CEO\"}\n        ]\n      },\n      {\n        \"amount\": \"10100.00\",\n        \"type\": \"CREDIT\",\n        \"segments\": [\n          {\"segment_type_id\": 1, \"segment_code\": \"1120\"},\n          {\"segment_type_id\": 2, \"segment_code\": \"CFO\"}\n        ]\n      }\n    ]\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/invoice/ap/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "invoice", "ap", ""]
+						},
+						"description": "Create a new AP invoice with items and GL distribution.\n\nRequired fields:\n- date (YYYY-MM-DD)\n- currency_id (integer)\n- supplier_id (integer)\n- items (array of invoice items)\n- journal_entry (GL distribution)\n\nOptional fields:\n- country_id (integer)\n- subtotal (decimal, auto-calculated from items if not provided)\n- tax_amount (decimal, default: 0.00)\n- total (decimal, auto-calculated if not provided)\n- approval_status (DRAFT/PENDING_APPROVAL/APPROVED/REJECTED, default: DRAFT)\n- payment_status (UNPAID/PARTIALLY_PAID/PAID, default: UNPAID)\n\nEach item requires:\n- name (string)\n- description (string)\n- quantity (decimal)\n- unit_price (decimal)\n\nJournal entry requires:\n- date (YYYY-MM-DD)\n- currency_id (integer)\n- memo (string, optional)\n- lines (array, must be balanced)\n\nEach line requires:\n- amount (decimal)\n- type (DEBIT/CREDIT)\n- segments (array of segment assignments)"
+					},
+					"response": []
+				},
+				{
+					"name": "Create AP Invoice (Multi-Item)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"date\": \"2025-12-08\",\n  \"currency_id\": 1,\n  \"country_id\": 1,\n  \"supplier_id\": 1,\n  \"tax_amount\": \"525.00\",\n  \"items\": [\n    {\n      \"name\": \"Laptops\",\n      \"description\": \"Dell XPS 15\",\n      \"quantity\": \"5\",\n      \"unit_price\": \"1500.00\"\n    },\n    {\n      \"name\": \"Monitors\",\n      \"description\": \"Dell 27-inch 4K\",\n      \"quantity\": \"10\",\n      \"unit_price\": \"500.00\"\n    },\n    {\n      \"name\": \"Keyboards\",\n      \"description\": \"Mechanical RGB\",\n      \"quantity\": \"15\",\n      \"unit_price\": \"100.00\"\n    }\n  ],\n  \"journal_entry\": {\n    \"date\": \"2025-12-08\",\n    \"currency_id\": 1,\n    \"memo\": \"Office equipment purchase - December\",\n    \"lines\": [\n      {\n        \"amount\": \"13025.00\",\n        \"type\": \"DEBIT\",\n        \"segments\": [\n          {\"segment_type_id\": 1, \"segment_code\": \"1110\"},\n          {\"segment_type_id\": 2, \"segment_code\": \"CEO\"}\n        ]\n      },\n      {\n        \"amount\": \"13025.00\",\n        \"type\": \"CREDIT\",\n        \"segments\": [\n          {\"segment_type_id\": 1, \"segment_code\": \"1120\"},\n          {\"segment_type_id\": 2, \"segment_code\": \"CFO\"}\n        ]\n      }\n    ]\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/invoice/ap/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "invoice", "ap", ""]
+						},
+						"description": "Example with multiple invoice items"
+					},
+					"response": []
+				},
+				{
+					"name": "Get AP Invoice Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/invoice/ap/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "invoice", "ap", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "AP Invoice ID"
+								}
+							]
+						},
+						"description": "Retrieve detailed information about a specific AP invoice including:\n- Supplier details\n- Invoice items\n- Journal entry with GL lines\n- Approval and payment status"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete AP Invoice",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/invoice/ap/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "invoice", "ap", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "5",
+									"description": "AP Invoice ID"
+								}
+							]
+						},
+						"description": "Delete an AP invoice. Only allowed if:\n- Journal entry is not posted to GL\n\nIf the journal entry is posted, deletion is blocked to maintain audit trail."
+					},
+					"response": []
+				},
+				{
+					"name": "Post to GL",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/invoice/ap/:id/post-to-gl/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "invoice", "ap", ":id", "post-to-gl", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "AP Invoice ID"
+								}
+							]
+						},
+						"description": "Post the journal entry to General Ledger (mark as posted).\n\nRequirements:\n- Invoice must be APPROVED\n- Journal entry must not already be posted\n\nOnce posted, the journal entry becomes immutable and cannot be modified or deleted."
+					},
+					"response": []
+				},
+				{
+					"name": "Submit for Approval",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/invoice/ap/:id/submit-for-approval/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "invoice", "ap", ":id", "submit-for-approval", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "AP Invoice ID"
+								}
+							]
+						},
+						"description": "Submit an AP invoice for approval workflow.\n\nStarts the approval process which may include multiple stages:\n- Accountant Review\n- Manager Approval\n- Finance Manager Review\n- CFO Final Approval\n\nReturns workflow instance with status and ID."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Pending Approvals",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/invoice/ap/pending-approvals/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "invoice", "ap", "pending-approvals", ""]
+						},
+						"description": "List AP invoices pending approval for the current user.\n\nReturns only invoices where the authenticated user has an active approval assignment.\n\nResponse includes:\n- Invoice details\n- Current approval stage\n- User's approval permissions (can_approve, can_reject, can_delegate)"
+					},
+					"response": []
+				},
+				{
+					"name": "Approve Invoice",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"action\": \"approve\",\n  \"comment\": \"Approved - all documentation verified\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/invoice/ap/:id/approval-action/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "invoice", "ap", ":id", "approval-action", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "AP Invoice ID"
+								}
+							]
+						},
+						"description": "Approve an AP invoice at the current approval stage.\n\nRequest body:\n- action: \"approve\" (or \"approved\")\n- comment: Optional approval comment\n\nUser must have active assignment for current stage."
+					},
+					"response": []
+				},
+				{
+					"name": "Reject Invoice",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"action\": \"reject\",\n  \"comment\": \"Missing supporting documents - please resubmit with complete documentation\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/invoice/ap/:id/approval-action/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "invoice", "ap", ":id", "approval-action", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "AP Invoice ID"
+								}
+							]
+						},
+						"description": "Reject an AP invoice at the current approval stage.\n\nRequest body:\n- action: \"reject\" (or \"rejected\")\n- comment: Required rejection reason\n\nInvoice status will change to REJECTED and workflow will terminate."
+					},
+					"response": []
+				},
+				{
+					"name": "Delegate Approval",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"action\": \"delegate\",\n  \"target_user_id\": 5,\n  \"comment\": \"Delegating to department head for review\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/invoice/ap/:id/approval-action/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "invoice", "ap", ":id", "approval-action", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "AP Invoice ID"
+								}
+							]
+						},
+						"description": "Delegate approval to another user.\n\nRequired fields:\n- action: \"delegate\"\n- target_user_id: ID of user to delegate to\n- comment: Optional delegation note\n\nOnly available if current stage allows delegation."
+					},
+					"response": []
+				},
+				{
+					"name": "Add Comment",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"action\": \"comment\",\n  \"comment\": \"Please verify the supplier VAT number before final approval\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/invoice/ap/:id/approval-action/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "invoice", "ap", ":id", "approval-action", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "AP Invoice ID"
+								}
+							]
+						},
+						"description": "Add a comment to the approval workflow without taking action.\n\nRequest body:\n- action: \"comment\"\n- comment: Comment text\n\nComments are recorded in workflow history."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Invoice Payment Info",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/invoice/ap/:invoice_pk/payments/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "invoice", "ap", ":invoice_pk", "payments", ""],
+							"variable": [
+								{
+									"key": "invoice_pk",
+									"value": "1",
+									"description": "AP Invoice ID"
+								}
+							]
+						},
+						"description": "Get payment information for an invoice including:\n- Total amount\n- Paid amount\n- Remaining amount\n- Payment status\n- List of all payments applied"
+					},
+					"response": []
+				},
+				{
+					"name": "Recalculate Invoice Payments",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/invoice/ap/:invoice_pk/recalculate-payments/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "invoice", "ap", ":invoice_pk", "recalculate-payments", ""],
+							"variable": [
+								{
+									"key": "invoice_pk",
+									"value": "1",
+									"description": "AP Invoice ID"
+								}
+							]
+						},
+						"description": "Recalculate payment amounts for an invoice.\n\nUseful when payment records may be out of sync.\nUpdates:\n- paid_amount\n- payment_status (UNPAID/PARTIALLY_PAID/PAID)"
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		}
+	]
+}

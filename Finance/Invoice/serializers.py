@@ -36,6 +36,16 @@ class SegmentSerializer(serializers.Serializer):
         return SegmentDTO(**self.validated_data)
 
 
+class SegmentCombinationDetailSerializer(serializers.Serializer):
+    """
+    Serializer for displaying segment combination details.
+    Used in journal line responses to show segment types and values
+    instead of just the segment_combination_id.
+    """
+    segment_type_name = serializers.CharField()
+    segment_code = serializers.CharField()
+
+
 class JournalLineSerializer(serializers.Serializer):
     """Serializer for journal line"""
     amount = serializers.DecimalField(max_digits=14, decimal_places=5, min_value=0)
@@ -309,22 +319,37 @@ class APInvoiceDetailSerializer(serializers.ModelSerializer):
     def get_journal_entry(self, obj):
         """Serialize journal entry with lines"""
         je = obj.gl_distributions
-        lines = je.lines.all()
+        lines = je.lines.select_related(
+            'segment_combination'
+        ).prefetch_related(
+            'segment_combination__details__segment_type',
+            'segment_combination__details__segment'
+        ).all()
+        
+        journal_lines = []
+        for line in lines:
+            # Get segment combination details
+            segments = []
+            if line.segment_combination:
+                for detail in line.segment_combination.details.all():
+                    segments.append({
+                        'segment_type_name': detail.segment_type.segment_name,
+                        'segment_code': detail.segment.code
+                    })
+            
+            journal_lines.append({
+                'id': line.id,
+                'amount': line.amount,
+                'type': line.type,
+                'segments': segments
+            })
         
         return {
             'id': je.id,
             'date': je.date,
             'memo': je.memo,
             'posted': je.posted,
-            'lines': [
-                {
-                    'id': line.id,
-                    'amount': line.amount,
-                    'type': line.type,
-                    'segment_combination_id': line.segment_combination_id
-                }
-                for line in lines
-            ]
+            'lines': journal_lines
         }
 
 
@@ -422,6 +447,87 @@ class ARInvoiceListSerializer(serializers.ModelSerializer):
             'approval_status', 'payment_status'
         ]
         read_only_fields = fields
+
+
+class ARInvoiceDetailSerializer(serializers.ModelSerializer):
+    """Detailed serializer for AR invoice with all related data"""
+    
+    # Customer info
+    customer = serializers.SerializerMethodField()
+    
+    # Invoice fields
+    date = serializers.DateField()
+    currency_code = serializers.CharField(source='invoice.currency.code', read_only=True)
+    country_code = serializers.CharField(source='invoice.country.code', read_only=True, allow_null=True)
+    subtotal = serializers.DecimalField(max_digits=14, decimal_places=2)
+    tax_amount = serializers.DecimalField(max_digits=14, decimal_places=2)
+    total = serializers.DecimalField(max_digits=14, decimal_places=2)
+    approval_status = serializers.CharField()
+    payment_status = serializers.CharField()
+    
+    # Nested data
+    items = serializers.SerializerMethodField()
+    journal_entry = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = AR_Invoice
+        fields = [
+            'invoice_id', 'date', 'customer', 
+            'currency_code', 'country_code',
+            'subtotal', 'tax_amount', 'total',
+            'approval_status', 'payment_status',
+            'items', 'journal_entry'
+        ]
+        read_only_fields = fields
+    
+    def get_customer(self, obj):
+        """Serialize customer info"""
+        return {
+            'id': obj.customer.business_partner_id,
+            'name': obj.customer.name,
+            'email': obj.customer.email
+        }
+    
+    def get_items(self, obj):
+        """Serialize invoice items"""
+        items = obj.invoice.items.all()
+        return InvoiceItemSerializer(items, many=True).data
+    
+    def get_journal_entry(self, obj):
+        """Serialize journal entry with lines"""
+        je = obj.gl_distributions
+        lines = je.lines.select_related(
+            'segment_combination'
+        ).prefetch_related(
+            'segment_combination__details__segment_type',
+            'segment_combination__details__segment'
+        ).all()
+        
+        journal_lines = []
+        for line in lines:
+            # Get segment combination details
+            segments = []
+            if line.segment_combination:
+                for detail in line.segment_combination.details.all():
+                    segments.append({
+                        'segment_type_name': detail.segment_type.segment_name,
+                        'segment_code': detail.segment.code
+                    })
+            
+            journal_lines.append({
+                'id': line.id,
+                'amount': line.amount,
+                'type': line.type,
+                'segments': segments
+            })
+        
+        return {
+            'id': je.id,
+            'date': je.date,
+            'memo': je.memo,
+            'posted': je.posted,
+            'lines': journal_lines
+        }
 
 
 # ==================== ONE-TIME SUPPLIER SERIALIZERS ====================
@@ -590,19 +696,37 @@ class OneTimeSupplierDetailSerializer(serializers.ModelSerializer):
             return None
             
         journal = obj.invoice.gl_distributions
-        lines = journal.lines.all()
+        lines = journal.lines.select_related(
+            'segment_combination'
+        ).prefetch_related(
+            'segment_combination__details__segment_type',
+            'segment_combination__details__segment'
+        ).all()
+        
+        journal_lines = []
+        for line in lines:
+            # Get segment combination details
+            segments = []
+            if line.segment_combination:
+                for detail in line.segment_combination.details.all():
+                    segments.append({
+                        'segment_type_name': detail.segment_type.segment_name,
+                        'segment_code': detail.segment.code
+                    })
+            
+            journal_lines.append({
+                'id': line.id,
+                'amount': str(line.amount),
+                'type': line.type,
+                'segments': segments
+            })
         
         return {
             'id': journal.id,
             'date': journal.date,
             'memo': journal.memo,
             'posted': journal.posted,
-            'lines': [{
-                'id': line.id,
-                'amount': str(line.amount),
-                'type': line.type,
-                'combination_id': line.combination_id
-            } for line in lines]
+            'lines': journal_lines
         }
 
 

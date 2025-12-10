@@ -1,0 +1,679 @@
+{
+	"info": {
+		"_postman_id": "gl-segments-api-collection",
+		"name": "GL Segments API",
+		"description": "Complete Postman collection for General Ledger Segments module including Segment Types and Segment Values with comprehensive CRUD operations, hierarchy support, and transaction validation",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Segment Types",
+			"description": "Segment Type management endpoints - Defines segment dimensions like Entity, Account, Project, etc.",
+			"item": [
+				{
+					"name": "List Segment Types",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/gl/segment-types/?is_active=&has_hierarchy=",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "gl", "segment-types", ""],
+							"query": [
+								{
+									"key": "is_active",
+									"value": "",
+									"description": "Filter by active status (true/false)",
+									"disabled": true
+								},
+								{
+									"key": "has_hierarchy",
+									"value": "",
+									"description": "Filter by hierarchy support (true/false)",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Retrieve list of all segment types with values_count. Returns lightweight SegmentTypeListSerializer data."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Segment Type",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"segment_name\": \"Entity\",\n  \"is_required\": true,\n  \"has_hierarchy\": true,\n  \"length\": 10,\n  \"display_order\": 1,\n  \"description\": \"Cost Center / Business Unit\",\n  \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/gl/segment-types/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "gl", "segment-types", ""]
+						},
+						"description": "Create a new segment type.\n\nRequired fields:\n- segment_name (string, unique, max 50 chars)\n\nOptional fields:\n- is_required (boolean, default: true) - Whether required in transactions\n- has_hierarchy (boolean, default: false) - Supports parent-child relationships\n- length (integer, default: 50) - Fixed code length for all values\n- display_order (integer, default: 0) - UI display order (lower = first)\n- description (text, blank allowed) - What this segment represents\n- is_active (boolean, default: true)"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Segment Type (Account)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"segment_name\": \"Account\",\n  \"is_required\": true,\n  \"has_hierarchy\": true,\n  \"length\": 8,\n  \"display_order\": 2,\n  \"description\": \"Chart of Accounts - Natural Account\",\n  \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/gl/segment-types/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "gl", "segment-types", ""]
+						},
+						"description": "Example: Create Account segment type with hierarchy"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Segment Type (Project)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"segment_name\": \"Project\",\n  \"is_required\": false,\n  \"has_hierarchy\": false,\n  \"length\": 15,\n  \"display_order\": 3,\n  \"description\": \"Project Tracking\",\n  \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/gl/segment-types/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "gl", "segment-types", ""]
+						},
+						"description": "Example: Create Project segment type without hierarchy"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Segment Type Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/gl/segment-types/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "gl", "segment-types", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Segment Type ID"
+								}
+							]
+						},
+						"description": "Retrieve detailed information about a specific segment type including can_delete status"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Segment Type (PUT)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"segment_name\": \"Entity\",\n  \"is_required\": true,\n  \"has_hierarchy\": true,\n  \"length\": 12,\n  \"display_order\": 1,\n  \"description\": \"Cost Center / Business Unit - Updated\",\n  \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/gl/segment-types/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "gl", "segment-types", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Segment Type ID"
+								}
+							]
+						},
+						"description": "Full update of a segment type (all fields should be provided)"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Segment Type (PATCH)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"description\": \"Updated description\",\n  \"display_order\": 5\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/gl/segment-types/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "gl", "segment-types", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Segment Type ID"
+								}
+							]
+						},
+						"description": "Partial update of a segment type (only modified fields)"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Segment Type",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/gl/segment-types/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "gl", "segment-types", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "5",
+									"description": "Segment Type ID"
+								}
+							]
+						},
+						"description": "Delete a segment type. Only allowed if:\n- Not used in any transactions\n- Has no segment values\n\nOtherwise, consider marking as inactive."
+					},
+					"response": []
+				},
+				{
+					"name": "Check if Used in Transactions",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/gl/segment-types/:id/is-used-in-transactions/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "gl", "segment-types", ":id", "is-used-in-transactions", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Segment Type ID"
+								}
+							]
+						},
+						"description": "Check if segment type is used in any transactions. Returns usage status and details."
+					},
+					"response": []
+				},
+				{
+					"name": "Check Can Delete",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/gl/segment-types/:id/can-delete/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "gl", "segment-types", ":id", "can-delete", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Segment Type ID"
+								}
+							]
+						},
+						"description": "Check if segment type can be safely deleted. Returns can_delete flag and reason if not."
+					},
+					"response": []
+				},
+				{
+					"name": "Toggle Active Status",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/gl/segment-types/:id/toggle-active/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "gl", "segment-types", ":id", "toggle-active", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Segment Type ID"
+								}
+							]
+						},
+						"description": "Toggle the active status of a segment type (active to inactive or vice versa). No request body needed."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Segment Type Values",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/gl/segment-types/:id/values/?is_active=&node_type=",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "gl", "segment-types", ":id", "values", ""],
+							"query": [
+								{
+									"key": "is_active",
+									"value": "",
+									"description": "Filter by active status (true/false)",
+									"disabled": true
+								},
+								{
+									"key": "node_type",
+									"value": "",
+									"description": "Filter by node type (parent/sub_parent/child)",
+									"disabled": true
+								}
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Segment Type ID"
+								}
+							]
+						},
+						"description": "Get all segment values for a specific segment type with optional filters"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Segments",
+			"description": "Segment Value management endpoints - Actual values like specific entities, accounts, projects, etc.",
+			"item": [
+				{
+					"name": "List Segments",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/gl/segments/?segment_type=&is_active=&node_type=&parent_code=",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "gl", "segments", ""],
+							"query": [
+								{
+									"key": "segment_type",
+									"value": "",
+									"description": "Filter by segment type ID",
+									"disabled": true
+								},
+								{
+									"key": "is_active",
+									"value": "",
+									"description": "Filter by active status (true/false)",
+									"disabled": true
+								},
+								{
+									"key": "node_type",
+									"value": "",
+									"description": "Filter by node type (parent/sub_parent/child)",
+									"disabled": true
+								},
+								{
+									"key": "parent_code",
+									"value": "",
+									"description": "Filter by parent code",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Retrieve list of all segment values with optional filters. Returns lightweight SegmentListSerializer data."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Segment (Parent)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"segment_type\": 1,\n  \"code\": \"1000\",\n  \"parent_code\": null,\n  \"alias\": \"Corporate Headquarters\",\n  \"node_type\": \"parent\",\n  \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/gl/segments/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "gl", "segments", ""]
+						},
+						"description": "Create a new parent segment (root level).\n\nRequired fields:\n- segment_type (integer FK) - Segment Type ID\n- code (string, max 50 chars) - The segment code\n- node_type (string) - One of: parent, sub_parent, child\n\nOptional fields:\n- parent_code (string, blank/null allowed) - Parent segment code for hierarchy\n- alias (string, max 255 chars) - Display name/description\n- is_active (boolean, default: true)\n\nNote: code must be unique within the segment_type"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Segment (Child)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"segment_type\": 1,\n  \"code\": \"1100\",\n  \"parent_code\": \"1000\",\n  \"alias\": \"Sales Department\",\n  \"node_type\": \"child\",\n  \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/gl/segments/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "gl", "segments", ""]
+						},
+						"description": "Create a child segment with parent reference"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Segment (Account Parent)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"segment_type\": 2,\n  \"code\": \"1000\",\n  \"parent_code\": null,\n  \"alias\": \"Assets\",\n  \"node_type\": \"parent\",\n  \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/gl/segments/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "gl", "segments", ""]
+						},
+						"description": "Example: Create parent account segment"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Segment (Account Child)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"segment_type\": 2,\n  \"code\": \"1010\",\n  \"parent_code\": \"1000\",\n  \"alias\": \"Cash and Cash Equivalents\",\n  \"node_type\": \"child\",\n  \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/gl/segments/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "gl", "segments", ""]
+						},
+						"description": "Example: Create child account under Assets"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Segment Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/gl/segments/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "gl", "segments", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Segment ID"
+								}
+							]
+						},
+						"description": "Retrieve detailed information about a specific segment including parent_segment, full_path, and can_delete"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Segment (PUT)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"segment_type\": 1,\n  \"code\": \"1000\",\n  \"parent_code\": null,\n  \"alias\": \"Corporate Headquarters - Updated\",\n  \"node_type\": \"parent\",\n  \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/gl/segments/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "gl", "segments", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Segment ID"
+								}
+							]
+						},
+						"description": "Full update of a segment (all fields should be provided)"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Segment (PATCH)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"alias\": \"Updated Department Name\",\n  \"is_active\": false\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/gl/segments/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "gl", "segments", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Segment ID"
+								}
+							]
+						},
+						"description": "Partial update of a segment (only modified fields)"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Segment",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/gl/segments/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "gl", "segments", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "5",
+									"description": "Segment ID"
+								}
+							]
+						},
+						"description": "Delete a segment. Only allowed if:\n- Not used in any transactions\n- Has no child segments\n\nOtherwise, consider marking as inactive."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Segment Children",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/gl/segments/:id/children/?include_details=false",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "gl", "segments", ":id", "children", ""],
+							"query": [
+								{
+									"key": "include_details",
+									"value": "false",
+									"description": "If true, return full segment objects; if false, return only codes"
+								}
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Segment ID"
+								}
+							]
+						},
+						"description": "Get all descendant segments (children, grandchildren, etc.) recursively.\n\nWith include_details=false (default):\n{\n  \"children_codes\": [\"1100\", \"1200\", ...],\n  \"children_count\": 5\n}\n\nWith include_details=true:\n{\n  \"children\": [{segment1}, {segment2}, ...],\n  \"children_count\": 5\n}"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Segment Children (Detailed)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/gl/segments/:id/children/?include_details=true",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "gl", "segments", ":id", "children", ""],
+							"query": [
+								{
+									"key": "include_details",
+									"value": "true",
+									"description": "Return full segment objects"
+								}
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Segment ID"
+								}
+							]
+						},
+						"description": "Get all descendant segments with full details"
+					},
+					"response": []
+				},
+				{
+					"name": "Check if Used in Transactions",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/gl/segments/:id/is-used-in-transactions/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "gl", "segments", ":id", "is-used-in-transactions", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Segment ID"
+								}
+							]
+						},
+						"description": "Check if segment is used in any transactions. Returns usage status and details."
+					},
+					"response": []
+				},
+				{
+					"name": "Check Can Delete",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/gl/segments/:id/can-delete/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "gl", "segments", ":id", "can-delete", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Segment ID"
+								}
+							]
+						},
+						"description": "Check if segment can be safely deleted. Returns can_delete flag and reason if not."
+					},
+					"response": []
+				},
+				{
+					"name": "Toggle Active Status",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/gl/segments/:id/toggle-active/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "gl", "segments", ":id", "toggle-active", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Segment ID"
+								}
+							]
+						},
+						"description": "Toggle the active status of a segment (active to inactive or vice versa). No request body needed."
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		}
+	]
+}

@@ -21,7 +21,8 @@ from django.core.exceptions import ValidationError
 from Finance.Invoice.models import AR_Invoice
 from Finance.Invoice.serializers import (
     ARInvoiceCreateSerializer, 
-    ARInvoiceListSerializer
+    ARInvoiceListSerializer,
+    ARInvoiceDetailSerializer
 )
 
 
@@ -86,7 +87,7 @@ def ar_invoice_list(request):
         if serializer.is_valid():
             try:
                 ar_invoice = serializer.save()
-                response_serializer = ARInvoiceListSerializer(ar_invoice)
+                response_serializer = ARInvoiceDetailSerializer(ar_invoice)
                 return Response(
                     response_serializer.data,
                     status=status.HTTP_201_CREATED
@@ -130,7 +131,7 @@ def ar_invoice_detail(request, pk):
     )
     
     if request.method == 'GET':
-        serializer = ARInvoiceListSerializer(ar_invoice)
+        serializer = ARInvoiceDetailSerializer(ar_invoice)
         return Response(serializer.data)
     
     elif request.method in ['PUT', 'PATCH']:

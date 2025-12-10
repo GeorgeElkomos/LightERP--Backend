@@ -13,7 +13,6 @@ from django.contrib.contenttypes.models import ContentType
 from .models import (
     ApprovalWorkflowTemplate,
     ApprovalWorkflowStageTemplate,
-    ApprovalWorkflowInstance,
 )
 from .serializers import (
     ApprovalWorkflowTemplateSerializer,
@@ -21,7 +20,6 @@ from .serializers import (
     ApprovalWorkflowTemplateCreateUpdateSerializer,
     ApprovalWorkflowStageTemplateSerializer,
     ApprovalWorkflowStageTemplateListSerializer,
-    ApprovalWorkflowInstanceSerializer,
     ContentTypeSerializer,
 )
 
@@ -336,46 +334,3 @@ def content_types_list(request):
     serializer = ContentTypeSerializer(content_types, many=True)
     return Response(serializer.data)
 
-
-@api_view(['GET'])
-def workflow_instance_detail(request, pk):
-    """
-    Get details of a specific workflow instance.
-    
-    GET /workflow-instances/{id}/
-    - Returns detailed information about a workflow instance
-    - Includes all stage instances, assignments, and actions
-    - Useful for monitoring workflow progress
-    """
-    instance = get_object_or_404(ApprovalWorkflowInstance, pk=pk)
-    serializer = ApprovalWorkflowInstanceSerializer(instance)
-    return Response(serializer.data)
-
-
-@api_view(['GET'])
-def workflow_instances_by_object(request):
-    """
-    Get workflow instances for a specific object.
-    
-    GET /workflow-instances/by-object/
-    - Query params:
-        - content_type: Content type ID (required)
-        - object_id: Object ID (required)
-    - Returns list of all workflow instances for the specified object
-    """
-    content_type_id = request.query_params.get('content_type')
-    object_id = request.query_params.get('object_id')
-    
-    if not content_type_id or not object_id:
-        return Response(
-            {'error': 'Both content_type and object_id are required'},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-    
-    instances = ApprovalWorkflowInstance.objects.filter(
-        content_type_id=content_type_id,
-        object_id=object_id
-    ).order_by('-started_at')
-    
-    serializer = ApprovalWorkflowInstanceSerializer(instances, many=True)
-    return Response(serializer.data)

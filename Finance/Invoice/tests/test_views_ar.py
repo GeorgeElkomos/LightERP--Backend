@@ -154,6 +154,16 @@ class ARInvoiceCreateTests(TestCase):
         
         # Verify journal entry was created
         self.assertIsNotNone(ar_invoice.gl_distributions)
+        
+        # Verify response includes journal_entry with segment details (not segment_combination_id)
+        self.assertIn('journal_entry', response.data)
+        journal_entry = response.data['journal_entry']
+        self.assertIn('lines', journal_entry)
+        
+        # Verify each line has segments instead of segment_combination_id
+        for line in journal_entry['lines']:
+            self.assertNotIn('segment_combination_id', line)
+            self.assertIn('segments', line)
     
     def test_create_ar_invoice_missing_customer(self):
         """Test creation fails with missing customer_id"""
@@ -337,6 +347,19 @@ class ARInvoiceDetailTests(TestCase):
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['invoice_id'], self.ar_invoice.invoice_id)
+        
+        # Verify journal_entry is included
+        self.assertIn('journal_entry', response.data)
+        
+        # Verify journal_entry structure (should NOT have segment_combination_id)
+        journal_entry = response.data['journal_entry']
+        self.assertIn('lines', journal_entry)
+        
+        # Verify lines have segments instead of segment_combination_id
+        if len(journal_entry['lines']) > 0:
+            line = journal_entry['lines'][0]
+            self.assertNotIn('segment_combination_id', line)
+            self.assertIn('segments', line)
     
     def test_get_nonexistent_ar_invoice(self):
         """Test retrieving non-existent invoice returns 404"""

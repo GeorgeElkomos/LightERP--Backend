@@ -19,9 +19,5 @@ urlpatterns = [
     
     # Utility endpoints
     path('content-types/', views.content_types_list, name='content-types-list'),
-    
-    # Workflow Instance monitoring endpoints
-    path('workflow-instances/<int:pk>/', views.workflow_instance_detail, name='workflow-instance-detail'),
-    path('workflow-instances/by-object/', views.workflow_instances_by_object, name='workflow-instances-by-object'),
 ]
 

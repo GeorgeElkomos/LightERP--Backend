@@ -141,14 +141,26 @@ class OneTimeSupplierInvoiceCreateTests(TestCase):
         response = self.client.post(url, self.valid_data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertIn('id', response.data)
+        self.assertIn('invoice_id', response.data)
         self.assertIn('supplier_name', response.data)
         self.assertEqual(response.data['supplier_name'], 'ABC Catering Services')
         
         # Verify invoice was created
-        invoice = OneTimeSupplier.objects.get(invoice_id=response.data['id'])
+        invoice = OneTimeSupplier.objects.get(invoice_id=response.data['invoice_id'])
         self.assertEqual(invoice.one_time_supplier.name, 'ABC Catering Services')
         self.assertEqual(invoice.one_time_supplier.email, 'contact@abccatering.com')
+        
+        # Verify response includes journal_entry with segment details (not segment_combination_id)
+        self.assertIn('journal_entry', response.data)
+        journal_entry = response.data['journal_entry']
+        if journal_entry:  # May be None for some test cases
+            self.assertIn('lines', journal_entry)
+            
+            # Verify each line has segments instead of segment_combination_id or combination_id
+            for line in journal_entry['lines']:
+                self.assertNotIn('segment_combination_id', line)
+                self.assertNotIn('combination_id', line)
+                self.assertIn('segments', line)
     
     def test_create_one_time_invoice_minimal_data(self):
         """Test creation with minimal supplier info (only name required)"""
@@ -164,7 +176,7 @@ class OneTimeSupplierInvoiceCreateTests(TestCase):
         response = self.client.post(url, data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        invoice = OneTimeSupplier.objects.get(invoice_id=response.data['id'])
+        invoice = OneTimeSupplier.objects.get(invoice_id=response.data['invoice_id'])
         self.assertEqual(invoice.one_time_supplier.name, 'Quick Fix Repairs')
         self.assertIn(invoice.one_time_supplier.email, ['', None])  # Optional field
     
@@ -356,6 +368,21 @@ class OneTimeSupplierInvoiceDetailTests(TestCase):
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['supplier_name'], 'Test Vendor')
+        
+        # Verify journal_entry is included
+        self.assertIn('journal_entry', response.data)
+        
+        # Verify journal_entry structure (should NOT have segment_combination_id)
+        journal_entry = response.data['journal_entry']
+        if journal_entry:  # May be None for some test cases
+            self.assertIn('lines', journal_entry)
+            
+            # Verify lines have segments instead of segment_combination_id or combination_id
+            if len(journal_entry['lines']) > 0:
+                line = journal_entry['lines'][0]
+                self.assertNotIn('segment_combination_id', line)
+                self.assertNotIn('combination_id', line)
+                self.assertIn('segments', line)
     
     def test_get_nonexistent_one_time_invoice(self):
         """Test retrieving non-existent invoice returns 404"""

@@ -1,0 +1,639 @@
+{
+	"info": {
+		"_postman_id": "finance-core-api-collection",
+		"name": "Finance Core API",
+		"description": "Complete Postman collection for Finance Core module endpoints including Currency, Country, and TaxRate APIs",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Currency",
+			"description": "Currency management endpoints",
+			"item": [
+				{
+					"name": "List Currencies",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/core/currencies/?is_active=true&is_base_currency=false&code=",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "core", "currencies", ""],
+							"query": [
+								{
+									"key": "is_active",
+									"value": "true",
+									"description": "Filter by active status (true/false)",
+									"disabled": true
+								},
+								{
+									"key": "is_base_currency",
+									"value": "false",
+									"description": "Filter by base currency status (true/false)",
+									"disabled": true
+								},
+								{
+									"key": "code",
+									"value": "",
+									"description": "Filter by currency code (exact match, e.g., USD)",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Retrieve list of all currencies with optional filters"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Currency",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"code\": \"USD\",\n  \"name\": \"US Dollar\",\n  \"symbol\": \"$\",\n  \"is_active\": true,\n  \"is_base_currency\": true,\n  \"exchange_rate_to_base_currency\": \"1.0000\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/core/currencies/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "core", "currencies", ""]
+						},
+						"description": "Create a new currency. Code will be converted to uppercase automatically."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Currency Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/core/currencies/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "core", "currencies", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Currency ID"
+								}
+							]
+						},
+						"description": "Retrieve detailed information about a specific currency"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Currency (PUT)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"code\": \"EUR\",\n  \"name\": \"Euro\",\n  \"symbol\": \"€\",\n  \"is_active\": true,\n  \"is_base_currency\": false,\n  \"exchange_rate_to_base_currency\": \"1.1000\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/core/currencies/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "core", "currencies", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "2",
+									"description": "Currency ID"
+								}
+							]
+						},
+						"description": "Full update of a currency (all fields required)"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Currency (PATCH)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"is_active\": false\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/core/currencies/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "core", "currencies", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "2",
+									"description": "Currency ID"
+								}
+							]
+						},
+						"description": "Partial update of a currency (only modified fields)"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Currency",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/core/currencies/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "core", "currencies", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "3",
+									"description": "Currency ID"
+								}
+							]
+						},
+						"description": "Delete a currency (only if not referenced by other models)"
+					},
+					"response": []
+				},
+				{
+					"name": "Toggle Currency Active Status",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/core/currencies/:id/toggle-active/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "core", "currencies", ":id", "toggle-active", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Currency ID"
+								}
+							]
+						},
+						"description": "Toggle the active status of a currency (active to inactive or vice versa)"
+					},
+					"response": []
+				},
+				{
+					"name": "Convert to Base Currency",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"amount\": \"100.00\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/core/currencies/:id/convert-to-base/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "core", "currencies", ":id", "convert-to-base", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "2",
+									"description": "Currency ID to convert from"
+								}
+							]
+						},
+						"description": "Convert an amount from this currency to the base currency"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Base Currency",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/core/currencies/base/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "core", "currencies", "base", ""]
+						},
+						"description": "Get the currently configured base currency"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Country",
+			"description": "Country management endpoints",
+			"item": [
+				{
+					"name": "List Countries",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/core/countries/?code=&name=",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "core", "countries", ""],
+							"query": [
+								{
+									"key": "code",
+									"value": "",
+									"description": "Filter by country code (exact match, e.g., AE)",
+									"disabled": true
+								},
+								{
+									"key": "name",
+									"value": "",
+									"description": "Filter by country name (case-insensitive contains)",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Retrieve list of all countries with optional filters"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Country",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"code\": \"AE\",\n  \"name\": \"United Arab Emirates\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/core/countries/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "core", "countries", ""]
+						},
+						"description": "Create a new country. Code will be converted to uppercase automatically."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Country Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/core/countries/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "core", "countries", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Country ID"
+								}
+							]
+						},
+						"description": "Retrieve detailed information about a specific country including tax rates count"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Country (PUT)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"code\": \"SA\",\n  \"name\": \"Saudi Arabia\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/core/countries/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "core", "countries", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "2",
+									"description": "Country ID"
+								}
+							]
+						},
+						"description": "Full update of a country (all fields required)"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Country (PATCH)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Kingdom of Saudi Arabia\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/core/countries/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "core", "countries", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "2",
+									"description": "Country ID"
+								}
+							]
+						},
+						"description": "Partial update of a country (only modified fields)"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Country",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/core/countries/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "core", "countries", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "3",
+									"description": "Country ID"
+								}
+							]
+						},
+						"description": "Delete a country (only if not referenced by other models)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Country Tax Rates",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/core/countries/:id/tax-rates/?is_active=&category=",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "core", "countries", ":id", "tax-rates", ""],
+							"query": [
+								{
+									"key": "is_active",
+									"value": "",
+									"description": "Filter by active status (true/false)",
+									"disabled": true
+								},
+								{
+									"key": "category",
+									"value": "",
+									"description": "Filter by category (STANDARD/ZERO/EXEMPT/RC)",
+									"disabled": true
+								}
+							],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Country ID"
+								}
+							]
+						},
+						"description": "Get all tax rates for a specific country with optional filters"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Tax Rate",
+			"description": "Tax Rate management endpoints",
+			"item": [
+				{
+					"name": "List Tax Rates",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/core/tax-rates/?country=&country_code=&category=&is_active=&name=",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "core", "tax-rates", ""],
+							"query": [
+								{
+									"key": "country",
+									"value": "",
+									"description": "Filter by country ID",
+									"disabled": true
+								},
+								{
+									"key": "country_code",
+									"value": "",
+									"description": "Filter by country code (e.g., AE)",
+									"disabled": true
+								},
+								{
+									"key": "category",
+									"value": "",
+									"description": "Filter by category (STANDARD/ZERO/EXEMPT/RC)",
+									"disabled": true
+								},
+								{
+									"key": "is_active",
+									"value": "",
+									"description": "Filter by active status (true/false)",
+									"disabled": true
+								},
+								{
+									"key": "name",
+									"value": "",
+									"description": "Filter by name (case-insensitive contains)",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Retrieve list of all tax rates with optional filters"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Tax Rate",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"UAE VAT Standard\",\n  \"rate\": \"5.00\",\n  \"country\": 1,\n  \"category\": \"STANDARD\",\n  \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/core/tax-rates/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "core", "tax-rates", ""]
+						},
+						"description": "Create a new tax rate. Note: country + category combination must be unique."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Tax Rate Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/core/tax-rates/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "core", "tax-rates", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Tax Rate ID"
+								}
+							]
+						},
+						"description": "Retrieve detailed information about a specific tax rate"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Tax Rate (PUT)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"UAE VAT Zero Rated\",\n  \"rate\": \"0.00\",\n  \"country\": 1,\n  \"category\": \"ZERO\",\n  \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/core/tax-rates/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "core", "tax-rates", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "2",
+									"description": "Tax Rate ID"
+								}
+							]
+						},
+						"description": "Full update of a tax rate (all fields required)"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Tax Rate (PATCH)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"rate\": \"15.00\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/core/tax-rates/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "core", "tax-rates", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "2",
+									"description": "Tax Rate ID"
+								}
+							]
+						},
+						"description": "Partial update of a tax rate (only modified fields)"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Tax Rate",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/core/tax-rates/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "core", "tax-rates", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "3",
+									"description": "Tax Rate ID"
+								}
+							]
+						},
+						"description": "Delete a tax rate (only if not referenced by other models)"
+					},
+					"response": []
+				},
+				{
+					"name": "Toggle Tax Rate Active Status",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/core/tax-rates/:id/toggle-active/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "core", "tax-rates", ":id", "toggle-active", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "Tax Rate ID"
+								}
+							]
+						},
+						"description": "Toggle the active status of a tax rate (active to inactive or vice versa)"
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		}
+	]
+}

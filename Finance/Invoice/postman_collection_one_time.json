@@ -1,0 +1,404 @@
+{
+	"info": {
+		"_postman_id": "one-time-supplier-invoice-api-collection",
+		"name": "One-Time Supplier Invoice API",
+		"description": "Complete Postman collection for One-Time Supplier Invoice endpoints - for ad-hoc suppliers without master data. Includes approval workflow, GL integration, and payment tracking.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "One-Time Supplier Invoice",
+			"description": "One-Time Supplier Invoice management endpoints - for ad-hoc purchases without creating full supplier records. Includes CRUD, approval workflow, and GL posting.",
+			"item": [
+				{
+					"name": "List One-Time Supplier Invoices",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/invoice/one-time-supplier/?supplier_name=&currency_id=&country_id=&approval_status=&date_from=&date_to=",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "invoice", "one-time-supplier", ""],
+							"query": [
+								{
+									"key": "supplier_name",
+									"value": "",
+									"description": "Filter by supplier name (contains search)",
+									"disabled": true
+								},
+								{
+									"key": "currency_id",
+									"value": "",
+									"description": "Filter by currency ID",
+									"disabled": true
+								},
+								{
+									"key": "country_id",
+									"value": "",
+									"description": "Filter by country ID",
+									"disabled": true
+								},
+								{
+									"key": "approval_status",
+									"value": "",
+									"description": "Filter by approval status (DRAFT/PENDING_APPROVAL/APPROVED/REJECTED)",
+									"disabled": true
+								},
+								{
+									"key": "date_from",
+									"value": "",
+									"description": "Filter by date range start (YYYY-MM-DD)",
+									"disabled": true
+								},
+								{
+									"key": "date_to",
+									"value": "",
+									"description": "Filter by date range end (YYYY-MM-DD)",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Retrieve list of all one-time supplier invoices with optional filters. Returns lightweight OneTimeSupplierListSerializer data."
+					},
+					"response": []
+				},
+				{
+					"name": "Create One-Time Invoice (Existing Supplier)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"date\": \"2025-12-10\",\n  \"currency_id\": 1,\n  \"country_id\": 1,\n  \"one_time_supplier_id\": 1,\n  \"tax_amount\": \"50.00\",\n  \"items\": [\n    {\n      \"name\": \"Event Catering\",\n      \"description\": \"Company event catering service\",\n      \"quantity\": \"1\",\n      \"unit_price\": \"2500.00\"\n    }\n  ],\n  \"journal_entry\": {\n    \"date\": \"2025-12-10\",\n    \"currency_id\": 1,\n    \"memo\": \"One-time catering expense\",\n    \"lines\": [\n      {\n        \"amount\": \"2550.00\",\n        \"type\": \"DEBIT\",\n        \"segments\": [\n          {\"segment_type_id\": 1, \"segment_code\": \"5030\"},\n          {\"segment_type_id\": 2, \"segment_code\": \"ADMIN\"}\n        ]\n      },\n      {\n        \"amount\": \"2550.00\",\n        \"type\": \"CREDIT\",\n        \"segments\": [\n          {\"segment_type_id\": 1, \"segment_code\": \"2010\"},\n          {\"segment_type_id\": 2, \"segment_code\": \"ADMIN\"}\n        ]\n      }\n    ]\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/invoice/one-time-supplier/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "invoice", "one-time-supplier", ""]
+						},
+						"description": "Create invoice using an existing one-time supplier record.\n\nRequired fields:\n- date (YYYY-MM-DD)\n- currency_id (integer)\n- one_time_supplier_id (integer) - ID of existing one-time supplier\n- items (array of invoice items)\n- journal_entry (GL distribution)\n\nOptional fields:\n- country_id (integer)\n- subtotal (decimal, auto-calculated from items if not provided)\n- tax_amount (decimal, default: 0.00)\n- total (decimal, auto-calculated if not provided)\n- approval_status (DRAFT/PENDING_APPROVAL/APPROVED/REJECTED, default: DRAFT)\n- payment_status (UNPAID/PARTIALLY_PAID/PAID, default: UNPAID)"
+					},
+					"response": []
+				},
+				{
+					"name": "Create One-Time Invoice (New Supplier)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"date\": \"2025-12-10\",\n  \"currency_id\": 1,\n  \"country_id\": 1,\n  \"supplier_name\": \"Quick Fix Repairs LLC\",\n  \"supplier_email\": \"billing@quickfixrepairs.com\",\n  \"supplier_phone\": \"+1-555-0199\",\n  \"supplier_tax_id\": \"98-7654321\",\n  \"tax_amount\": \"75.00\",\n  \"items\": [\n    {\n      \"name\": \"Emergency Plumbing Repair\",\n      \"description\": \"Office bathroom pipe repair\",\n      \"quantity\": \"1\",\n      \"unit_price\": \"850.00\"\n    },\n    {\n      \"name\": \"Parts\",\n      \"description\": \"Pipe fittings and seals\",\n      \"quantity\": \"1\",\n      \"unit_price\": \"125.00\"\n    }\n  ],\n  \"journal_entry\": {\n    \"date\": \"2025-12-10\",\n    \"currency_id\": 1,\n    \"memo\": \"Emergency office repair - one-time supplier\",\n    \"lines\": [\n      {\n        \"amount\": \"1050.00\",\n        \"type\": \"DEBIT\",\n        \"segments\": [\n          {\"segment_type_id\": 1, \"segment_code\": \"6210\"},\n          {\"segment_type_id\": 2, \"segment_code\": \"FACILITIES\"}\n        ]\n      },\n      {\n        \"amount\": \"1050.00\",\n        \"type\": \"CREDIT\",\n        \"segments\": [\n          {\"segment_type_id\": 1, \"segment_code\": \"2010\"},\n          {\"segment_type_id\": 2, \"segment_code\": \"FACILITIES\"}\n        ]\n      }\n    ]\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/invoice/one-time-supplier/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "invoice", "one-time-supplier", ""]
+						},
+						"description": "Create invoice and automatically create a new one-time supplier record.\n\nRequired fields when creating new supplier:\n- date (YYYY-MM-DD)\n- currency_id (integer)\n- supplier_name (string) - Name of new supplier to create\n- items (array of invoice items)\n- journal_entry (GL distribution)\n\nOptional supplier fields:\n- supplier_email (email)\n- supplier_phone (string)\n- supplier_tax_id (string)\n\nOptional invoice fields:\n- country_id (integer)\n- subtotal (decimal, auto-calculated)\n- tax_amount (decimal, default: 0.00)\n- total (decimal, auto-calculated)\n- approval_status (default: DRAFT)\n- payment_status (default: UNPAID)\n\nNote: Must provide EITHER one_time_supplier_id OR supplier_name"
+					},
+					"response": []
+				},
+				{
+					"name": "Create One-Time Invoice (Multi-Item)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"date\": \"2025-12-10\",\n  \"currency_id\": 1,\n  \"country_id\": 1,\n  \"supplier_name\": \"Local Vendor Solutions\",\n  \"supplier_email\": \"invoice@localvendor.com\",\n  \"supplier_phone\": \"+1-555-0123\",\n  \"supplier_tax_id\": \"12-3456789\",\n  \"tax_amount\": \"180.00\",\n  \"items\": [\n    {\n      \"name\": \"Conference Room Chairs\",\n      \"description\": \"Ergonomic office chairs\",\n      \"quantity\": \"6\",\n      \"unit_price\": \"250.00\"\n    },\n    {\n      \"name\": \"Desk Lamps\",\n      \"description\": \"LED desk lamps\",\n      \"quantity\": \"10\",\n      \"unit_price\": \"45.00\"\n    },\n    {\n      \"name\": \"Shipping & Handling\",\n      \"description\": \"Delivery fee\",\n      \"quantity\": \"1\",\n      \"unit_price\": \"120.00\"\n    }\n  ],\n  \"journal_entry\": {\n    \"date\": \"2025-12-10\",\n    \"currency_id\": 1,\n    \"memo\": \"Office furniture purchase - one-time vendor\",\n    \"lines\": [\n      {\n        \"amount\": \"2250.00\",\n        \"type\": \"DEBIT\",\n        \"segments\": [\n          {\"segment_type_id\": 1, \"segment_code\": \"1610\"},\n          {\"segment_type_id\": 2, \"segment_code\": \"ADMIN\"}\n        ]\n      },\n      {\n        \"amount\": \"2250.00\",\n        \"type\": \"CREDIT\",\n        \"segments\": [\n          {\"segment_type_id\": 1, \"segment_code\": \"2010\"},\n          {\"segment_type_id\": 2, \"segment_code\": \"ADMIN\"}\n        ]\n      }\n    ]\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/invoice/one-time-supplier/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "invoice", "one-time-supplier", ""]
+						},
+						"description": "Example with multiple items and creating a new supplier on-the-fly"
+					},
+					"response": []
+				},
+				{
+					"name": "Get One-Time Invoice Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/invoice/one-time-supplier/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "invoice", "one-time-supplier", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "One-Time Supplier Invoice ID"
+								}
+							]
+						},
+						"description": "Retrieve detailed information about a specific one-time supplier invoice including:\n- Supplier details (name, email, phone, tax_id)\n- Invoice items\n- Journal entry with GL lines\n- Approval and payment status"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete One-Time Invoice",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/invoice/one-time-supplier/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "invoice", "one-time-supplier", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "5",
+									"description": "One-Time Supplier Invoice ID"
+								}
+							]
+						},
+						"description": "Delete a one-time supplier invoice. Only allowed if:\n- Journal entry is not posted to GL\n\nIf the journal entry is posted, deletion is blocked to maintain audit trail."
+					},
+					"response": []
+				},
+				{
+					"name": "Post to GL",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/invoice/one-time-supplier/:id/post-to-gl/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "invoice", "one-time-supplier", ":id", "post-to-gl", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "One-Time Supplier Invoice ID"
+								}
+							]
+						},
+						"description": "Post the journal entry to General Ledger (mark as posted).\n\nRequirements:\n- Invoice must be APPROVED\n- Journal entry must not already be posted\n\nOnce posted, the journal entry becomes immutable and cannot be modified or deleted."
+					},
+					"response": []
+				},
+				{
+					"name": "Submit for Approval",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/invoice/one-time-supplier/:id/submit-for-approval/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "invoice", "one-time-supplier", ":id", "submit-for-approval", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "One-Time Supplier Invoice ID"
+								}
+							]
+						},
+						"description": "Submit a one-time supplier invoice for approval workflow.\n\nStarts the approval process which may include multiple stages:\n- Accountant Review\n- Manager Approval\n- Finance Manager Review\n- CFO Final Approval\n\nReturns workflow instance with status and ID."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Pending Approvals",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/invoice/one-time-supplier/pending-approvals/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "invoice", "one-time-supplier", "pending-approvals", ""]
+						},
+						"description": "List one-time supplier invoices pending approval for the current user.\n\nReturns only invoices where the authenticated user has an active approval assignment.\n\nResponse includes:\n- Invoice details\n- Current approval stage\n- User's approval permissions (can_approve, can_reject, can_delegate)"
+					},
+					"response": []
+				},
+				{
+					"name": "Approve Invoice",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"action\": \"approve\",\n  \"comment\": \"Approved - one-time vendor verified and documentation complete\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/invoice/one-time-supplier/:id/approval-action/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "invoice", "one-time-supplier", ":id", "approval-action", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "One-Time Supplier Invoice ID"
+								}
+							]
+						},
+						"description": "Approve a one-time supplier invoice at the current approval stage.\n\nRequest body:\n- action: \"approve\" (or \"approved\")\n- comment: Optional approval comment\n\nUser must have active assignment for current stage."
+					},
+					"response": []
+				},
+				{
+					"name": "Reject Invoice",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"action\": \"reject\",\n  \"comment\": \"Rejected - insufficient vendor documentation for one-time supplier\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/invoice/one-time-supplier/:id/approval-action/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "invoice", "one-time-supplier", ":id", "approval-action", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "One-Time Supplier Invoice ID"
+								}
+							]
+						},
+						"description": "Reject a one-time supplier invoice at the current approval stage.\n\nRequest body:\n- action: \"reject\" (or \"rejected\")\n- comment: Required rejection reason\n\nInvoice status will change to REJECTED and workflow will terminate."
+					},
+					"response": []
+				},
+				{
+					"name": "Delegate Approval",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"action\": \"delegate\",\n  \"target_user_id\": 5,\n  \"comment\": \"Delegating to procurement manager for vendor verification\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/invoice/one-time-supplier/:id/approval-action/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "invoice", "one-time-supplier", ":id", "approval-action", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "One-Time Supplier Invoice ID"
+								}
+							]
+						},
+						"description": "Delegate approval to another user.\n\nRequired fields:\n- action: \"delegate\"\n- target_user_id: ID of user to delegate to\n- comment: Optional delegation note\n\nOnly available if current stage allows delegation."
+					},
+					"response": []
+				},
+				{
+					"name": "Add Comment",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"action\": \"comment\",\n  \"comment\": \"Please verify supplier tax ID before final approval\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/invoice/one-time-supplier/:id/approval-action/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "invoice", "one-time-supplier", ":id", "approval-action", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1",
+									"description": "One-Time Supplier Invoice ID"
+								}
+							]
+						},
+						"description": "Add a comment to the approval workflow without taking action.\n\nRequest body:\n- action: \"comment\"\n- comment: Comment text\n\nComments are recorded in workflow history."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Invoice Payment Info",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/invoice/one-time-supplier/:invoice_pk/payments/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "invoice", "one-time-supplier", ":invoice_pk", "payments", ""],
+							"variable": [
+								{
+									"key": "invoice_pk",
+									"value": "1",
+									"description": "One-Time Supplier Invoice ID"
+								}
+							]
+						},
+						"description": "Get payment information for an invoice including:\n- Total amount\n- Paid amount\n- Remaining amount\n- Payment status\n- List of all payments applied"
+					},
+					"response": []
+				},
+				{
+					"name": "Recalculate Invoice Payments",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/invoice/one-time-supplier/:invoice_pk/recalculate-payments/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "invoice", "one-time-supplier", ":invoice_pk", "recalculate-payments", ""],
+							"variable": [
+								{
+									"key": "invoice_pk",
+									"value": "1",
+									"description": "One-Time Supplier Invoice ID"
+								}
+							]
+						},
+						"description": "Recalculate payment amounts for an invoice.\n\nUseful when payment records may be out of sync.\nUpdates:\n- paid_amount\n- payment_status (UNPAID/PARTIALLY_PAID/PAID)"
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		}
+	]
+}

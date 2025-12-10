@@ -168,6 +168,24 @@ class APInvoiceCreateTests(TestCase):
         # Verify journal entry was created
         self.assertIsNotNone(ap_invoice.gl_distributions)
         self.assertEqual(ap_invoice.gl_distributions.lines.count(), 2)
+        
+        # Verify response includes journal_entry with segment details (not segment_combination_id)
+        self.assertIn('journal_entry', response.data)
+        journal_entry = response.data['journal_entry']
+        self.assertIn('lines', journal_entry)
+        self.assertEqual(len(journal_entry['lines']), 2)
+        
+        # Verify each line has segments instead of segment_combination_id
+        for line in journal_entry['lines']:
+            self.assertNotIn('segment_combination_id', line)
+            self.assertIn('segments', line)
+            self.assertIsInstance(line['segments'], list)
+            
+            # Verify segment structure
+            if len(line['segments']) > 0:
+                segment = line['segments'][0]
+                self.assertIn('segment_type_name', segment)
+                self.assertIn('segment_code', segment)
     
     def test_create_ap_invoice_missing_supplier(self):
         """Test creation fails with missing supplier_id"""
@@ -381,6 +399,19 @@ class APInvoiceDetailTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['invoice_id'], self.ap_invoice.invoice_id)
         self.assertEqual(response.data['approval_status'], 'DRAFT')
+        
+        # Verify journal_entry is included
+        self.assertIn('journal_entry', response.data)
+        
+        # Verify journal_entry structure (should NOT have segment_combination_id)
+        journal_entry = response.data['journal_entry']
+        self.assertIn('lines', journal_entry)
+        
+        # Verify lines have segments instead of segment_combination_id
+        if len(journal_entry['lines']) > 0:
+            line = journal_entry['lines'][0]
+            self.assertNotIn('segment_combination_id', line)
+            self.assertIn('segments', line)
     
     def test_get_nonexistent_ap_invoice(self):
         """Test retrieving non-existent invoice returns 404"""
