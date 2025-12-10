@@ -69,7 +69,6 @@ class DynamicChildDiscoveryTest(TestCase):
         self.assertIsNotNone(child)
         self.assertEqual(child, ap_invoice)
         self.assertIsInstance(child, AP_Invoice)
-        print(f"✅ Successfully discovered AP_Invoice: {child}")
     
     def test_get_child_discovers_ar_invoice(self):
         """Test that _get_child() discovers AR_Invoice automatically."""
@@ -92,7 +91,6 @@ class DynamicChildDiscoveryTest(TestCase):
         self.assertIsNotNone(child)
         self.assertEqual(child, ar_invoice)
         self.assertIsInstance(child, AR_Invoice)
-        print(f"✅ Successfully discovered AR_Invoice: {child}")
     
     def test_get_child_returns_none_for_orphaned_invoice(self):
         """Test that _get_child() returns None if no child exists."""
@@ -124,7 +122,6 @@ class DynamicChildDiscoveryTest(TestCase):
         child = invoice._get_child()
         
         self.assertIsNone(child)
-        print("✅ Correctly returns None for orphaned invoice")
     
     def test_future_proofing(self):
         """
@@ -134,39 +131,6 @@ class DynamicChildDiscoveryTest(TestCase):
         If you add a new child type (e.g., CreditNote, DebitNote, etc.),
         _get_child() will automatically discover it!
         """
-        print("\n" + "="*70)
-        print("🎯 DYNAMIC DISCOVERY PATTERN EXPLANATION")
-        print("="*70)
-        print()
-        print("How it works:")
-        print("1. _get_child() uses Django's meta API: self._meta.related_objects")
-        print("2. It finds ALL OneToOneField relationships pointing to Invoice")
-        print("3. It checks if this invoice instance has that child")
-        print("4. Returns the first child it finds")
-        print()
-        print("Benefits:")
-        print("✅ No hard-coded child types")
-        print("✅ Automatically discovers new invoice types")
-        print("✅ No need to modify Invoice class when adding children")
-        print()
-        print("Example - Adding a new invoice type:")
-        print()
-        print("class CreditNote(models.Model):")
-        print("    invoice = models.OneToOneField(")
-        print("        Invoice,")
-        print("        on_delete=models.CASCADE,")
-        print("        related_name='credit_note'")
-        print("    )")
-        print("    # ... other fields ...")
-        print()
-        print("    def on_fully_approved_child(self, workflow_instance):")
-        print("        # Credit note specific logic")
-        print("        pass")
-        print()
-        print("That's it! No changes to Invoice class needed! 🚀")
-        print("="*70)
-        print()
-        
         # This test always passes - it's documentation
         self.assertTrue(True)
 
@@ -231,7 +195,6 @@ class CallbackPatternTest(TestCase):
             self.assertEqual(len(call_log), 1)
             self.assertEqual(call_log[0][0], 'on_approval_started_child')
             self.assertEqual(call_log[0][1], 'test_workflow')
-            print("✅ Child hook called successfully via dynamic discovery")
         finally:
             # Restore original method
             ap_invoice.on_approval_started_child = original_method

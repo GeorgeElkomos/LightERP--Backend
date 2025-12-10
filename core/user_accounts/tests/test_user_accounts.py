@@ -930,8 +930,3 @@ class EdgeCaseTest(APITestCase):
         # Verify tables still exist
         self.assertTrue(User.objects.model._meta.db_table)
         self.assertEqual(User.objects.all().count() >= 0, True)
-
-
-print("\n" + "="*80)
-print("USER ACCOUNTS APP - COMPREHENSIVE TEST SUITE")
-print("="*80)

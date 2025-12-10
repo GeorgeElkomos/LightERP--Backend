@@ -623,8 +623,6 @@ class Invoice(ApprovableMixin, ApprovableInterface, ManagedParentModel, models.M
         if not self.can_post_tp_gl():
             raise ValueError("Invoice must be approved to post to GL.")
         
-        # Logic to post to GL would go here
-        print(f"Posting Invoice {self.id} to GL.")
         self.gl_distributions.post()
         
 class InvoiceItem(models.Model):
