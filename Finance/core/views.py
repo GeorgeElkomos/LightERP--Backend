@@ -8,6 +8,8 @@ from rest_framework import status
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ValidationError
 
+from erp_project.pagination import auto_paginate
+
 from .models import Currency, Country, TaxRate
 from .serializers import (
     CurrencySerializer,
@@ -25,6 +27,7 @@ from .serializers import (
 # ============================================================================
 
 @api_view(['GET', 'POST'])
+@auto_paginate
 def currency_list(request):
     """
     List all currencies or create a new currency.
@@ -59,7 +62,7 @@ def currency_list(request):
             currencies = currencies.filter(code__iexact=code)
         
         serializer = CurrencyListSerializer(currencies, many=True)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method == 'POST':
         serializer = CurrencySerializer(data=request.data)
@@ -94,7 +97,7 @@ def currency_detail(request, pk):
     
     if request.method == 'GET':
         serializer = CurrencySerializer(currency)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method in ['PUT', 'PATCH']:
         partial = request.method == 'PATCH'
@@ -102,7 +105,7 @@ def currency_detail(request, pk):
         if serializer.is_valid():
             try:
                 serializer.save()
-                return Response(serializer.data)
+                return Response(serializer.data, status=status.HTTP_200_OK)
             except ValidationError as e:
                 return Response(
                     {'error': str(e.message) if hasattr(e, 'message') else str(e)},
@@ -153,7 +156,7 @@ def currency_toggle_active(request, pk):
         'code': currency.code,
         'name': currency.name,
         'is_active': currency.is_active
-    })
+    }, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
@@ -200,7 +203,7 @@ def currency_convert_to_base(request, pk):
             'base_amount': str(base_amount),
             'base_currency': base_currency.code if base_currency else None,
             'exchange_rate': str(currency.exchange_rate_to_base_currency)
-        })
+        }, status=status.HTTP_200_OK)
     except (ValueError, TypeError) as e:
         return Response(
             {'error': f'Invalid amount: {str(e)}'},
@@ -232,7 +235,7 @@ def currency_get_base(request):
         )
     
     serializer = CurrencySerializer(base_currency)
-    return Response(serializer.data)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 # ============================================================================
@@ -240,6 +243,7 @@ def currency_get_base(request):
 # ============================================================================
 
 @api_view(['GET', 'POST'])
+@auto_paginate
 def country_list(request):
     """
     List all countries or create a new country.
@@ -267,7 +271,7 @@ def country_list(request):
             countries = countries.filter(name__icontains=name)
         
         serializer = CountryListSerializer(countries, many=True)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method == 'POST':
         serializer = CountrySerializer(data=request.data)
@@ -296,14 +300,14 @@ def country_detail(request, pk):
     
     if request.method == 'GET':
         serializer = CountrySerializer(country)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method in ['PUT', 'PATCH']:
         partial = request.method == 'PATCH'
-        serializer = CountrySerializer(country, data=request.data, partial=partial)
+        serializer = TaxRateSerializer(tax_rate, data=request.data, partial=partial)
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data)
+            return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     elif request.method == 'DELETE':
@@ -350,7 +354,7 @@ def country_tax_rates(request, pk):
         tax_rates = tax_rates.filter(category=category.upper())
     
     serializer = TaxRateListSerializer(tax_rates, many=True)
-    return Response(serializer.data)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 # ============================================================================
@@ -358,6 +362,7 @@ def country_tax_rates(request, pk):
 # ============================================================================
 
 @api_view(['GET', 'POST'])
+@auto_paginate
 def tax_rate_list(request):
     """
     List all tax rates or create a new tax rate.
@@ -401,7 +406,7 @@ def tax_rate_list(request):
             tax_rates = tax_rates.filter(name__icontains=name)
         
         serializer = TaxRateListSerializer(tax_rates, many=True)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method == 'POST':
         serializer = TaxRateSerializer(data=request.data)
@@ -436,7 +441,7 @@ def tax_rate_detail(request, pk):
     
     if request.method == 'GET':
         serializer = TaxRateSerializer(tax_rate)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method in ['PUT', 'PATCH']:
         partial = request.method == 'PATCH'
@@ -444,7 +449,7 @@ def tax_rate_detail(request, pk):
         if serializer.is_valid():
             try:
                 serializer.save()
-                return Response(serializer.data)
+                return Response(serializer.data, status=status.HTTP_200_OK)
             except ValidationError as e:
                 return Response(
                     {'error': str(e.message) if hasattr(e, 'message') else str(e)},
@@ -490,4 +495,4 @@ def tax_rate_toggle_active(request, pk):
         'name': tax_rate.name,
         'category': tax_rate.category,
         'is_active': tax_rate.is_active
-    })
+    }, status=status.HTTP_200_OK)

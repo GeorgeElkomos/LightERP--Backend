@@ -10,6 +10,8 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.contrib.contenttypes.models import ContentType
 
+from erp_project.pagination import auto_paginate
+
 from .models import (
     ApprovalWorkflowTemplate,
     ApprovalWorkflowStageTemplate,
@@ -29,6 +31,7 @@ from .serializers import (
 # ============================================================================
 
 @api_view(['GET', 'POST'])
+@auto_paginate
 def workflow_template_list(request):
     """
     List all workflow templates or create a new template.
@@ -63,7 +66,7 @@ def workflow_template_list(request):
             templates = templates.filter(code=code)
         
         serializer = ApprovalWorkflowTemplateListSerializer(templates, many=True)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method == 'POST':
         serializer = ApprovalWorkflowTemplateCreateUpdateSerializer(data=request.data)
@@ -98,7 +101,7 @@ def workflow_template_detail(request, pk):
     
     if request.method == 'GET':
         serializer = ApprovalWorkflowTemplateSerializer(template)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method in ['PUT', 'PATCH']:
         partial = request.method == 'PATCH'
@@ -146,6 +149,7 @@ def workflow_template_detail(request, pk):
 
 
 @api_view(['GET'])
+@auto_paginate
 def workflow_template_stages(request, pk):
     """
     Get all stages for a specific workflow template.
@@ -156,7 +160,7 @@ def workflow_template_stages(request, pk):
     template = get_object_or_404(ApprovalWorkflowTemplate, pk=pk)
     stages = template.stages.all().order_by('order_index')
     serializer = ApprovalWorkflowStageTemplateSerializer(stages, many=True)
-    return Response(serializer.data)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 # ============================================================================
@@ -164,6 +168,7 @@ def workflow_template_stages(request, pk):
 # ============================================================================
 
 @api_view(['GET', 'POST'])
+@auto_paginate
 def stage_template_list(request):
     """
     List all stage templates or create a new stage template.
@@ -197,7 +202,7 @@ def stage_template_list(request):
             stages = stages.filter(allow_delegate=allow_delegate_bool)
         
         serializer = ApprovalWorkflowStageTemplateListSerializer(stages, many=True)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method == 'POST':
         serializer = ApprovalWorkflowStageTemplateSerializer(data=request.data)
@@ -251,7 +256,7 @@ def stage_template_detail(request, pk):
     
     if request.method == 'GET':
         serializer = ApprovalWorkflowStageTemplateSerializer(stage)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method in ['PUT', 'PATCH']:
         partial = request.method == 'PATCH'
@@ -280,7 +285,7 @@ def stage_template_detail(request, pk):
                         )
                 
                 stage = serializer.save()
-                return Response(serializer.data)
+                return Response(serializer.data, status=status.HTTP_200_OK)
             except ValidationError as e:
                 return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -319,6 +324,7 @@ def stage_template_detail(request, pk):
 # ============================================================================
 
 @api_view(['GET'])
+@auto_paginate
 def content_types_list(request):
     """
     List content types that have approval workflows configured.
@@ -332,5 +338,5 @@ def content_types_list(request):
     content_type_ids = ApprovalWorkflowTemplate.objects.values_list('content_type_id', flat=True).distinct()
     content_types = ContentType.objects.filter(id__in=content_type_ids).order_by('app_label', 'model')
     serializer = ContentTypeSerializer(content_types, many=True)
-    return Response(serializer.data)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 

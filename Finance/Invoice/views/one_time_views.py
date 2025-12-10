@@ -18,6 +18,8 @@ from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ValidationError
 
+from erp_project.pagination import auto_paginate
+
 from Finance.Invoice.models import OneTimeSupplier
 from Finance.Invoice.serializers import (
     OneTimeSupplierCreateSerializer, 
@@ -27,6 +29,7 @@ from Finance.Invoice.serializers import (
 
 
 @api_view(['GET', 'POST'])
+@auto_paginate
 def one_time_supplier_invoice_list(request):
     """
     List all one-time supplier invoices or create a new one.
@@ -79,7 +82,7 @@ def one_time_supplier_invoice_list(request):
             invoices = invoices.filter(invoice__date__lte=date_to)
         
         serializer = OneTimeSupplierListSerializer(invoices, many=True)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method == 'POST':
         serializer = OneTimeSupplierCreateSerializer(data=request.data)
@@ -129,7 +132,7 @@ def one_time_supplier_invoice_detail(request, pk):
     
     if request.method == 'GET':
         serializer = OneTimeSupplierDetailSerializer(invoice)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method in ['PUT', 'PATCH']:
         return Response(
@@ -195,7 +198,7 @@ def one_time_supplier_invoice_post_to_gl(request, pk):
         'message': 'Journal entry posted successfully',
         'journal_entry_id': journal_entry.id,
         'invoice_id': invoice.invoice_id
-    })
+    }, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
@@ -232,6 +235,7 @@ def one_time_supplier_invoice_submit_for_approval(request, pk):
 
 
 @api_view(['GET'])
+@auto_paginate
 def one_time_supplier_invoice_pending_approvals(request):
     """
     List one-time supplier invoices pending approval for the current user.

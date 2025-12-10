@@ -9,6 +9,8 @@ from django.shortcuts import get_object_or_404
 from django.core.exceptions import ValidationError
 from django.db.models import Q
 
+from erp_project.pagination import auto_paginate
+
 from .models import Customer, Supplier
 from .serializers import (
     CustomerSerializer,
@@ -23,6 +25,7 @@ from .serializers import (
 # ============================================================================
 
 @api_view(['GET', 'POST'])
+@auto_paginate
 def customer_list(request):
     """
     List all customers or create a new customer.
@@ -86,7 +89,7 @@ def customer_list(request):
             )
         
         serializer = CustomerListSerializer(customers, many=True)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method == 'POST':
         serializer = CustomerSerializer(data=request.data)
@@ -129,7 +132,7 @@ def customer_detail(request, pk):
     
     if request.method == 'GET':
         serializer = CustomerSerializer(customer)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method in ['PUT', 'PATCH']:
         partial = request.method == 'PATCH'
@@ -137,7 +140,7 @@ def customer_detail(request, pk):
         if serializer.is_valid():
             try:
                 serializer.save()
-                return Response(serializer.data)
+                return Response(serializer.data, status=status.HTTP_200_OK)
             except ValidationError as e:
                 return Response(
                     {'error': str(e.message) if hasattr(e, 'message') else str(e)},
@@ -192,10 +195,11 @@ def customer_toggle_active(request, pk):
         'id': customer.id,
         'name': customer.name,
         'is_active': customer.is_active
-    })
+    }, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
+@auto_paginate
 def customer_active_list(request):
     """
     Get all active customers.
@@ -231,7 +235,7 @@ def customer_active_list(request):
         )
     
     serializer = CustomerListSerializer(customers, many=True)
-    return Response(serializer.data)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 # ============================================================================
@@ -239,6 +243,7 @@ def customer_active_list(request):
 # ============================================================================
 
 @api_view(['GET', 'POST'])
+@auto_paginate
 def supplier_list(request):
     """
     List all suppliers or create a new supplier.
@@ -314,7 +319,7 @@ def supplier_list(request):
             )
         
         serializer = SupplierListSerializer(suppliers, many=True)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method == 'POST':
         serializer = SupplierSerializer(data=request.data)
@@ -357,7 +362,7 @@ def supplier_detail(request, pk):
     
     if request.method == 'GET':
         serializer = SupplierSerializer(supplier)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method in ['PUT', 'PATCH']:
         partial = request.method == 'PATCH'
@@ -365,7 +370,7 @@ def supplier_detail(request, pk):
         if serializer.is_valid():
             try:
                 serializer.save()
-                return Response(serializer.data)
+                return Response(serializer.data, status=status.HTTP_200_OK)
             except ValidationError as e:
                 return Response(
                     {'error': str(e.message) if hasattr(e, 'message') else str(e)},
@@ -420,10 +425,11 @@ def supplier_toggle_active(request, pk):
         'id': supplier.id,
         'name': supplier.name,
         'is_active': supplier.is_active
-    })
+    }, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
+@auto_paginate
 def supplier_active_list(request):
     """
     Get all active suppliers.
@@ -464,4 +470,4 @@ def supplier_active_list(request):
         )
     
     serializer = SupplierListSerializer(suppliers, many=True)
-    return Response(serializer.data)
+    return Response(serializer.data, status=status.HTTP_200_OK)

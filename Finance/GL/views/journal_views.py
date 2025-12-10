@@ -9,6 +9,7 @@ from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from decimal import Decimal
+from erp_project.pagination import auto_paginate
 
 from Finance.GL.models import (
     JournalEntry,
@@ -344,6 +345,7 @@ def journal_entry_detail(request, pk):
 
 
 @api_view(['GET'])
+@auto_paginate
 def journal_entry_list(request):
     """
     List all journal entries with optional filtering.

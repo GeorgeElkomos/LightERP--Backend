@@ -7,10 +7,13 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
 
-from Finance.GL.models import GeneralLedger
+from erp_project.pagination import auto_paginate
+
+from Finance.GL.models import GeneralLedger, JournalEntry
 
 
 @api_view(['GET'])
+@auto_paginate
 def general_ledger_list(request):
     """
     List all general ledger entries with optional filtering.

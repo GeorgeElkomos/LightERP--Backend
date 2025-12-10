@@ -8,6 +8,8 @@ from rest_framework import status
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ValidationError
 
+from erp_project.pagination import auto_paginate
+
 from Finance.GL.models import XX_SegmentType, XX_Segment
 from Finance.GL.serializers import (
     SegmentTypeSerializer,
@@ -25,6 +27,7 @@ from Finance.GL.serializers import (
 # ============================================================================
 
 @api_view(['GET', 'POST'])
+@auto_paginate
 def segment_type_list(request):
     """
     List all segment types or create a new segment type.
@@ -54,7 +57,7 @@ def segment_type_list(request):
             segment_types = segment_types.filter(has_hierarchy=has_hierarchy_bool)
         
         serializer = SegmentTypeListSerializer(segment_types, many=True)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method == 'POST':
         serializer = SegmentTypeSerializer(data=request.data)
@@ -83,14 +86,14 @@ def segment_type_detail(request, pk):
     
     if request.method == 'GET':
         serializer = SegmentTypeSerializer(segment_type)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method in ['PUT', 'PATCH']:
         partial = request.method == 'PATCH'
         serializer = SegmentTypeSerializer(segment_type, data=request.data, partial=partial)
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data)
+            return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     elif request.method == 'DELETE':
@@ -127,7 +130,7 @@ def segment_type_is_used_in_transactions(request, pk):
         'is_used': is_used,
         'usage_details': usage_details
     })
-    return Response(serializer.data)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
@@ -157,7 +160,7 @@ def segment_type_can_delete(request, pk):
     return Response({
         'can_delete': can_delete,
         'reason': reason
-    })
+    }, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
@@ -182,7 +185,7 @@ def segment_type_toggle_active(request, pk):
         'id': segment_type.id,
         'segment_name': segment_type.segment_name,
         'is_active': segment_type.is_active
-    })
+    }, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
@@ -210,7 +213,7 @@ def segment_type_values(request, pk):
         segments = segments.filter(node_type=node_type)
     
     serializer = SegmentListSerializer(segments, many=True)
-    return Response(serializer.data)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 # ============================================================================
@@ -218,6 +221,7 @@ def segment_type_values(request, pk):
 # ============================================================================
 
 @api_view(['GET', 'POST'])
+@auto_paginate
 def segment_list(request):
     """
     List all segments or create a new segment.
@@ -256,7 +260,7 @@ def segment_list(request):
             segments = segments.filter(parent_code=parent_code)
         
         serializer = SegmentListSerializer(segments, many=True)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method == 'POST':
         serializer = SegmentSerializer(data=request.data)
@@ -285,14 +289,14 @@ def segment_detail(request, pk):
     
     if request.method == 'GET':
         serializer = SegmentSerializer(segment)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method in ['PUT', 'PATCH']:
         partial = request.method == 'PATCH'
         serializer = SegmentSerializer(segment, data=request.data, partial=partial)
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data)
+            return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     elif request.method == 'DELETE':
@@ -310,6 +314,7 @@ def segment_detail(request, pk):
 
 
 @api_view(['GET'])
+@auto_paginate
 def segment_children(request, pk):
     """
     Get all descendant segments (children, grandchildren, etc.) of a segment.
@@ -347,14 +352,14 @@ def segment_children(request, pk):
         return Response({
             'children': serializer.data,
             'children_count': len(children_codes)
-        })
+        }, status=status.HTTP_200_OK)
     else:
         # Return only codes
         serializer = SegmentChildrenSerializer({
             'children_codes': children_codes,
             'children_count': len(children_codes)
         })
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
@@ -377,7 +382,7 @@ def segment_is_used_in_transactions(request, pk):
         'is_used': is_used,
         'usage_details': usage_details
     })
-    return Response(serializer.data)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
@@ -412,7 +417,7 @@ def segment_can_delete(request, pk):
     return Response({
         'can_delete': can_delete,
         'reason': reason
-    })
+    }, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
@@ -439,4 +444,4 @@ def segment_toggle_active(request, pk):
         'code': segment.code,
         'alias': segment.alias,
         'is_active': segment.is_active
-    })
+    }, status=status.HTTP_200_OK)

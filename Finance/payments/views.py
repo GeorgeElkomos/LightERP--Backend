@@ -19,6 +19,8 @@ from django.core.exceptions import ValidationError
 from django.db.models import Q, Sum
 from decimal import Decimal
 
+from erp_project.pagination import auto_paginate
+
 from Finance.payments.models import Payment, PaymentAllocation
 from Finance.Invoice.models import Invoice
 from Finance.BusinessPartner.models import BusinessPartner
@@ -35,6 +37,7 @@ from Finance.payments.serializers import (
 # ============================================================================
 
 @api_view(['GET', 'POST'])
+@auto_paginate
 def payment_list(request):
     """
     List all payments or create a new payment.
@@ -89,7 +92,7 @@ def payment_list(request):
                 payments = payments.filter(allocations__isnull=True)
         
         serializer = PaymentListSerializer(payments, many=True)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method == 'POST':
         serializer = PaymentCreateSerializer(data=request.data)
@@ -134,7 +137,7 @@ def payment_detail(request, pk):
     
     if request.method == 'GET':
         serializer = PaymentDetailSerializer(payment)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method in ['PUT', 'PATCH']:
         serializer = PaymentUpdateSerializer(payment, data=request.data, partial=(request.method == 'PATCH'))
@@ -163,6 +166,7 @@ def payment_detail(request, pk):
 # ============================================================================
 
 @api_view(['GET', 'POST'])
+@auto_paginate
 def payment_allocations(request, payment_pk):
     """
     List or create allocations for a specific payment.
@@ -179,7 +183,7 @@ def payment_allocations(request, payment_pk):
     if request.method == 'GET':
         allocations = payment.allocations.select_related('invoice').all()
         serializer = PaymentAllocationDetailSerializer(allocations, many=True)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method == 'POST':
         serializer = AllocationCreateSerializer(data=request.data)
@@ -229,7 +233,7 @@ def payment_allocation_detail(request, payment_pk, allocation_pk):
     
     if request.method == 'GET':
         serializer = PaymentAllocationDetailSerializer(allocation)
-        return Response(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method in ['PUT', 'PATCH']:
         serializer = AllocationUpdateSerializer(data=request.data)
@@ -257,6 +261,7 @@ def payment_allocation_detail(request, payment_pk, allocation_pk):
 # ============================================================================
 
 @api_view(['GET'])
+@auto_paginate
 def invoice_payment_info(request, invoice_pk):
     """
     Get payment information for a specific invoice.
@@ -349,6 +354,7 @@ def business_partner_payment_summary(request, bp_pk):
 # ============================================================================
 
 @api_view(['GET'])
+@auto_paginate
 def available_invoices_for_payment(request, payment_pk):
     """
     Get list of invoices that can be allocated to this payment.
@@ -407,7 +413,7 @@ def recalculate_invoice_payments(request, invoice_pk):
         'new_paid_amount': str(new_amount),
         'was_changed': was_changed,
         'message': 'Paid amount recalculated successfully' if was_changed else 'Paid amount was already correct'
-    })
+    }, status=status.HTTP_200_OK)
 
 
 # ============================================================================
@@ -450,7 +456,7 @@ def payment_post_to_gl(request, pk):
             'message': 'Journal entry posted successfully',
             'journal_entry_id': payment.gl_entry.id,
             'payment_id': payment.id
-        })
+        }, status=status.HTTP_200_OK)
     except ValidationError as e:
         return Response(
             {'error': str(e)},
@@ -497,6 +503,7 @@ def payment_submit_for_approval(request, pk):
 
 
 @api_view(['GET'])
+@auto_paginate
 def payment_pending_approvals(request):
     """
     List payments pending approval for the current user.
