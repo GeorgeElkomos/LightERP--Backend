@@ -20,4 +20,8 @@ from django.urls import path, include
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('finance/', include('Finance.urls')),
+    path('core/', include('core.urls')),
+    
+    # Authentication endpoints (register, login, logout, password, tokens)
+    path('auth/', include('core.user_accounts.auth_urls')),
 ]
