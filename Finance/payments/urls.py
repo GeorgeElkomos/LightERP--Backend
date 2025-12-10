@@ -18,4 +18,10 @@ urlpatterns = [
     
     # Utility endpoints
     path('<int:payment_pk>/available-invoices/', views.available_invoices_for_payment, name='payment-available-invoices'),
+    
+    # Approval workflow endpoints
+    path('<int:pk>/submit-for-approval/', views.payment_submit_for_approval, name='payment-submit-for-approval'),
+    path('<int:pk>/approval-action/', views.payment_approval_action, name='payment-approval-action'),
+    path('<int:pk>/post-to-gl/', views.payment_post_to_gl, name='payment-post-to-gl'),
+    path('pending-approvals/', views.payment_pending_approvals, name='payment-pending-approvals'),
 ]

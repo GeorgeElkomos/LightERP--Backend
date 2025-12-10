@@ -1,15 +1,14 @@
 from django.db import models, transaction
-from django.core.exceptions import ValidationError, PermissionDenied
+from django.core.exceptions import ValidationError
 from django.utils import timezone
-from django.db.models.signals import post_save, post_delete, pre_save
-from django.dispatch import receiver
 from decimal import Decimal
-from Finance.core.models import Currency, Country
-from Finance.BusinessPartner.models import BusinessPartner, Customer, Supplier
-from Finance.Invoice.models import Invoice, AP_Invoice, AR_Invoice
+from Finance.core.models import Currency
+from Finance.BusinessPartner.models import BusinessPartner
+from Finance.Invoice.models import Invoice
 from Finance.GL.models import JournalEntry
+from core.approval.mixins import ApprovableMixin, ApprovableInterface
 
-class Payment(models.Model):
+class Payment(ApprovableMixin, ApprovableInterface, models.Model):
     
     # Status choices (shared by all payment types)
     DRAFT = 'DRAFT'
@@ -49,9 +48,31 @@ class Payment(models.Model):
     approval_status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
-        default=DRAFT
+        default=DRAFT,
+        help_text="Approval workflow status"
     )
-    rejection_reason = models.TextField(null=True, blank=True)
+    
+    # Approval tracking fields
+    submitted_for_approval_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When payment was submitted for approval"
+    )
+    approved_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When payment was approved"
+    )
+    rejected_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When payment was rejected"
+    )
+    rejection_reason = models.TextField(
+        blank=True,
+        default='',
+        help_text="Reason for rejection"
+    )
     
     gl_entry = models.ForeignKey(
         JournalEntry,
@@ -200,6 +221,204 @@ class Payment(models.Model):
             allocation.delete()
         
         return count
+    
+    # ==================== APPROVAL WORKFLOW INTERFACE IMPLEMENTATION ====================
+    
+    def on_approval_started(self, workflow_instance):
+        """Called when approval workflow starts.
+        
+        Updates status and timestamp when payment is submitted for approval.
+        
+        Args:
+            workflow_instance: ApprovalWorkflowInstance object
+        """
+        self.approval_status = Payment.PENDING_APPROVAL
+        self.submitted_for_approval_at = timezone.now()
+        self.save(update_fields=['approval_status', 'submitted_for_approval_at'])
+    
+    def on_stage_approved(self, stage_instance):
+        """Called when a stage is approved.
+        
+        Logs the stage completion. Override in subclasses for custom logic.
+        
+        Args:
+            stage_instance: ApprovalWorkflowStageInstance object
+        """
+        stage_name = stage_instance.stage_template.name
+        # Optional: Add logging or notifications here
+        pass
+    
+    def on_fully_approved(self, workflow_instance):
+        """Called when all stages are approved.
+        
+        Updates status, timestamp, and posts GL entries if configured.
+        
+        Args:
+            workflow_instance: ApprovalWorkflowInstance object
+        """
+        self.approval_status = Payment.APPROVED
+        self.approved_at = timezone.now()
+        self.save(update_fields=['approval_status', 'approved_at'])
+        
+        # Post to GL if gl_entry exists
+        if self.gl_entry:
+            try:
+                self.gl_entry.post()
+            except Exception as e:
+                # Log error but don't fail the approval
+                # You may want to handle this differently
+                pass
+    
+    def on_rejected(self, workflow_instance, stage_instance=None):
+        """Called when workflow is rejected.
+        
+        Updates status, timestamp, and captures rejection reason.
+        
+        Args:
+            workflow_instance: ApprovalWorkflowInstance object
+            stage_instance: ApprovalWorkflowStageInstance where rejection occurred (optional)
+        """
+        self.approval_status = Payment.REJECTED
+        self.rejected_at = timezone.now()
+        
+        # Get rejection reason from last action
+        if stage_instance:
+            from core.approval.models import ApprovalAction
+            last_action = stage_instance.actions.filter(
+                action=ApprovalAction.ACTION_REJECT
+            ).order_by('-created_at').first()
+            if last_action and last_action.comment:
+                self.rejection_reason = last_action.comment
+        
+        self.save(update_fields=['approval_status', 'rejected_at', 'rejection_reason'])
+    
+    def on_cancelled(self, workflow_instance, reason=None):
+        """Called when workflow is cancelled.
+        
+        Resets to draft state and clears approval timestamps.
+        
+        Args:
+            workflow_instance: ApprovalWorkflowInstance object
+            reason: String describing why it was cancelled
+        """
+        self.approval_status = Payment.DRAFT
+        self.submitted_for_approval_at = None
+        self.approved_at = None
+        self.rejected_at = None
+        self.rejection_reason = reason or ''
+        self.save(update_fields=[
+            'approval_status',
+            'submitted_for_approval_at',
+            'approved_at',
+            'rejected_at',
+            'rejection_reason'
+        ])
+    
+    # ==================== APPROVAL CONVENIENCE METHODS ====================
+    
+    def validate_for_submission(self):
+        """Validate if payment can be submitted for approval.
+        
+        Raises:
+            ValidationError: If payment cannot be submitted
+        """
+        if self.approval_status not in [Payment.DRAFT, Payment.REJECTED]:
+            raise ValidationError(
+                f"Cannot submit payment with status '{self.approval_status}'. "
+                "Only DRAFT or REJECTED payments can be submitted."
+            )
+        
+        # Validate that payment has at least one allocation
+        if not self.allocations.exists():
+            raise ValidationError(
+                "Payment must have at least one invoice allocation before submission."
+            )
+        
+        # Validate GL entry if exists
+        if self.gl_entry and not self.gl_entry.is_balanced():
+            raise ValidationError(
+                "GL entry must be balanced before submission."
+            )
+    
+    def submit_for_approval(self):
+        """Submit payment for approval workflow.
+        
+        Returns:
+            ApprovalWorkflowInstance
+            
+        Raises:
+            ValidationError: If payment cannot be submitted
+        """
+        from core.approval.managers import ApprovalManager
+        
+        self.validate_for_submission()
+        
+        return ApprovalManager.start_workflow(self)
+    
+    def approve_by_user(self, user, comment=None):
+        """Approve payment (by user).
+        
+        Args:
+            user: User performing the approval
+            comment: Optional approval comment
+            
+        Returns:
+            ApprovalWorkflowInstance
+        """
+        from core.approval.managers import ApprovalManager
+        return ApprovalManager.process_action(
+            self, user, 'approve', comment=comment
+        )
+    
+    def reject_by_user(self, user, comment=None):
+        """Reject payment (by user).
+        
+        Args:
+            user: User performing the rejection
+            comment: Optional rejection reason
+            
+        Returns:
+            ApprovalWorkflowInstance
+        """
+        from core.approval.managers import ApprovalManager
+        return ApprovalManager.process_action(
+            self, user, 'reject', comment=comment
+        )
+    
+    def can_be_approved_by(self, user):
+        """Check if user can approve this payment.
+        
+        Args:
+            user: User to check
+            
+        Returns:
+            bool: True if user can approve
+        """
+        if not self.has_pending_approval():
+            return False
+        
+        current_approvers = self.get_current_approvers()
+        return user in current_approvers
+    
+    def can_post_to_gl(self):
+        """Check if the payment can post GL entries.
+        
+        Returns:
+            bool: True if payment is approved and has GL entry
+        """
+        return self.approval_status == Payment.APPROVED and self.gl_entry is not None
+    
+    def post_to_gl(self):
+        """Post the payment to the GL system.
+        
+        Raises:
+            ValueError: If payment cannot post to GL
+        """
+        if not self.can_post_to_gl():
+            raise ValueError("Payment must be approved and have a GL entry to post to GL.")
+        
+        self.gl_entry.post()
+
 
 class PaymentAllocation(models.Model):
     """
@@ -428,32 +647,3 @@ class PaymentAllocation(models.Model):
         invoice.refresh_from_db()
         invoice.refund(amount_to_reverse)
 
-
-# ==================== SIGNAL HANDLERS ====================
-
-# NOTE: Signal handler disabled because PaymentAllocation.save() already handles
-# invoice.paid_amount synchronization correctly. Having both causes double-updates.
-# 
-# @receiver(post_save, sender=PaymentAllocation)
-# def sync_invoice_paid_amount_on_save(sender, instance, created, **kwargs):
-#     """
-#     Signal handler to ensure invoice paid_amount is synced when allocation is saved.
-#     This is a backup to the save() method logic.
-#     """
-#     print(f"DEBUG signal: post_save fired, created={created}")
-#     # The save() method already handles this, but we keep this as a safety net
-#     # Only recalculate if we detect inconsistency
-#     if not created:  # Only for updates, creation is handled in save()
-#         expected_paid = PaymentAllocation.objects.filter(
-#             invoice=instance.invoice
-#         ).aggregate(total=models.Sum('amount_allocated'))['total'] or Decimal('0')
-#         
-#         print(f"DEBUG signal: invoice.paid_amount={instance.invoice.paid_amount}, expected_paid={expected_paid}")
-#         
-#         if instance.invoice.paid_amount != expected_paid:
-#             # Fix inconsistency
-#             print(f"DEBUG signal: INCONSISTENCY DETECTED! Fixing from {instance.invoice.paid_amount} to {expected_paid}")
-#             instance.invoice.paid_amount = expected_paid
-#             instance.invoice.update_payment_status()
-#             instance.invoice._allow_direct_save = True
-#             instance.invoice.save(update_fields=['paid_amount', 'payment_status'])

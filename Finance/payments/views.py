@@ -407,3 +407,271 @@ def recalculate_invoice_payments(request, invoice_pk):
         'was_changed': was_changed,
         'message': 'Paid amount recalculated successfully' if was_changed else 'Paid amount was already correct'
     })
+
+
+# ============================================================================
+# Payment Approval Workflow Views
+# ============================================================================
+
+@api_view(['POST'])
+def payment_post_to_gl(request, pk):
+    """
+    Post the journal entry to GL (mark as posted).
+    
+    POST /payments/{id}/post-to-gl/
+    
+    Once posted, the journal entry becomes immutable.
+    """
+    payment = get_object_or_404(Payment, pk=pk)
+    
+    if not payment.gl_entry:
+        return Response(
+            {'error': 'No journal entry associated with this payment'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    if payment.gl_entry.posted:
+        return Response(
+            {'message': 'Journal entry is already posted'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    if payment.approval_status != 'APPROVED':
+        return Response(
+            {'error': 'Payment must be approved before posting to GL'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        payment.post_to_gl()
+        
+        return Response({
+            'message': 'Journal entry posted successfully',
+            'journal_entry_id': payment.gl_entry.id,
+            'payment_id': payment.id
+        })
+    except ValidationError as e:
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    except Exception as e:
+        return Response(
+            {'error': f'An error occurred: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+def payment_submit_for_approval(request, pk):
+    """
+    Submit a payment for approval workflow.
+    
+    POST /payments/{id}/submit-for-approval/
+    
+    Starts the approval workflow for the payment.
+    """
+    payment = get_object_or_404(Payment, pk=pk)
+    
+    try:
+        workflow_instance = payment.submit_for_approval()
+        
+        return Response({
+            'message': 'Payment submitted for approval',
+            'payment_id': payment.id,
+            'workflow_id': workflow_instance.id,
+            'status': workflow_instance.status,
+            'approval_status': payment.approval_status
+        }, status=status.HTTP_200_OK)
+    except (ValueError, ValidationError) as e:
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    except Exception as e:
+        return Response(
+            {'error': f'An error occurred: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+def payment_pending_approvals(request):
+    """
+    List payments pending approval for the current user.
+    
+    GET /payments/pending-approvals/
+    
+    Returns only payments where the current user has an active approval assignment.
+    """
+    from django.contrib.auth import get_user_model
+    from core.approval.managers import ApprovalManager
+    from core.approval.models import ApprovalAssignment
+    from django.contrib.contenttypes.models import ContentType
+    
+    # Get user from request (use first user if not authenticated for testing)
+    User = get_user_model()
+    user = getattr(request, 'user', None)
+    if not user or not user.is_authenticated:
+        user = User.objects.first()
+    
+    if not user:
+        return Response(
+            {'error': 'No authenticated user'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+    
+    # Use ApprovalManager to get all pending workflows for this user
+    pending_workflows = ApprovalManager.get_user_pending_approvals(user)
+    
+    # Filter to only Payment content type
+    payment_content_type = ContentType.objects.get_for_model(Payment)
+    payment_workflows = pending_workflows.filter(content_type=payment_content_type)
+    
+    payment_ids = [wf.object_id for wf in payment_workflows]
+    payments = Payment.objects.filter(
+        id__in=payment_ids
+    ).select_related(
+        'business_partner',
+        'currency'
+    )
+    
+    # Build response with approval info
+    result = []
+    for payment in payments:
+        workflow = ApprovalManager.get_workflow_instance(payment)
+        if workflow:
+            active_stage = workflow.stage_instances.filter(status='active').first()
+            assignment = None
+            
+            if active_stage:
+                assignment = active_stage.assignments.filter(
+                    user=user,
+                    status=ApprovalAssignment.STATUS_PENDING
+                ).first()
+            
+            result.append({
+                'payment_id': payment.id,
+                'business_partner_name': payment.business_partner.name,
+                'date': payment.date,
+                'amount': str(payment.get_total_allocated()),
+                'currency': payment.currency.code,
+                'approval_status': payment.approval_status,
+                'workflow_id': workflow.id,
+                'current_stage': active_stage.stage_template.name if active_stage else None,
+                'can_approve': assignment is not None,
+                'can_reject': active_stage.stage_template.allow_reject if active_stage else False,
+                'can_delegate': active_stage.stage_template.allow_delegate if active_stage else False,
+            })
+    
+    return Response(result)
+
+
+@api_view(['POST'])
+def payment_approval_action(request, pk):
+    """
+    Perform an approval action on a payment.
+    
+    POST /payments/{id}/approval-action/
+    
+    Request body:
+        {
+            "action": "approve" | "reject" | "delegate" | "comment",
+            "comment": "Optional comment",
+            "target_user_id": 123  // Required for delegation
+        }
+    """
+    from django.contrib.auth import get_user_model
+    from core.approval.managers import ApprovalManager
+    
+    payment = get_object_or_404(Payment, pk=pk)
+    
+    # Get user from request
+    User = get_user_model()
+    user = getattr(request, 'user', None)
+    if not user or not user.is_authenticated:
+        user = User.objects.first()
+    
+    if not user:
+        return Response(
+            {'error': 'No authenticated user'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+    
+    action = request.data.get('action', 'approve').lower()  # Default to 'approve'
+    comment = request.data.get('comment', '')
+    target_user_id = request.data.get('target_user_id')
+    
+    # Map status values to workflow actions
+    action_mapping = {
+        'approved': 'approve',
+        'rejected': 'reject',
+        'approve': 'approve',
+        'reject': 'reject',
+        'delegate': 'delegate',
+        'comment': 'comment'
+    }
+    
+    action = action_mapping.get(action)
+    if not action:
+        return Response(
+            {'error': 'Invalid action. Must be approve, reject, delegate, or comment'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Get target user for delegation
+    target_user = None
+    if action == 'delegate':
+        if not target_user_id:
+            return Response(
+                {'error': 'target_user_id required for delegation'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            target_user = User.objects.get(pk=target_user_id)
+        except User.DoesNotExist:
+            return Response(
+                {'error': f'User with id {target_user_id} not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+    
+    try:
+        # Check if payment is already approved or rejected
+        if payment.approval_status == 'APPROVED' and action == 'approve':
+            return Response(
+                {'error': 'Payment is already approved'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        elif payment.approval_status == 'REJECTED' and action == 'reject':
+            return Response(
+                {'error': 'Payment is already rejected'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        workflow_instance = ApprovalManager.process_action(
+            payment,
+            user=user,
+            action=action,
+            comment=comment,
+            target_user=target_user
+        )
+        
+        payment.refresh_from_db()
+        
+        return Response({
+            'message': f'Action {action} completed successfully',
+            'payment_id': payment.id,
+            'workflow_id': workflow_instance.id,
+            'workflow_status': workflow_instance.status,
+            'approval_status': payment.approval_status
+        })
+    except ValueError as e:
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    except Exception as e:
+        return Response(
+            {'error': f'An error occurred: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
