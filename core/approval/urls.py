@@ -8,10 +8,20 @@ from . import views
 app_name = 'approval'
 
 urlpatterns = [
-    # Add your approval-related URL patterns here
-    # Example:
-    # path('', views.approval_list, name='approval-list'),
-    # path('<int:pk>/', views.approval_detail, name='approval-detail'),
-    # path('<int:pk>/approve/', views.approve, name='approve'),
-    # path('<int:pk>/reject/', views.reject, name='reject'),
+    # Workflow Template endpoints
+    path('workflow-templates/', views.workflow_template_list, name='workflow-template-list'),
+    path('workflow-templates/<int:pk>/', views.workflow_template_detail, name='workflow-template-detail'),
+    path('workflow-templates/<int:pk>/stages/', views.workflow_template_stages, name='workflow-template-stages'),
+    
+    # Stage Template endpoints
+    path('stage-templates/', views.stage_template_list, name='stage-template-list'),
+    path('stage-templates/<int:pk>/', views.stage_template_detail, name='stage-template-detail'),
+    
+    # Utility endpoints
+    path('content-types/', views.content_types_list, name='content-types-list'),
+    
+    # Workflow Instance monitoring endpoints
+    path('workflow-instances/<int:pk>/', views.workflow_instance_detail, name='workflow-instance-detail'),
+    path('workflow-instances/by-object/', views.workflow_instances_by_object, name='workflow-instances-by-object'),
 ]
+
