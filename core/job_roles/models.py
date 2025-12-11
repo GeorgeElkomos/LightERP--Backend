@@ -212,7 +212,7 @@ class UserActionDenial(models.Model):
     to remove 'delete' permission specifically for that user.
     """
     user = models.ForeignKey(
-        'core.user_accounts.CustomUser', 
+        'user_accounts.CustomUser', 
         on_delete=models.CASCADE, 
         related_name='action_denials'
     )
