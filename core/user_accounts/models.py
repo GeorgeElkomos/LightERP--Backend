@@ -1,35 +1,51 @@
+"""
+User Account Models
+Handles user authentication and permissions.
+"""
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 from django.db import models
-from django.core.exceptions import PermissionDenied
-from django.db.models.signals import pre_delete, pre_save
-from django.dispatch import receiver
+from django.core.exceptions import ValidationError
 
 
 class Role(models.Model):
-    """Role model for user roles"""
+    """
+    Role model for user roles.
+    Defines specific roles that users can have within the system.
+    """
     name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
     
     class Meta:
         db_table = 'roles'
+        verbose_name = 'Role'
+        verbose_name_plural = 'Roles'
     
     def __str__(self):
         return self.name
 
 
 class UserType(models.Model):
-    """User type model with three types: user, admin, and super_admin"""
-    type_name = models.CharField(max_length=50, unique=True)
-    description = models.TextField(blank=True, null=True)
+    """
+    User type model with three types: user, admin, and super_admin.
+    Defines the level of access and permissions for users.
+    """
+    type_name = models.CharField(max_length=50, unique=True, db_index=True)
+    description = models.TextField(blank=True)
     
     class Meta:
         db_table = 'user_types'
+        verbose_name = 'User Type'
+        verbose_name_plural = 'User Types'
     
     def __str__(self):
         return self.type_name
 
 
 class CustomUserManager(BaseUserManager):
-    """Custom user manager for CustomUser model"""
+    """
+    Custom user manager for CustomUser model.
+    Handles user creation with different user types and permissions.
+    """
     
     USER_TYPE_DESCRIPTIONS = {
         'user': 'Regular user with basic permissions',
@@ -38,7 +54,20 @@ class CustomUserManager(BaseUserManager):
     }
     
     def create_user(self, email, name, phone_number, password=None, user_type_name='user', **extra_fields):
-        """Create and save a user with any user type"""
+        """
+        Create and save a user with any user type.
+        
+        Args:
+            email: User's email address (used for authentication)
+            name: User's full name
+            phone_number: User's phone number
+            password: User's password (will be hashed)
+            user_type_name: Type of user ('user', 'admin', 'super_admin')
+            **extra_fields: Additional fields to set on the user
+            
+        Returns:
+            CustomUser: The created user instance
+        """
         if not email:
             raise ValueError('Email is required')
         if not name:
@@ -66,7 +95,10 @@ class CustomUserManager(BaseUserManager):
         return user
     
     def create_superuser(self, email, name, phone_number, password=None, **extra_fields):
-        """Create and save a super admin user (required by Django for createsuperuser command)"""
+        """
+        Create and save a super admin user.
+        Required by Django for the createsuperuser management command.
+        """
         return self.create_user(
             email=email,
             name=name,
@@ -82,66 +114,80 @@ class CustomUser(AbstractBaseUser):
     email = models.EmailField(unique=True, db_index=True)
     name = models.CharField(max_length=255)
     phone_number = models.CharField(max_length=15)
-    user_type = models.ForeignKey(UserType, on_delete=models.PROTECT, related_name='users')
-    role = models.ForeignKey(Role, on_delete=models.PROTECT, related_name='users', null=True, blank=True)
     
+    # Relationships
+    user_type = models.ForeignKey(
+        UserType,
+        on_delete=models.PROTECT,
+        related_name='users'
+    )
+    role = models.ForeignKey(
+        Role,
+        on_delete=models.PROTECT,
+        related_name='users',
+        null=True,
+        blank=True,
+    )
+    
+    # Manager
     objects = CustomUserManager()
     
+    # Django authentication settings
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['name', 'phone_number']
     
     class Meta:
         db_table = 'custom_users'
+        verbose_name = 'User'
+        verbose_name_plural = 'Users'
     
     def __str__(self):
         return f"{self.name} ({self.email})"
     
     def is_super_admin(self):
-        """Check if user is super admin"""
+        """
+        Check if user is a super admin.
+        
+        Returns:
+            bool: True if user is super admin, False otherwise
+        """
         return self.user_type.type_name == 'super_admin'
     
     def is_admin(self):
-        """Check if user is admin or super admin"""
+        """
+        Check if user is an admin or super admin.
+        
+        Returns:
+            bool: True if user is admin or super admin, False otherwise
+        """
         return self.user_type.type_name in ['admin', 'super_admin']
     
     def delete(self, *args, **kwargs):
-        """Override delete to prevent deletion of super admin"""
+        """
+        Override delete to prevent deletion of super admin.
+        Similar to ProtectedDeleteMixin pattern in Finance.core.models.
+        """
         if self.is_super_admin():
-            raise PermissionDenied("Cannot delete the super admin user")
+            raise ValidationError(
+                "Cannot delete super admin user. Super admin is protected from deletion."
+            )
         return super().delete(*args, **kwargs)
     
     def save(self, *args, **kwargs):
-        """Override save to protect super admin properties"""
-        if self.pk:  # Only for existing users
+        """
+        Override save to protect super admin properties.
+        Prevents changing user_type of existing super admin users.
+        """
+        if self.pk:  # Only for existing users (updates)
             try:
                 old_user = CustomUser.objects.get(pk=self.pk)
                 
                 # Prevent changing user_type of super admin
                 if old_user.is_super_admin() and old_user.user_type_id != self.user_type_id:
-                    raise PermissionDenied("Cannot change user type of super admin")
+                    raise ValidationError(
+                        "Cannot change user type of super admin. Super admin type is protected."
+                    )
             except CustomUser.DoesNotExist:
                 pass
         
         return super().save(*args, **kwargs)
-
-
-# Signals for additional protection
-@receiver(pre_delete, sender=CustomUser)
-def prevent_super_admin_deletion(sender, instance, **kwargs):
-    """Signal to prevent deletion of super admin"""
-    if instance.is_super_admin():
-        raise PermissionDenied("Cannot delete the super admin user")
-
-
-@receiver(pre_save, sender=CustomUser)
-def prevent_super_admin_modification(sender, instance, **kwargs):
-    """Signal to prevent unauthorized modification of super admin"""
-    if instance.pk:  # Only for updates
-        try:
-            old_user = CustomUser.objects.get(pk=instance.pk)
-            
-            # Prevent changing user_type of super admin
-            if old_user.is_super_admin() and old_user.user_type_id != instance.user_type_id:
-                raise PermissionDenied("Cannot change user type of super admin")
-        except CustomUser.DoesNotExist:
-            pass
