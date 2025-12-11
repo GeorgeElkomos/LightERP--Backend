@@ -304,7 +304,7 @@ def country_detail(request, pk):
     
     elif request.method in ['PUT', 'PATCH']:
         partial = request.method == 'PATCH'
-        serializer = TaxRateSerializer(tax_rate, data=request.data, partial=partial)
+        serializer = CountrySerializer(country, data=request.data, partial=partial)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
