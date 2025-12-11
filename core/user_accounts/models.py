@@ -7,23 +7,6 @@ from django.db import models
 from django.core.exceptions import ValidationError
 
 
-class Role(models.Model):
-    """
-    Role model for user roles.
-    Defines specific roles that users can have within the system.
-    """
-    name = models.CharField(max_length=100, unique=True)
-    description = models.TextField(blank=True)
-    
-    class Meta:
-        db_table = 'roles'
-        verbose_name = 'Role'
-        verbose_name_plural = 'Roles'
-    
-    def __str__(self):
-        return self.name
-
-
 class UserType(models.Model):
     """
     User type model with three types: user, admin, and super_admin.
@@ -121,12 +104,14 @@ class CustomUser(AbstractBaseUser):
         on_delete=models.PROTECT,
         related_name='users'
     )
-    role = models.ForeignKey(
-        Role,
+
+    job_role = models.ForeignKey(
+        'job_roles.JobRole',
         on_delete=models.PROTECT,
         related_name='users',
         null=True,
         blank=True,
+        help_text="Job role determines page access permissions"
     )
     
     # Manager

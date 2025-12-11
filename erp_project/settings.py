@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'core',              # Main Core App
     'core.user_accounts',     # Accounts management
     'core.approval',     # Approval workflows
+    'core.job_roles',    # Job roles and permissions
 ]
 
 MIDDLEWARE = [
