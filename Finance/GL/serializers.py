@@ -61,7 +61,6 @@ class SegmentSerializer(serializers.ModelSerializer):
     Includes nested segment type information and computed properties.
     """
     segment_type_name = serializers.CharField(source='segment_type.segment_name', read_only=True)
-    name = serializers.ReadOnlyField()
     parent_segment = serializers.SerializerMethodField()
     full_path = serializers.ReadOnlyField()
     can_delete = serializers.ReadOnlyField()
@@ -79,7 +78,6 @@ class SegmentSerializer(serializers.ModelSerializer):
             'is_active',
             'created_at',
             'updated_at',
-            'name',
             'parent_segment',
             'full_path',
             'can_delete',
