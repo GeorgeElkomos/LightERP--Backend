@@ -30,10 +30,11 @@ class JobRole(models.Model):
         Prevent deletion if job role is assigned to users.
         Similar to protection pattern used in core.user_accounts models.
         """
-        if self.users.exists():
+        user_count = self.users.count()
+        if user_count > 0:
             raise ValidationError(
                 f"Cannot delete job role '{self.name}' because it is assigned to "
-                f"{self.users.count()} user(s)"
+                f"{user_count} user(s)"
             )
         return super().delete(*args, **kwargs)
 
@@ -71,10 +72,11 @@ class Page(models.Model):
         Prevent deletion if page is linked to job roles.
         Maintains referential integrity at the application level.
         """
-        if self.job_roles.exists():
+        job_role_count = self.job_roles.count()
+        if job_role_count > 0:
             raise ValidationError(
                 f"Cannot delete page '{self.name}' because it is linked to "
-                f"{self.job_roles.count()} job role(s)"
+                f"{job_role_count} job role(s)"
             )
         return super().delete(*args, **kwargs)
 
@@ -113,10 +115,11 @@ class Action(models.Model):
         Prevent deletion if action is linked to pages.
         Ensures no orphaned page-action relationships.
         """
-        if self.page_actions.exists():
+        page_action_count = self.page_actions.count()
+        if page_action_count > 0:
             raise ValidationError(
                 f"Cannot delete action '{self.name}' because it is linked to "
-                f"{self.page_actions.count()} page(s)"
+                f"{page_action_count} page(s)"
             )
         return super().delete(*args, **kwargs)
 
@@ -158,10 +161,11 @@ class PageAction(models.Model):
         Prevent deletion if page action has user denials.
         Ensures permission integrity.
         """
-        if self.user_denials.exists():
+        denial_count = self.user_denials.count()
+        if denial_count > 0:
             raise ValidationError(
                 f"Cannot delete page action '{self.page.name} - {self.action.name}' "
-                f"because it has {self.user_denials.count()} user denial(s)"
+                f"because it has {denial_count} user denial(s)"
             )
         return super().delete(*args, **kwargs)
 

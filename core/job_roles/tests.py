@@ -52,7 +52,7 @@ class JobRoleModelTests(TestCase):
     def test_job_role_prevent_deletion_if_assigned(self):
         """Test that job roles with assigned users cannot be deleted"""
         # Create user type first
-        user_type = UserType.objects.create(type_name='user', description='Regular user')
+        UserType.objects.create(type_name='user', description='Regular user')
         
         # Create job role
         job_role = JobRole.objects.create(name='Manager')

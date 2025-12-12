@@ -11,7 +11,6 @@ from .models import (
     JobRolePage,
     UserActionDenial,
 )
-from core.user_accounts.models import CustomUser
 
 
 class ActionSerializer(serializers.ModelSerializer):
