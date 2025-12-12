@@ -3,15 +3,13 @@ Comprehensive test suite for user_accounts app.
 Tests authentication endpoints, account management, and edge cases.
 """
 from django.test import TestCase, TransactionTestCase
-from django.urls import reverse
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
-import json
 
-from core.user_accounts.models import UserType, CustomUser, CustomUserManager
+from core.user_accounts.models import UserType
 
 
 User = get_user_model()
@@ -175,7 +173,7 @@ class CustomUserModelTest(TransactionTestCase):
     
     def test_delete_super_admin_raises_exception(self):
         """Test that super admin cannot be deleted"""
-        with self.assertRaises(ValidationError) as context:
+        with self.assertRaises(PermissionDenied) as context:
             self.super_admin.delete()
         self.assertIn('Cannot delete super admin user', str(context.exception))
     
@@ -184,7 +182,7 @@ class CustomUserModelTest(TransactionTestCase):
         regular_type = UserType.objects.get(type_name='user')
         self.super_admin.user_type = regular_type
         
-        with self.assertRaises(ValidationError) as context:
+        with self.assertRaises(PermissionDenied) as context:
             self.super_admin.save()
         self.assertIn('Cannot change user type of super admin', str(context.exception))
     
@@ -831,7 +829,7 @@ class SuperAdminProtectionTest(TransactionTestCase):
     
     def test_cannot_delete_super_admin_via_delete_method(self):
         """Test super admin cannot be deleted via delete()"""
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(PermissionDenied):
             self.super_admin.delete()
         
         # Verify super admin still exists
@@ -842,7 +840,7 @@ class SuperAdminProtectionTest(TransactionTestCase):
         user_type = UserType.objects.get(type_name='user')
         self.super_admin.user_type = user_type
         
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(PermissionDenied):
             self.super_admin.save()
         
         # Verify user_type unchanged

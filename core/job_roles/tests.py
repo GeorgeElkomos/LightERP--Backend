@@ -8,8 +8,8 @@ Tests verify:
 - Deletion protection mechanisms
 """
 from django.test import TestCase
-from django.core.exceptions import ValidationError
 from django.db import IntegrityError
+from django.db.models.deletion import ProtectedError
 from rest_framework.test import APITestCase
 from rest_framework import status
 
@@ -68,8 +68,8 @@ class JobRoleModelTests(TestCase):
         user.job_role = job_role
         user.save()
         
-        # Attempt to delete should raise ValidationError
-        with self.assertRaises(ValidationError) as context:
+        # Attempt to delete should raise ProtectedError
+        with self.assertRaises(ProtectedError) as context:
             job_role.delete()
         
         self.assertIn('Cannot delete job role', str(context.exception))
@@ -104,8 +104,8 @@ class PageModelTests(TestCase):
         # Link page to job role
         JobRolePage.objects.create(job_role=job_role, page=page)
         
-        # Attempt to delete should raise ValidationError
-        with self.assertRaises(ValidationError) as context:
+        # Attempt to delete should raise ProtectedError
+        with self.assertRaises(ProtectedError) as context:
             page.delete()
         
         self.assertIn('Cannot delete page', str(context.exception))
@@ -140,8 +140,8 @@ class ActionModelTests(TestCase):
         # Link action to page
         PageAction.objects.create(page=page, action=action)
         
-        # Attempt to delete should raise ValidationError
-        with self.assertRaises(ValidationError) as context:
+        # Attempt to delete should raise ProtectedError
+        with self.assertRaises(ProtectedError) as context:
             action.delete()
         
         self.assertIn('Cannot delete action', str(context.exception))

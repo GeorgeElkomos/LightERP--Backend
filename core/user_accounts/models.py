@@ -4,7 +4,7 @@ Handles user authentication and permissions.
 """
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 from django.db import models
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied
 
 
 class UserType(models.Model):
@@ -13,7 +13,7 @@ class UserType(models.Model):
     Defines the level of access and permissions for users.
     """
     type_name = models.CharField(max_length=50, unique=True, db_index=True)
-    description = models.TextField(blank=True)
+    description = models.TextField(blank=True, default='')
     
     class Meta:
         db_table = 'user_types'
@@ -153,7 +153,7 @@ class CustomUser(AbstractBaseUser):
         Similar to ProtectedDeleteMixin pattern in Finance.core.models.
         """
         if self.is_super_admin():
-            raise ValidationError(
+            raise PermissionDenied(
                 "Cannot delete super admin user. Super admin is protected from deletion."
             )
         return super().delete(*args, **kwargs)
@@ -169,7 +169,7 @@ class CustomUser(AbstractBaseUser):
                 
                 # Prevent changing user_type of super admin
                 if old_user.is_super_admin() and old_user.user_type_id != self.user_type_id:
-                    raise ValidationError(
+                    raise PermissionDenied(
                         "Cannot change user type of super admin. Super admin type is protected."
                     )
             except CustomUser.DoesNotExist:

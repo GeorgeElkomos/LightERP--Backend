@@ -4,6 +4,7 @@ Manages role-based access control with page and action-level permissions.
 """
 from django.db import models
 from django.core.exceptions import ValidationError
+from django.db.models.deletion import ProtectedError
 
 
 class JobRole(models.Model):
@@ -28,13 +29,15 @@ class JobRole(models.Model):
     def delete(self, *args, **kwargs):
         """
         Prevent deletion if job role is assigned to users.
-        Similar to protection pattern used in core.user_accounts models.
+        Uses ProtectedError for consistency with Django's PROTECT behavior.
+        Provides custom error message for better user experience.
         """
         user_count = self.users.count()
         if user_count > 0:
-            raise ValidationError(
+            raise ProtectedError(
                 f"Cannot delete job role '{self.name}' because it is assigned to "
-                f"{user_count} user(s)"
+                f"{user_count} user(s)",
+                self.users.all()
             )
         return super().delete(*args, **kwargs)
 
@@ -70,13 +73,14 @@ class Page(models.Model):
     def delete(self, *args, **kwargs):
         """
         Prevent deletion if page is linked to job roles.
-        Maintains referential integrity at the application level.
+        Uses ProtectedError for consistency with Django's PROTECT behavior.
         """
         job_role_count = self.job_roles.count()
         if job_role_count > 0:
-            raise ValidationError(
+            raise ProtectedError(
                 f"Cannot delete page '{self.name}' because it is linked to "
-                f"{job_role_count} job role(s)"
+                f"{job_role_count} job role(s)",
+                self.job_roles.all()
             )
         return super().delete(*args, **kwargs)
 
@@ -113,13 +117,14 @@ class Action(models.Model):
     def delete(self, *args, **kwargs):
         """
         Prevent deletion if action is linked to pages.
-        Ensures no orphaned page-action relationships.
+        Uses ProtectedError for consistency with Django's PROTECT behavior.
         """
         page_action_count = self.page_actions.count()
         if page_action_count > 0:
-            raise ValidationError(
+            raise ProtectedError(
                 f"Cannot delete action '{self.name}' because it is linked to "
-                f"{page_action_count} page(s)"
+                f"{page_action_count} page(s)",
+                self.page_actions.all()
             )
         return super().delete(*args, **kwargs)
 
@@ -159,13 +164,14 @@ class PageAction(models.Model):
     def delete(self, *args, **kwargs):
         """
         Prevent deletion if page action has user denials.
-        Ensures permission integrity.
+        Uses ProtectedError for consistency with Django's PROTECT behavior.
         """
         denial_count = self.user_denials.count()
         if denial_count > 0:
-            raise ValidationError(
+            raise ProtectedError(
                 f"Cannot delete page action '{self.page.name} - {self.action.name}' "
-                f"because it has {denial_count} user denial(s)"
+                f"because it has {denial_count} user denial(s)",
+                self.user_denials.all()
             )
         return super().delete(*args, **kwargs)
 
