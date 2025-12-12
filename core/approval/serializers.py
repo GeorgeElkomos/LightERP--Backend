@@ -13,7 +13,7 @@ from .models import (
     ApprovalAction,
     ApprovalDelegation,
 )
-from core.user_accounts.models import Role
+from core.job_roles.models import JobRole
 
 
 class ContentTypeSerializer(serializers.ModelSerializer):
@@ -27,11 +27,11 @@ class ContentTypeSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'app_label', 'model_name']
 
 
-class RoleSerializer(serializers.ModelSerializer):
-    """Lightweight serializer for Role model."""
+class JobRoleSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for JobRole model."""
     
     class Meta:
-        model = Role
+        model = JobRole
         fields = ['id', 'name']
         read_only_fields = ['id', 'name']
 
@@ -41,7 +41,7 @@ class ApprovalWorkflowStageTemplateSerializer(serializers.ModelSerializer):
     Full serializer for ApprovalWorkflowStageTemplate.
     Used for create/update/detail operations.
     """
-    required_role_details = RoleSerializer(source='required_role', read_only=True)
+    required_role_details = JobRoleSerializer(source='required_role', read_only=True)
     policy_display = serializers.CharField(source='get_decision_policy_display', read_only=True)
     
     class Meta:
@@ -83,7 +83,7 @@ class ApprovalWorkflowStageTemplateNestedSerializer(serializers.ModelSerializer)
     Nested serializer for creating stages within a workflow template.
     workflow_template field is not required as it will be set by parent.
     """
-    required_role_details = RoleSerializer(source='required_role', read_only=True)
+    required_role_details = JobRoleSerializer(source='required_role', read_only=True)
     policy_display = serializers.CharField(source='get_decision_policy_display', read_only=True)
     
     class Meta:

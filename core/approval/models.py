@@ -12,7 +12,7 @@ from django.conf import settings
 
 # Import UserLevel model
 from .mixins import ApprovableMixin
-from core.user_accounts.models import Role
+from core.job_roles.models import JobRole
 
 
 class ApprovalWorkflowTemplate(models.Model):
@@ -89,11 +89,11 @@ class ApprovalWorkflowStageTemplate(models.Model):
     # Note: required_user_level removed - tests will assign all active users
     # You can extend this by adding your own filtering logic
     required_role = models.ForeignKey(
-        Role,
+        JobRole,
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
-        help_text="Optional role filter - only users with this role can approve"
+        help_text="Optional job role filter - only users with this job role can approve"
     )
     
     # Additional dynamic filtering (JSON string for future use)

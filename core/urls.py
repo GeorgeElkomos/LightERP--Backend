@@ -12,4 +12,7 @@ urlpatterns = [
     
     # Approval sub-app URLs
     path('approval/', include('core.approval.urls')),
+    
+    # Job roles and permissions sub-app URLs
+    path('job_roles/', include('core.job_roles.urls')),
 ]
