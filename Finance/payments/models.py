@@ -652,3 +652,537 @@ class PaymentAllocation(models.Model):
         invoice.refresh_from_db()
         invoice.refund(amount_to_reverse)
 
+
+class InvoicePaymentPlan(models.Model):
+    """
+    Payment Plan for an Invoice
+    
+    Represents a payment plan that breaks down an invoice's total amount into 
+    multiple installments that can be paid over time. Think of it as a 
+    "payment schedule" for an invoice.
+    
+    Example: A $3000 invoice might have a payment plan with 3 monthly installments
+    of $1000 each.
+    
+    Business Logic (in model methods):
+    - process_payment(): Apply payments to installments (waterfall allocation)
+    - get_total_paid(): Calculate total amount paid across all installments
+    - get_remaining_balance(): Calculate remaining balance to be paid
+    - has_overdue_installments(): Check if any installments are overdue
+    - update_status(): Automatically update status based on installment states
+    """
+    
+    invoice = models.ForeignKey(
+        Invoice,
+        on_delete=models.CASCADE,
+        related_name='payment_plans',
+        db_index=True,
+        help_text="The invoice this payment plan is for"
+    )
+    
+    total_amount = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2,
+        help_text="Total amount to be paid across all installments"
+    )
+    
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),      # No payments made yet
+        ('partial', 'Partial'),      # Some installments paid
+        ('paid', 'Paid'),            # All installments fully paid
+        ('overdue', 'Overdue'),      # Has overdue installments
+        ('cancelled', 'Cancelled'),  # Payment plan cancelled
+    ]
+    
+    status = models.CharField(
+        max_length=20, 
+        choices=STATUS_CHOICES, 
+        default='pending',
+        db_index=True
+    )
+    
+    description = models.TextField(
+        blank=True, 
+        null=True,
+        help_text="Optional description of the payment plan terms"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'invoice_payment_plan'
+        verbose_name = 'Invoice Payment Plan'
+        verbose_name_plural = 'Invoice Payment Plans'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"Payment Plan for Invoice #{self.invoice_id} - {self.status}"
+    
+    # ==================== PAYMENT PLAN HELPER METHODS ====================
+    
+    def get_total_paid(self):
+        """
+        Calculate total amount paid across all installments.
+        
+        Returns:
+            Decimal: Sum of paid amounts from all installments
+        """
+        return self.installments.aggregate(
+            total=models.Sum('paid_amount')
+        )['total'] or Decimal('0.00')
+    
+    def get_remaining_balance(self):
+        """
+        Calculate remaining balance to be paid.
+        
+        Returns:
+            Decimal: Total amount minus total paid
+        """
+        return self.total_amount - self.get_total_paid()
+    
+    def is_fully_paid(self):
+        """
+        Check if all installments are fully paid.
+        
+        Returns:
+            bool: True if remaining balance is zero
+        """
+        return self.get_remaining_balance() == Decimal('0.00')
+    
+    def has_overdue_installments(self):
+        """
+        Check if any installments are overdue.
+        
+        Returns:
+            bool: True if there are overdue installments
+        """
+        today = timezone.now().date()
+        
+        return self.installments.filter(
+            due_date__lt=today,
+            paid_amount__lt=models.F('amount')
+        ).exists()
+    
+    def get_overdue_installments(self):
+        """
+        Get all overdue installments for this payment plan.
+        
+        Returns:
+            QuerySet: Overdue installments ordered by due_date (oldest first)
+        """
+        today = timezone.now().date()
+        
+        return self.installments.filter(
+            due_date__lt=today,
+            paid_amount__lt=models.F('amount')
+        ).order_by('due_date')
+    
+    @transaction.atomic
+    def process_payment(self, payment_amount):
+        """
+        Apply a payment to installments in chronological order (oldest first).
+        This is "waterfall payment allocation" - payments flow from oldest to newest.
+        
+        Payments are applied to future installments if older ones are paid,
+        allowing customers to "pay ahead" on their plan.
+        
+        Args:
+            payment_amount (Decimal or float): Amount of money being paid
+            
+        Returns:
+            dict with:
+                - payment_applied: How much was actually applied
+                - remaining_payment: Any leftover (if payment exceeds total balance)
+                - updated_installments: List of installments that were updated
+                - payment_plan_status: New status of the payment plan
+                
+        Raises:
+            ValidationError: If payment_amount is invalid
+        """
+        # Convert to Decimal for precise financial calculations
+        payment_amount = Decimal(str(payment_amount))
+        
+        if payment_amount <= 0:
+            raise ValidationError("Payment amount must be greater than zero")
+        
+        # Lock this payment plan row to prevent concurrent payment processing
+        payment_plan = InvoicePaymentPlan.objects.select_for_update().get(pk=self.pk)
+        
+        # Get unpaid/partial installments, oldest first
+        # select_for_update() locks these rows so no other transaction can modify them
+        installments = payment_plan.installments.filter(
+            paid_amount__lt=models.F('amount')
+        ).order_by('due_date').select_for_update()
+        
+        remaining_payment = payment_amount
+        updated_installments = []
+        
+        # Apply payment to each installment in order
+        for installment in installments:
+            if remaining_payment <= 0:
+                break  # Payment exhausted
+            
+            # Calculate how much is still owed on this installment
+            remaining_balance = installment.amount - installment.paid_amount
+            
+            if remaining_payment >= remaining_balance:
+                # We can fully pay this installment
+                installment.paid_amount = installment.amount
+                installment.status = 'paid'
+                remaining_payment -= remaining_balance
+                
+                updated_installments.append({
+                    'installment_number': installment.installment_number,
+                    'paid': float(remaining_balance),
+                    'new_paid_amount': float(installment.paid_amount),
+                    'status': 'paid'
+                })
+            else:
+                # Partial payment - apply what we have and stop
+                installment.paid_amount += remaining_payment
+                installment.status = 'partial'
+                
+                updated_installments.append({
+                    'installment_number': installment.installment_number,
+                    'paid': float(remaining_payment),
+                    'new_paid_amount': float(installment.paid_amount),
+                    'status': 'partial'
+                })
+                
+                remaining_payment = Decimal('0.00')
+            
+            installment.save()
+        
+        # Update payment plan status based on installment states
+        self.update_status()
+        
+        return {
+            'payment_applied': float(payment_amount - remaining_payment),
+            'remaining_payment': float(remaining_payment),
+            'updated_installments': updated_installments,
+            'payment_plan_status': self.status
+        }
+    
+    def update_status(self):
+        """
+        Update the payment plan status based on current installment states.
+        
+        Status logic:
+        - 'paid': All installments fully paid
+        - 'partial': At least one installment has a payment
+        - 'overdue': Has overdue installments
+        - 'pending': No payments made yet
+        - 'cancelled': Manually cancelled (not changed by this method)
+        """
+        if self.status == 'cancelled':
+            return  # Don't change cancelled status
+        
+        if not self.installments.filter(
+            paid_amount__lt=models.F('amount')
+        ).exists():
+            # All installments fully paid
+            self.status = 'paid'
+        elif self.has_overdue_installments():
+            # Has overdue installments
+            self.status = 'overdue'
+        elif self.installments.filter(
+            paid_amount__gt=0
+        ).exists():
+            # At least one installment has a payment
+            self.status = 'partial'
+        else:
+            # No payments made
+            self.status = 'pending'
+        
+        self.save(update_fields=['status', 'updated_at'])
+    
+    @staticmethod
+    def suggest_schedule(invoice_total, start_date, num_installments=3, frequency='monthly'):
+        """
+        Generate a suggested payment plan structure (does NOT save to database).
+        
+        This is a helper method to preview what a payment plan would look like.
+        Use create_from_suggestion() to actually create the plan.
+        
+        Args:
+            invoice_total (Decimal or float): Total amount to split into installments
+            start_date (date or datetime): When the first installment is due
+            num_installments (int): How many installments (default 3)
+            frequency (str): 'weekly', 'monthly', 'quarterly' (default 'monthly')
+        
+        Returns:
+            List of dicts with structure matching PaymentPlanInstallment:
+            [
+                {
+                    'installment_number': 1,
+                    'due_date': '2025-01-15',
+                    'amount': 1000.00,
+                    'paid_amount': 0.00,
+                    'status': 'pending',
+                    'description': 'Installment 1 of 3'
+                },
+                ...
+            ]
+            
+        Raises:
+            ValueError: If inputs are invalid
+        """
+        from datetime import timedelta
+        from dateutil.relativedelta import relativedelta
+        
+        # Convert to Decimal for precise calculations
+        invoice_total = Decimal(str(invoice_total))
+        
+        # Convert start_date to date object if it's a datetime
+        if hasattr(start_date, 'date'):
+            start_date = start_date.date()
+        
+        # Validate inputs
+        if num_installments < 1:
+            raise ValueError("num_installments must be at least 1")
+        
+        if invoice_total <= 0:
+            raise ValueError("invoice_total must be greater than 0")
+        
+        # Calculate base installment amount (will be rounded)
+        base_installment_amount = (invoice_total / num_installments).quantize(Decimal('0.01'))
+        
+        installments = []
+        total_allocated = Decimal('0.00')
+        
+        for i in range(1, num_installments + 1):
+            # Calculate due date based on frequency
+            if frequency == 'weekly':
+                due_date = start_date + timedelta(weeks=i-1)
+            elif frequency == 'monthly':
+                due_date = start_date + relativedelta(months=i-1)
+            elif frequency == 'quarterly':
+                due_date = start_date + relativedelta(months=(i-1)*3)
+            else:
+                raise ValueError(f"Invalid frequency: {frequency}. Use 'weekly', 'monthly', or 'quarterly'")
+            
+            # Handle rounding on last installment
+            # The last installment gets whatever's left to ensure we hit the exact total
+            if i == num_installments:
+                amount = invoice_total - total_allocated
+            else:
+                amount = base_installment_amount
+                total_allocated += amount
+            
+            installments.append({
+                'installment_number': i,
+                'due_date': due_date.isoformat(),
+                'amount': float(amount),
+                'paid_amount': 0.00,
+                'status': 'pending',
+                'description': f'Installment {i} of {num_installments}'
+            })
+        
+        return installments
+    
+    @classmethod
+    @transaction.atomic
+    def create_from_suggestion(cls, invoice, suggestion, description=None):
+        """
+        Create a payment plan and installments from a suggestion.
+        
+        Args:
+            invoice (Invoice): The invoice this payment plan is for
+            suggestion (list): Output from suggest_schedule()
+            description (str): Optional description for the payment plan
+        
+        Returns:
+            InvoicePaymentPlan: Created payment plan instance (with installments)
+            
+        Raises:
+            ValidationError: If suggestion is invalid
+        """
+        if not suggestion:
+            raise ValidationError("Suggestion must contain at least one installment")
+        
+        # Calculate total from suggestion
+        total_amount = sum(Decimal(str(inst['amount'])) for inst in suggestion)
+        
+        # Create the payment plan
+        payment_plan = cls.objects.create(
+            invoice=invoice,
+            total_amount=total_amount,
+            status='pending',
+            description=description
+        )
+        
+        # Create all installments
+        for inst_data in suggestion:
+            PaymentPlanInstallment.objects.create(
+                payment_plan=payment_plan,
+                installment_number=inst_data['installment_number'],
+                due_date=inst_data['due_date'],
+                amount=Decimal(str(inst_data['amount'])),
+                paid_amount=Decimal(str(inst_data['paid_amount'])),
+                status=inst_data['status'],
+                description=inst_data.get('description', '')
+            )
+        
+        return payment_plan
+
+
+class PaymentPlanInstallment(models.Model):
+    """
+    Individual Installment within a Payment Plan
+    
+    Each installment represents a single payment due on a specific date.
+    
+    Each installment has:
+    - A due date (when it should be paid)
+    - An amount (how much should be paid)
+    - A paid amount (how much has been paid so far)
+    - A status (pending, partial, paid, overdue)
+    
+    Example: If a payment plan has 3 installments of $1000 each due monthly,
+    this model represents each individual $1000 payment.
+    """
+    
+    payment_plan = models.ForeignKey(
+        InvoicePaymentPlan,
+        on_delete=models.CASCADE,
+        related_name='installments',
+        help_text="The payment plan this installment belongs to"
+    )
+    
+    installment_number = models.IntegerField(
+        help_text="Sequential number of this installment (1, 2, 3, etc.)"
+    )
+    
+    due_date = models.DateField(
+        db_index=True,
+        help_text="Date when this installment payment is due"
+    )
+    
+    amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        help_text="Amount to be paid for this installment"
+    )
+    
+    paid_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text="Amount that has been paid so far"
+    )
+    
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),    # Not paid yet
+        ('partial', 'Partial'),    # Partially paid
+        ('paid', 'Paid'),          # Fully paid
+        ('overdue', 'Overdue'),    # Past due date and not paid
+    ]
+    
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending',
+        db_index=True
+    )
+    
+    description = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Optional description for this installment"
+    )
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'payment_plan_installment'
+        verbose_name = 'Payment Plan Installment'
+        verbose_name_plural = 'Payment Plan Installments'
+        ordering = ['payment_plan', 'installment_number']
+        unique_together = [['payment_plan', 'installment_number']]
+    
+    def __str__(self):
+        return f"Installment #{self.installment_number} - {self.status}"
+    
+    # ==================== INSTALLMENT HELPER METHODS ====================
+    
+    def clean(self):
+        """
+        Validate that paid_amount doesn't exceed amount.
+        
+        Raises:
+            ValidationError: If validation fails
+        """
+        super().clean()
+        
+        if self.paid_amount > self.amount:
+            raise ValidationError(
+                f"Paid amount ({self.paid_amount}) cannot exceed installment amount ({self.amount})"
+            )
+        
+        if self.paid_amount < 0:
+            raise ValidationError("Paid amount cannot be negative")
+        
+        if self.amount <= 0:
+            raise ValidationError("Installment amount must be greater than zero")
+    
+    def save(self, *args, **kwargs):
+        """
+        Save the installment after validation.
+        """
+        # Run validation before saving
+        self.full_clean()
+        super().save(*args, **kwargs)
+    
+    def get_remaining_balance(self):
+        """
+        Calculate remaining amount to be paid for this installment.
+        
+        Returns:
+            Decimal: Amount minus paid_amount
+        """
+        return self.amount - self.paid_amount
+    
+    def is_fully_paid(self):
+        """
+        Check if this installment is fully paid.
+        
+        Returns:
+            bool: True if paid_amount >= amount
+        """
+        return self.paid_amount >= self.amount
+    
+    def is_overdue(self):
+        """
+        Check if this installment is overdue (past due date and not fully paid).
+        
+        Returns:
+            bool: True if overdue
+        """
+        return (
+            self.due_date < timezone.now().date() and 
+            not self.is_fully_paid()
+        )
+    
+    def update_status(self):
+        """
+        Update the installment status based on current state.
+        
+        Status logic:
+        - 'paid': Fully paid (paid_amount >= amount)
+        - 'overdue': Past due date and not fully paid
+        - 'partial': Has partial payment
+        - 'pending': No payment yet
+        """
+        if self.is_fully_paid():
+            self.status = 'paid'
+        elif self.is_overdue():
+            self.status = 'overdue'
+        elif self.paid_amount > 0:
+            self.status = 'partial'
+        else:
+            self.status = 'pending'
+        
+        self.save(update_fields=['status', 'updated_at'])
+
