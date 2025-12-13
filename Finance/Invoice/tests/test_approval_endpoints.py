@@ -388,10 +388,10 @@ class APInvoiceApprovalEndpointTest(BaseApprovalEndpointTest):
         response = self.client.get(url)
         
         self.assertEqual(response.status_code, http_status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)
+        self.assertEqual(len(response.data['data']['results']), 2)
         
         # Verify response structure
-        for item in response.data:
+        for item in response.data['data']['results']:
             self.assertIn('invoice_id', item)
             self.assertIn('supplier_name', item)
             self.assertIn('total', item)
@@ -411,7 +411,7 @@ class APInvoiceApprovalEndpointTest(BaseApprovalEndpointTest):
         response = self.client.get(url)
         
         self.assertEqual(response.status_code, http_status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 0)  # No invoices at manager stage yet
+        self.assertEqual(len(response.data['data']['results']), 0)  # No invoices at manager stage yet
     
     def test_ap_approval_action_approve_success(self):
         """Test accountant approving AP invoice."""
@@ -637,9 +637,9 @@ class ARInvoiceApprovalEndpointTest(BaseApprovalEndpointTest):
         response = self.client.get(url)
         
         self.assertEqual(response.status_code, http_status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['current_stage'], 'Finance Manager Review')
-        self.assertTrue(response.data[0]['can_approve'])
+        self.assertEqual(len(response.data['data']['results']), 1)
+        self.assertEqual(response.data['data']['results'][0]['current_stage'], 'Finance Manager Review')
+        self.assertTrue(response.data['data']['results'][0]['can_approve'])
     
     def test_ar_approval_action_manager_rejects_at_stage_2(self):
         """Test manager rejecting AR invoice at stage 2."""
@@ -720,9 +720,9 @@ class OneTimeSupplierApprovalEndpointTest(BaseApprovalEndpointTest):
         response = self.client.get(url)
         
         self.assertEqual(response.status_code, http_status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['current_stage'], 'CFO Review')
-        self.assertTrue(response.data[0]['can_approve'])
+        self.assertEqual(len(response.data['data']['results']), 1)
+        self.assertEqual(response.data['data']['results'][0]['current_stage'], 'CFO Review')
+        self.assertTrue(response.data['data']['results'][0]['can_approve'])
     
     def test_one_time_complete_workflow_success(self):
         """Test completing full one-time supplier invoice approval workflow."""
@@ -771,20 +771,20 @@ class MixedInvoiceTypesApprovalTest(BaseApprovalEndpointTest):
         # Check AP endpoint shows only AP invoices
         ap_url = reverse('finance:invoice:ap-invoice-pending-approvals')
         response = self.client.get(ap_url)
-        self.assertEqual(len(response.data), 1)
-        self.assertIn('supplier_name', response.data[0])
+        self.assertEqual(len(response.data['data']['results']), 1)
+        self.assertIn('supplier_name', response.data['data']['results'][0])
         
         # Check AR endpoint shows only AR invoices
         ar_url = reverse('finance:invoice:ar-invoice-pending-approvals')
         response = self.client.get(ar_url)
-        self.assertEqual(len(response.data), 1)
-        self.assertIn('customer_name', response.data[0])
+        self.assertEqual(len(response.data['data']['results']), 1)
+        self.assertIn('customer_name', response.data['data']['results'][0])
         
         # Check one-time endpoint shows only one-time invoices
         ots_url = reverse('finance:invoice:one-time-supplier-pending-approvals')
         response = self.client.get(ots_url)
-        self.assertEqual(len(response.data), 1)
-        self.assertIn('supplier_name', response.data[0])
+        self.assertEqual(len(response.data['data']['results']), 1)
+        self.assertIn('supplier_name', response.data['data']['results'][0])
     
     def test_multiple_invoices_at_different_stages(self):
         """Test pending approvals when invoices are at different stages."""
@@ -811,17 +811,17 @@ class MixedInvoiceTypesApprovalTest(BaseApprovalEndpointTest):
         self.client.force_authenticate(user=self.accountant)
         url = reverse('finance:invoice:ap-invoice-pending-approvals')
         response = self.client.get(url)
-        self.assertEqual(len(response.data), 1)
+        self.assertEqual(len(response.data['data']['results']), 1)
         
         # Manager should see only ap1
         self.client.force_authenticate(user=self.manager)
         response = self.client.get(url)
-        self.assertEqual(len(response.data), 1)
+        self.assertEqual(len(response.data['data']['results']), 1)
         
         # Director should see only ap2
         self.client.force_authenticate(user=self.director)
         response = self.client.get(url)
-        self.assertEqual(len(response.data), 1)
+        self.assertEqual(len(response.data['data']['results']), 1)
 
 
 class ApprovalEndpointErrorHandlingTest(BaseApprovalEndpointTest):
@@ -910,8 +910,8 @@ class ApprovalEndpointResponseFormatTest(BaseApprovalEndpointTest):
         url = reverse('finance:invoice:ap-invoice-pending-approvals')
         response = self.client.get(url)
         
-        self.assertEqual(len(response.data), 1)
-        item = response.data[0]
+        self.assertEqual(len(response.data['data']['results']), 1)
+        item = response.data['data']['results'][0]
         
         # Check all required fields
         required_fields = [

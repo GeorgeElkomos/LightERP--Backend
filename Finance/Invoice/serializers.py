@@ -730,3 +730,450 @@ class OneTimeSupplierDetailSerializer(serializers.ModelSerializer):
         }
 
 
+# ==================== UPDATE SERIALIZERS ====================
+
+class APInvoiceUpdateSerializer(serializers.Serializer):
+    """
+    Serializer for updating AP Invoices.
+    
+    Matches APInvoiceCreateSerializer structure exactly.
+    Only allows updates when invoice is in DRAFT status and not posted to GL.
+    """
+    
+    # Invoice fields
+    date = serializers.DateField(required=False)
+    currency_id = serializers.IntegerField(min_value=1, required=False)
+    country_id = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    tax_amount = serializers.DecimalField(max_digits=14, decimal_places=2, required=False, allow_null=True)
+    
+    # AP specific
+    supplier_id = serializers.IntegerField(min_value=1, required=False)
+    
+    # Nested data
+    items = InvoiceItemSerializer(many=True, required=False)
+    journal_entry = JournalEntrySerializer(required=False)
+    
+    def validate(self, data):
+        """Validate update is allowed"""
+        instance = self.instance
+        
+        # Check if invoice is in DRAFT status
+        if instance.approval_status != 'DRAFT':
+            raise serializers.ValidationError(
+                f"Cannot update invoice with status {instance.approval_status}. Only DRAFT invoices can be updated."
+            )
+        
+        # Check if already posted to GL
+        if instance.gl_distributions and instance.gl_distributions.posted:
+            raise serializers.ValidationError(
+                "Cannot update invoice that has been posted to GL"
+            )
+        
+        return data
+    
+    def update(self, instance, validated_data):
+        """Update the AP invoice"""
+        from Finance.Invoice.models import InvoiceItem
+        from Finance.core.models import Currency, Country
+        from Finance.BusinessPartner.models import Supplier
+        from Finance.GL.models import JournalEntry, JournalLine
+        
+        # Update child-specific fields first
+        if 'supplier_id' in validated_data:
+            new_supplier = Supplier.objects.get(id=validated_data['supplier_id'])
+            instance.supplier = new_supplier
+            instance.save()
+        
+        # Update parent Invoice fields
+        invoice = instance.invoice
+        invoice._allow_direct_save = True
+        
+        if 'date' in validated_data:
+            invoice.date = validated_data['date']
+        
+        if 'currency_id' in validated_data:
+            invoice.currency = Currency.objects.get(id=validated_data['currency_id'])
+        
+        if 'country_id' in validated_data:
+            if validated_data['country_id'] is not None:
+                invoice.country = Country.objects.get(id=validated_data['country_id'])
+            else:
+                invoice.country = None
+        
+        if 'subtotal' in validated_data:
+            invoice.subtotal = validated_data['subtotal']
+        
+        if 'tax_amount' in validated_data:
+            invoice.tax_amount = validated_data['tax_amount'] or Decimal('0.00')
+        
+        if 'total' in validated_data:
+            invoice.total = validated_data['total']
+        
+        if 'approval_status' in validated_data:
+            invoice.approval_status = validated_data['approval_status']
+        
+        if 'payment_status' in validated_data:
+            invoice.payment_status = validated_data['payment_status']
+        
+        # Update items if provided
+        if 'items' in validated_data:
+            InvoiceItem.objects.filter(invoice=invoice).delete()
+            
+            items_data = validated_data['items']
+            subtotal = Decimal('0.00')
+            for item_data in items_data:
+                InvoiceItem.objects.create(
+                    invoice=invoice,
+                    name=item_data['name'],
+                    description=item_data['description'],
+                    quantity=item_data['quantity'],
+                    unit_price=item_data['unit_price']
+                )
+                subtotal += item_data['quantity'] * item_data['unit_price']
+            
+            # Auto-calculate if not explicitly provided
+            if 'subtotal' not in validated_data:
+                invoice.subtotal = subtotal
+            if 'total' not in validated_data:
+                invoice.total = subtotal + (invoice.tax_amount or Decimal('0.00'))
+        
+        # Update journal entry if provided
+        if 'journal_entry' in validated_data:
+            from Finance.Invoice.services import InvoiceService
+            
+            je_data = validated_data['journal_entry']
+            
+            # Convert to DTO
+            from Finance.Invoice.services import JournalEntryDTO, JournalLineDTO, SegmentDTO
+            journal_lines = [
+                JournalLineDTO(
+                    amount=line['amount'],
+                    type=line['type'],
+                    segments=[SegmentDTO(**seg) for seg in line['segments']]
+                )
+                for line in je_data['lines']
+            ]
+            je_dto = JournalEntryDTO(
+                date=je_data['date'],
+                currency_id=je_data['currency_id'],
+                memo=je_data.get('memo', ''),
+                lines=journal_lines
+            )
+            
+            # Create new journal entry
+            new_je = InvoiceService._create_journal_entry(je_dto, invoice.currency)
+            
+            # Delete old journal entry and its lines
+            old_je = invoice.gl_distributions
+            if old_je:
+                # Update invoice to point to new journal entry first
+                invoice.gl_distributions = new_je
+                invoice._allow_direct_save = True
+                invoice.save()
+                # Now safe to delete old one
+                JournalLine.objects.filter(entry=old_je).delete()
+                old_je.delete()
+            else:
+                invoice.gl_distributions = new_je
+        
+        invoice._allow_direct_save = True
+        invoice.save()
+        
+        return instance
+
+
+class ARInvoiceUpdateSerializer(serializers.Serializer):
+    """
+    Serializer for updating AR Invoices.
+    
+    Only allows updates when invoice is in DRAFT status and not posted to GL.
+    """
+    
+    # Invoice fields
+    date = serializers.DateField(required=False)
+    currency_id = serializers.IntegerField(min_value=1, required=False)
+    country_id = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    tax_amount = serializers.DecimalField(max_digits=14, decimal_places=2, required=False, allow_null=True)
+    
+    # AR specific
+    customer_id = serializers.IntegerField(min_value=1, required=False)
+    
+    # Nested data
+    items = InvoiceItemSerializer(many=True, required=False)
+    journal_entry = JournalEntrySerializer(required=False)
+    
+    def validate(self, data):
+        """Validate update is allowed"""
+        instance = self.instance
+        
+        if instance.approval_status != 'DRAFT':
+            raise serializers.ValidationError(
+                f"Cannot update invoice with status {instance.approval_status}. Only DRAFT invoices can be updated."
+            )
+        
+        if instance.gl_distributions and instance.gl_distributions.posted:
+            raise serializers.ValidationError(
+                "Cannot update invoice that has been posted to GL"
+            )
+        
+        return data
+    
+    def update(self, instance, validated_data):
+        """Update the AR invoice"""
+        from Finance.Invoice.models import InvoiceItem
+        from Finance.core.models import Currency, Country
+        from Finance.BusinessPartner.models import Customer
+        from Finance.GL.models import JournalEntry, JournalLine
+        
+        # Update child-specific fields first
+        if 'customer_id' in validated_data:
+            new_customer = Customer.objects.get(id=validated_data['customer_id'])
+            instance.customer = new_customer
+            instance.save()
+        
+        invoice = instance.invoice
+        invoice._allow_direct_save = True
+        
+        if 'date' in validated_data:
+            invoice.date = validated_data['date']
+        
+        if 'currency_id' in validated_data:
+            invoice.currency = Currency.objects.get(id=validated_data['currency_id'])
+        
+        if 'country_id' in validated_data:
+            if validated_data['country_id'] is not None:
+                invoice.country = Country.objects.get(id=validated_data['country_id'])
+            else:
+                invoice.country = None
+        
+        if 'tax_amount' in validated_data:
+            invoice.tax_amount = validated_data['tax_amount'] or Decimal('0.00')
+        
+        # Update items if provided
+        if 'items' in validated_data:
+            InvoiceItem.objects.filter(invoice=invoice).delete()
+            
+            items_data = validated_data['items']
+            subtotal = Decimal('0.00')
+            for item_data in items_data:
+                InvoiceItem.objects.create(
+                    invoice=invoice,
+                    name=item_data['name'],
+                    description=item_data['description'],
+                    quantity=item_data['quantity'],
+                    unit_price=item_data['unit_price']
+                )
+                subtotal += item_data['quantity'] * item_data['unit_price']
+            
+            # Auto-calculate subtotal and total
+            invoice.subtotal = subtotal
+            invoice.total = subtotal + (invoice.tax_amount or Decimal('0.00'))
+        
+        # Update journal entry if provided
+        if 'journal_entry' in validated_data:
+            from Finance.Invoice.services import InvoiceService
+            
+            je_data = validated_data['journal_entry']
+            
+            # Convert to DTO
+            from Finance.Invoice.services import JournalEntryDTO, JournalLineDTO, SegmentDTO
+            journal_lines = [
+                JournalLineDTO(
+                    amount=line['amount'],
+                    type=line['type'],
+                    segments=[SegmentDTO(**seg) for seg in line['segments']]
+                )
+                for line in je_data['lines']
+            ]
+            je_dto = JournalEntryDTO(
+                date=je_data['date'],
+                currency_id=je_data['currency_id'],
+                memo=je_data.get('memo', ''),
+                lines=journal_lines
+            )
+            
+            # Create new journal entry
+            new_je = InvoiceService._create_journal_entry(je_dto, invoice.currency)
+            
+            # Delete old journal entry and its lines
+            old_je = invoice.gl_distributions
+            if old_je:
+                # Update invoice to point to new journal entry first
+                invoice.gl_distributions = new_je
+                invoice._allow_direct_save = True
+                invoice.save()
+                # Now safe to delete old one
+                JournalLine.objects.filter(entry=old_je).delete()
+                old_je.delete()
+            else:
+                invoice.gl_distributions = new_je
+        
+        invoice._allow_direct_save = True
+        invoice.save()
+        
+        return instance
+
+
+class OneTimeSupplierUpdateSerializer(serializers.Serializer):
+    """
+    Serializer for updating One-Time Supplier Invoices.
+    
+    Only allows updates when invoice is in DRAFT status and not posted to GL.
+    """
+    
+    # Invoice fields
+    date = serializers.DateField(required=False)
+    currency_id = serializers.IntegerField(min_value=1, required=False)
+    country_id = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    tax_amount = serializers.DecimalField(max_digits=14, decimal_places=2, required=False, allow_null=True)
+    
+    # One-time supplier specific (can update existing or change to another one)
+    one_time_supplier_id = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    
+    # Supplier details (to update the current supplier's information)
+    supplier_name = serializers.CharField(max_length=255, required=False, allow_null=True)
+    supplier_email = serializers.EmailField(required=False, allow_blank=True)
+    supplier_phone = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    supplier_tax_id = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    
+    # Nested data
+    items = InvoiceItemSerializer(many=True, required=False)
+    journal_entry = JournalEntrySerializer(required=False)
+    
+    def validate(self, data):
+        """Validate update is allowed"""
+        instance = self.instance
+        
+        if instance.approval_status != 'DRAFT':
+            raise serializers.ValidationError(
+                f"Cannot update invoice with status {instance.approval_status}. Only DRAFT invoices can be updated."
+            )
+        
+        if instance.gl_distributions and instance.gl_distributions.posted:
+            raise serializers.ValidationError(
+                "Cannot update invoice that has been posted to GL"
+            )
+        
+        return data
+    
+    def update(self, instance, validated_data):
+        """Update the one-time supplier invoice"""
+        from Finance.Invoice.models import InvoiceItem
+        from Finance.core.models import Currency, Country
+        from Finance.BusinessPartner.models import OneTime
+        from Finance.GL.models import JournalEntry, JournalLine
+        
+        # Update child-specific fields first
+        if 'one_time_supplier_id' in validated_data:
+            # Change to a different one-time supplier
+            new_one_time = OneTime.objects.get(id=validated_data['one_time_supplier_id'])
+            instance.one_time_supplier = new_one_time
+            instance.save()
+        else:
+            # Update the current supplier's details if provided
+            # OneTime uses ChildModelMixin, so name/email/phone are proxied properties
+            one_time_supplier = instance.one_time_supplier
+            
+            supplier_updated = False
+            if 'supplier_name' in validated_data and validated_data['supplier_name']:
+                one_time_supplier.name = validated_data['supplier_name']
+                supplier_updated = True
+            
+            if 'supplier_email' in validated_data:
+                one_time_supplier.email = validated_data['supplier_email']
+                supplier_updated = True
+            
+            if 'supplier_phone' in validated_data:
+                one_time_supplier.phone = validated_data['supplier_phone']
+                supplier_updated = True
+            
+            if 'supplier_tax_id' in validated_data:
+                one_time_supplier.tax_id = validated_data['supplier_tax_id']
+                supplier_updated = True
+            
+            if supplier_updated:
+                one_time_supplier.save()
+        
+        invoice = instance.invoice
+        invoice._allow_direct_save = True
+        
+        if 'date' in validated_data:
+            invoice.date = validated_data['date']
+        
+        if 'currency_id' in validated_data:
+            invoice.currency = Currency.objects.get(id=validated_data['currency_id'])
+        
+        if 'country_id' in validated_data:
+            if validated_data['country_id'] is not None:
+                invoice.country = Country.objects.get(id=validated_data['country_id'])
+            else:
+                invoice.country = None
+        
+        if 'tax_amount' in validated_data:
+            invoice.tax_amount = validated_data['tax_amount'] or Decimal('0.00')
+        
+        # Update items if provided
+        if 'items' in validated_data:
+            InvoiceItem.objects.filter(invoice=invoice).delete()
+            
+            items_data = validated_data['items']
+            subtotal = Decimal('0.00')
+            for item_data in items_data:
+                InvoiceItem.objects.create(
+                    invoice=invoice,
+                    name=item_data['name'],
+                    description=item_data['description'],
+                    quantity=item_data['quantity'],
+                    unit_price=item_data['unit_price']
+                )
+                subtotal += item_data['quantity'] * item_data['unit_price']
+            
+            # Auto-calculate subtotal and total
+            invoice.subtotal = subtotal
+            invoice.total = subtotal + (invoice.tax_amount or Decimal('0.00'))
+        
+        # Update journal entry if provided
+        if 'journal_entry' in validated_data:
+            from Finance.Invoice.services import InvoiceService
+            
+            je_data = validated_data['journal_entry']
+            
+            # Convert to DTO
+            from Finance.Invoice.services import JournalEntryDTO, JournalLineDTO, SegmentDTO
+            journal_lines = [
+                JournalLineDTO(
+                    amount=line['amount'],
+                    type=line['type'],
+                    segments=[SegmentDTO(**seg) for seg in line['segments']]
+                )
+                for line in je_data['lines']
+            ]
+            je_dto = JournalEntryDTO(
+                date=je_data['date'],
+                currency_id=je_data['currency_id'],
+                memo=je_data.get('memo', ''),
+                lines=journal_lines
+            )
+            
+            # Create new journal entry
+            new_je = InvoiceService._create_journal_entry(je_dto, invoice.currency)
+            
+            # Delete old journal entry and its lines
+            old_je = invoice.gl_distributions
+            if old_je:
+                # Update invoice to point to new journal entry first
+                invoice.gl_distributions = new_je
+                invoice._allow_direct_save = True
+                invoice.save()
+                # Now safe to delete old one
+                JournalLine.objects.filter(entry=old_je).delete()
+                old_je.delete()
+            else:
+                invoice.gl_distributions = new_je
+        
+        invoice._allow_direct_save = True
+        invoice.save()
+        
+        return instance
+
+

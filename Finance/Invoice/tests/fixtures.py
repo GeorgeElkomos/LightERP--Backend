@@ -8,7 +8,19 @@ across test files.
 from decimal import Decimal
 from Finance.core.models import Currency, Country
 from Finance.BusinessPartner.models import Supplier, Customer
-from Finance.GL.models import XX_SegmentType, XX_Segment
+from Finance.GL.models import XX_SegmentType, XX_Segment, JournalEntry
+from datetime import date
+
+
+def create_journal_entry(currency=None, memo='Test Journal Entry'):
+    """Create a test journal entry"""
+    if currency is None:
+        currency = create_currency()
+    return JournalEntry.objects.create(
+        date=date.today(),
+        currency=currency,
+        memo=memo
+    )
 
 
 def create_currency(code='USD', name='US Dollar', symbol='$', is_base=True):
@@ -30,32 +42,28 @@ def create_country(code='US', name='United States'):
     )
 
 
-def create_supplier(name='Test Supplier', payment_terms='NET30'):
+def create_supplier(name='Test Supplier'):
     """Create a test supplier (creates BusinessPartner automatically)"""
     return Supplier.objects.create(
-        name=name,
-        payment_terms=payment_terms
+        name=name
     )
 
 
-def create_customer(name='Test Customer', credit_limit=Decimal('10000.00')):
+def create_customer(name='Test Customer'):
     """Create a test customer (creates BusinessPartner automatically)"""
     return Customer.objects.create(
-        name=name,
-        credit_limit=credit_limit
+        name=name
     )
 
 
 def create_segment_types():
     """Create standard segment types for testing"""
     company = XX_SegmentType.objects.create(
-        name='Company',
-        code='COMPANY',
+        segment_name='Company',
         description='Company code'
     )
     account = XX_SegmentType.objects.create(
-        name='Account',
-        code='ACCOUNT',
+        segment_name='Account',
         description='Account number'
     )
     return {'company': company, 'account': account}
@@ -69,35 +77,43 @@ def create_segments(segment_types):
     segments['100'] = XX_Segment.objects.create(
         segment_type=segment_types['company'],
         code='100',
-        name='Main Company'
+        alias='Main Company',
+        node_type='detail'
     )
     
     # Account segments
     segments['1200'] = XX_Segment.objects.create(
         segment_type=segment_types['account'],
         code='1200',
-        name='Accounts Receivable'
+        alias='Accounts Receivable',
+        node_type='detail'
     )
     segments['2100'] = XX_Segment.objects.create(
         segment_type=segment_types['account'],
         code='2100',
-        name='Accounts Payable'
+        alias='Accounts Payable',
+        node_type='detail'
     )
     segments['4000'] = XX_Segment.objects.create(
         segment_type=segment_types['account'],
         code='4000',
-        name='Sales Revenue'
+        alias='Sales Revenue',
+        node_type='detail'
     )
     segments['6100'] = XX_Segment.objects.create(
         segment_type=segment_types['account'],
         code='6100',
-        name='Office Supplies Expense'
+        alias='Office Supplies Expense',
+        node_type='detail'
     )
     segments['6200'] = XX_Segment.objects.create(
         segment_type=segment_types['account'],
         code='6200',
-        name='Travel Expense'
+        alias='Travel Expense',
+        node_type='detail'
     )
+    
+    return segments
     
     return segments
 

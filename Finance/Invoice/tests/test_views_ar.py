@@ -5,7 +5,7 @@ Tests all endpoints:
 - POST   /finance/invoice/ar/              - Create AR invoice
 - GET    /finance/invoice/ar/              - List AR invoices
 - GET    /finance/invoice/ar/{id}/         - Get AR invoice detail
-- PUT    /finance/invoice/ar/{id}/         - Update AR invoice (not implemented)
+- PUT    /finance/invoice/ar/{id}/         - Update AR invoice
 - DELETE /finance/invoice/ar/{id}/         - Delete AR invoice
 - POST   /finance/invoice/ar/{id}/approve/ - Approve/Reject invoice
 - POST   /finance/invoice/ar/{id}/post-to-gl/ - Post to GL
@@ -273,7 +273,7 @@ class ARInvoiceListTests(TestCase):
         response = self.client.get(url)
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)
+        self.assertEqual(len(response.data['data']['results']), 2)
     
     def test_filter_by_customer(self):
         """Test filtering by customer_id"""
@@ -281,8 +281,8 @@ class ARInvoiceListTests(TestCase):
         response = self.client.get(url, {'customer_id': self.customer1.id})
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['customer_id'], self.customer1.id)
+        self.assertEqual(len(response.data['data']['results']), 1)
+        self.assertEqual(response.data['data']['results'][0]['customer_id'], self.customer1.id)
     
     def test_filter_by_approval_status(self):
         """Test filtering by approval_status"""
@@ -290,8 +290,8 @@ class ARInvoiceListTests(TestCase):
         response = self.client.get(url, {'approval_status': 'DRAFT'})
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['approval_status'], 'DRAFT')
+        self.assertEqual(len(response.data['data']['results']), 1)
+        self.assertEqual(response.data['data']['results'][0]['approval_status'], 'DRAFT')
     
     def test_filter_by_date_range(self):
         """Test filtering by date range"""
@@ -302,7 +302,7 @@ class ARInvoiceListTests(TestCase):
         })
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
+        self.assertEqual(len(response.data['data']['results']), 1)
     
     def test_filter_multiple_criteria(self):
         """Test filtering with multiple criteria"""
@@ -314,7 +314,7 @@ class ARInvoiceListTests(TestCase):
         })
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
+        self.assertEqual(len(response.data['data']['results']), 1)
 
 
 class ARInvoiceDetailTests(TestCase):

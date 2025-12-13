@@ -5,7 +5,7 @@ Tests all endpoints:
 - POST   /finance/invoice/ap/              - Create AP invoice
 - GET    /finance/invoice/ap/              - List AP invoices
 - GET    /finance/invoice/ap/{id}/         - Get AP invoice detail
-- PUT    /finance/invoice/ap/{id}/         - Update AP invoice (not implemented)
+- PUT    /finance/invoice/ap/{id}/         - Update AP invoice
 - DELETE /finance/invoice/ap/{id}/         - Delete AP invoice
 - POST   /finance/invoice/ap/{id}/approve/ - Approve/Reject invoice
 - POST   /finance/invoice/ap/{id}/post-to-gl/ - Post to GL
@@ -328,7 +328,8 @@ class APInvoiceListTests(TestCase):
         response = self.client.get(url)
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)
+        # Response is wrapped in {'status', 'message', 'data'}
+        self.assertEqual(len(response.data['data']['results']), 2)
     
     def test_filter_by_supplier(self):
         """Test filtering by supplier_id"""
@@ -336,8 +337,8 @@ class APInvoiceListTests(TestCase):
         response = self.client.get(url, {'supplier_id': self.supplier1.id})
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['supplier_id'], self.supplier1.id)
+        self.assertEqual(len(response.data['data']['results']), 1)
+        self.assertEqual(response.data['data']['results'][0]['supplier_id'], self.supplier1.id)
     
     def test_filter_by_approval_status(self):
         """Test filtering by approval_status"""
@@ -345,8 +346,8 @@ class APInvoiceListTests(TestCase):
         response = self.client.get(url, {'approval_status': 'APPROVED'})
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['approval_status'], 'APPROVED')
+        self.assertEqual(len(response.data['data']['results']), 1)
+        self.assertEqual(response.data['data']['results'][0]['approval_status'], 'APPROVED')
     
     def test_filter_by_currency(self):
         """Test filtering by currency_id"""
@@ -354,7 +355,7 @@ class APInvoiceListTests(TestCase):
         response = self.client.get(url, {'currency_id': self.currency.id})
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)
+        self.assertEqual(len(response.data['data']['results']), 2)
     
     def test_filter_by_date_range(self):
         """Test filtering by date range"""
@@ -365,7 +366,7 @@ class APInvoiceListTests(TestCase):
         })
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
+        self.assertEqual(len(response.data['data']['results']), 1)
 
 
 class APInvoiceDetailTests(TestCase):
@@ -420,15 +421,17 @@ class APInvoiceDetailTests(TestCase):
         
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
     
-    def test_update_ap_invoice_not_implemented(self):
-        """Test that PUT/PATCH returns not implemented"""
+    def test_update_ap_invoice_works(self):
+        """Test that PUT/PATCH now work for updating invoices"""
         url = reverse('finance:invoice:ap-invoice-detail', kwargs={'pk': self.ap_invoice.invoice_id})
         
-        response_put = self.client.put(url, {}, format='json')
-        self.assertEqual(response_put.status_code, status.HTTP_501_NOT_IMPLEMENTED)
+        # Test PATCH with basic update
+        response_patch = self.client.patch(url, {'tax_amount': '50.00'}, format='json')
+        self.assertEqual(response_patch.status_code, status.HTTP_200_OK)
         
-        response_patch = self.client.patch(url, {}, format='json')
-        self.assertEqual(response_patch.status_code, status.HTTP_501_NOT_IMPLEMENTED)
+        # Verify update worked
+        self.ap_invoice.invoice.refresh_from_db()
+        self.assertEqual(self.ap_invoice.invoice.tax_amount, Decimal('50.00'))
 
 
 class APInvoiceDeleteTests(TestCase):

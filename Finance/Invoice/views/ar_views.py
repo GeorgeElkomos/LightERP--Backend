@@ -24,7 +24,8 @@ from Finance.Invoice.models import AR_Invoice
 from Finance.Invoice.serializers import (
     ARInvoiceCreateSerializer, 
     ARInvoiceListSerializer,
-    ARInvoiceDetailSerializer
+    ARInvoiceDetailSerializer,
+    ARInvoiceUpdateSerializer
 )
 
 
@@ -117,7 +118,7 @@ def ar_invoice_detail(request, pk):
     - Returns detailed information about an AR invoice
     
     PUT/PATCH /invoices/ar/{id}/
-    - Update an AR invoice (future implementation)
+    - Update an AR invoice
     
     DELETE /invoices/ar/{id}/
     - Delete an AR invoice (if not posted to GL)
@@ -130,7 +131,7 @@ def ar_invoice_detail(request, pk):
             'customer',
             'customer__business_partner'
         ),
-        pk=pk
+        invoice_id=pk
     )
     
     if request.method == 'GET':
@@ -138,10 +139,34 @@ def ar_invoice_detail(request, pk):
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method in ['PUT', 'PATCH']:
-        return Response(
-            {'error': 'Update functionality not yet implemented'},
-            status=status.HTTP_501_NOT_IMPLEMENTED
+        # Use partial=True for PATCH, False for PUT
+        partial = request.method == 'PATCH'
+        serializer = ARInvoiceUpdateSerializer(
+            ar_invoice, 
+            data=request.data, 
+            partial=partial
         )
+        
+        if serializer.is_valid():
+            try:
+                updated_invoice = serializer.save()
+                response_serializer = ARInvoiceDetailSerializer(updated_invoice)
+                return Response(
+                    response_serializer.data,
+                    status=status.HTTP_200_OK
+                )
+            except ValidationError as e:
+                return Response(
+                    {'error': str(e)},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            except Exception as e:
+                return Response(
+                    {'error': f'An error occurred: {str(e)}'},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     elif request.method == 'DELETE':
         journal_entry = ar_invoice.gl_distributions
@@ -174,7 +199,7 @@ def ar_invoice_post_to_gl(request, pk):
     
     Once posted, the journal entry becomes immutable.
     """
-    ar_invoice = get_object_or_404(AR_Invoice, pk=pk)
+    ar_invoice = get_object_or_404(AR_Invoice, invoice_id=pk)
     journal_entry = ar_invoice.gl_distributions
     
     if not journal_entry:
@@ -213,7 +238,7 @@ def ar_invoice_submit_for_approval(request, pk):
     
     Starts the approval workflow for the invoice.
     """
-    ar_invoice = get_object_or_404(AR_Invoice, pk=pk)
+    ar_invoice = get_object_or_404(AR_Invoice, invoice_id=pk)
     
     try:
         workflow_instance = ar_invoice.submit_for_approval()
@@ -331,7 +356,7 @@ def ar_invoice_approval_action(request, pk):
     from django.contrib.auth import get_user_model
     from core.approval.managers import ApprovalManager
     
-    ar_invoice = get_object_or_404(AR_Invoice, pk=pk)
+    ar_invoice = get_object_or_404(AR_Invoice, invoice_id=pk)
     
     # Get user from request
     User = get_user_model()

@@ -1,0 +1,227 @@
+{
+	"info": {
+		"name": "ERP Authentication API",
+		"description": "Complete authentication endpoints collection for ERP system including registration, login, logout, password management, and token refresh",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. User Registration",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"email\": \"user@example.com\",\n    \"name\": \"John Doe\",\n    \"phone_number\": \"+1234567890\",\n    \"password\": \"SecurePass123\",\n    \"confirm_password\": \"SecurePass123\"\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8000/auth/register/",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"auth",
+						"register",
+						""
+					]
+				},
+				"description": "Register a new user account. Returns user details and JWT tokens.\n\n**Required Fields:**\n- email: Valid email address (must be unique)\n- name: User's full name\n- phone_number: Valid phone number\n- password: At least 8 characters, must contain uppercase, lowercase, and number\n- confirm_password: Must match password\n\n**Response:**\n- User details (id, email, name, user_type)\n- JWT tokens (access and refresh)"
+			},
+			"response": []
+		},
+		{
+			"name": "2. User Login",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"email\": \"user@example.com\",\n    \"password\": \"SecurePass123\"\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8000/auth/login/",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"auth",
+						"login",
+						""
+					]
+				},
+				"description": "Authenticate user and obtain JWT tokens.\n\n**Required Fields:**\n- email: User's registered email\n- password: User's password\n\n**Response:**\n- User details (id, email, name, user_type)\n- JWT tokens (access and refresh)\n\n**Note:** Save the access token for authenticated requests"
+			},
+			"response": []
+		},
+		{
+			"name": "3. Refresh Access Token",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"refresh\": \"{{refresh_token}}\"\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8000/auth/token/refresh/",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"auth",
+						"token",
+						"refresh",
+						""
+					]
+				},
+				"description": "Obtain a new access token using refresh token.\n\n**Required Fields:**\n- refresh: Valid refresh token from login or registration\n\n**Response:**\n- access: New access token\n\n**Note:** Use this when access token expires (typically after 5-60 minutes)"
+			},
+			"response": []
+		},
+		{
+			"name": "4. Change Password",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{access_token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"old_password\": \"SecurePass123\",\n    \"new_password\": \"NewSecurePass456\",\n    \"confirm_password\": \"NewSecurePass456\"\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8000/auth/change-password/",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"auth",
+						"change-password",
+						""
+					]
+				},
+				"description": "Change user password (requires authentication).\n\n**Authentication:** Bearer Token (access token)\n\n**Required Fields:**\n- old_password: Current password\n- new_password: New password (at least 8 characters, must contain uppercase, lowercase, and number)\n- confirm_password: Must match new_password\n\n**Response:**\n- Success message"
+			},
+			"response": []
+		},
+		{
+			"name": "5. Logout",
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{access_token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"refresh\": \"{{refresh_token}}\"\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8000/auth/logout/",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8000",
+					"path": [
+						"auth",
+						"logout",
+						""
+					]
+				},
+				"description": "Logout user by blacklisting the refresh token (requires authentication).\n\n**Authentication:** Bearer Token (access token)\n\n**Required Fields:**\n- refresh: The refresh token to blacklist\n\n**Response:**\n- Success message\n\n**Note:** After logout, both access and refresh tokens become invalid"
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "access_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "refresh_token",
+			"value": "",
+			"type": "string"
+		}
+	]
+}
