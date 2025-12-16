@@ -1,6 +1,7 @@
 from django.db import models, transaction
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from dateutil.relativedelta import relativedelta
 from decimal import Decimal
 from Finance.core.models import Currency
 from Finance.BusinessPartner.models import BusinessPartner
@@ -903,7 +904,6 @@ class InvoicePaymentPlan(models.Model):
         Generate a suggested payment plan structure (does NOT save to database).
         
         This is a helper method to preview what a payment plan would look like.
-        Use create_from_suggestion() to actually create the plan.
         
         Args:
             invoice_total (Decimal or float): Total amount to split into installments
@@ -927,10 +927,7 @@ class InvoicePaymentPlan(models.Model):
             
         Raises:
             ValueError: If inputs are invalid
-        """
-        from datetime import timedelta
-        from dateutil.relativedelta import relativedelta
-        
+        """                
         # Convert to Decimal for precise calculations
         invoice_total = Decimal(str(invoice_total))
         
@@ -954,7 +951,7 @@ class InvoicePaymentPlan(models.Model):
         for i in range(1, num_installments + 1):
             # Calculate due date based on frequency
             if frequency == 'weekly':
-                due_date = start_date + timedelta(weeks=i-1)
+                due_date = start_date + relativedelta(weeks=i-1)
             elif frequency == 'monthly':
                 due_date = start_date + relativedelta(months=i-1)
             elif frequency == 'quarterly':
@@ -980,51 +977,6 @@ class InvoicePaymentPlan(models.Model):
             })
         
         return installments
-    
-    @classmethod
-    @transaction.atomic
-    def create_from_suggestion(cls, invoice, suggestion, description=None):
-        """
-        Create a payment plan and installments from a suggestion.
-        
-        Args:
-            invoice (Invoice): The invoice this payment plan is for
-            suggestion (list): Output from suggest_schedule()
-            description (str): Optional description for the payment plan
-        
-        Returns:
-            InvoicePaymentPlan: Created payment plan instance (with installments)
-            
-        Raises:
-            ValidationError: If suggestion is invalid
-        """
-        if not suggestion:
-            raise ValidationError("Suggestion must contain at least one installment")
-        
-        # Calculate total from suggestion
-        total_amount = sum(Decimal(str(inst['amount'])) for inst in suggestion)
-        
-        # Create the payment plan
-        payment_plan = cls.objects.create(
-            invoice=invoice,
-            total_amount=total_amount,
-            status='pending',
-            description=description
-        )
-        
-        # Create all installments
-        for inst_data in suggestion:
-            PaymentPlanInstallment.objects.create(
-                payment_plan=payment_plan,
-                installment_number=inst_data['installment_number'],
-                due_date=inst_data['due_date'],
-                amount=Decimal(str(inst_data['amount'])),
-                paid_amount=Decimal(str(inst_data['paid_amount'])),
-                status=inst_data['status'],
-                description=inst_data.get('description', '')
-            )
-        
-        return payment_plan
 
 
 class PaymentPlanInstallment(models.Model):

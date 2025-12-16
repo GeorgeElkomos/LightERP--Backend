@@ -9,6 +9,9 @@ This test suite validates:
 """
 
 from django.test import TestCase
+from rest_framework.test import APITestCase
+from rest_framework import status
+from django.urls import reverse
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from decimal import Decimal
@@ -229,11 +232,25 @@ class PaymentPlanCreationTests(PaymentPlanTestCase):
             frequency='monthly'
         )
         
-        plan = InvoicePaymentPlan.create_from_suggestion(
+        # Manual creation from suggestion
+        total_amount = sum(Decimal(str(item['amount'])) for item in suggestion)
+        plan = InvoicePaymentPlan.objects.create(
             invoice=invoice.invoice,
-            suggestion=suggestion,
-            description="3 monthly payments for vendor"
+            total_amount=total_amount,
+            description="3 monthly payments for vendor",
+            status='pending'
         )
+        
+        for item in suggestion:
+            PaymentPlanInstallment.objects.create(
+                payment_plan=plan,
+                installment_number=item['installment_number'],
+                due_date=item['due_date'],
+                amount=Decimal(str(item['amount'])),
+                description=item.get('description', ''),
+                status='pending',
+                paid_amount=Decimal('0.00')
+            )
         
         self.assertEqual(plan.total_amount, Decimal('3000.00'))
         self.assertEqual(plan.installments.count(), 3)
@@ -690,11 +707,25 @@ class PaymentPlanIntegrationTests(PaymentPlanTestCase):
         )
         
         # 3. Create payment plan from suggestion
-        plan = InvoicePaymentPlan.create_from_suggestion(
+        # 3. Create payment plan from suggestion manually
+        total_amount = sum(Decimal(str(item['amount'])) for item in suggestion)
+        plan = InvoicePaymentPlan.objects.create(
             invoice=invoice.invoice,
-            suggestion=suggestion,
-            description="5 monthly installments"
+            total_amount=total_amount,
+            description="5 monthly installments",
+            status='pending'
         )
+        
+        for item in suggestion:
+            PaymentPlanInstallment.objects.create(
+                payment_plan=plan,
+                installment_number=item['installment_number'],
+                due_date=item['due_date'],
+                amount=Decimal(str(item['amount'])),
+                description=item.get('description', ''),
+                status='pending',
+                paid_amount=Decimal('0.00')
+            )
         
         self.assertEqual(plan.status, 'pending')
         self.assertEqual(plan.installments.count(), 5)
@@ -738,3 +769,215 @@ class PaymentPlanIntegrationTests(PaymentPlanTestCase):
         
         # Both should exist
         self.assertEqual(invoice.invoice.payment_plans.count(), 2)
+
+
+class PaymentPlanAPITestCase(APITestCase):
+    """Test suite for Payment Plan API endpoints"""
+    
+    def setUp(self):
+        """Set up test data"""
+        self.currency = Currency.objects.create(
+            name="US Dollar",
+            code="USD",
+            symbol="$",
+            is_base_currency=True
+        )
+        self.country = Country.objects.create(
+            name="United States",
+            code="US"
+        )
+        self.supplier = Supplier.objects.create(
+            name="Test Supplier",
+            country=self.country
+        )
+        self.journal_entry = JournalEntry.objects.create(
+            date=date.today(),
+            currency=self.currency,
+            memo="Test Entry",
+            posted=False
+        )
+        
+        self.ap_invoice = AP_Invoice.objects.create(
+            supplier=self.supplier,
+            date=date.today(),
+            currency=self.currency,
+            country=self.country,
+            subtotal=Decimal('3000.00'),
+            total=Decimal('3000.00'),
+            gl_distributions=self.journal_entry
+        )
+        self.invoice = self.ap_invoice.invoice
+        
+        # Helper to create a plan
+        self.create_plan_url = reverse(
+            'finance:payments:invoice-payment-plans-list',
+            kwargs={'invoice_pk': self.invoice.id}
+        )
+
+    def test_create_payment_plan(self):
+        """Test creating a payment plan via API"""
+        data = {
+            'total_amount': '3000.00',
+            'description': 'Test Plan',
+            'installments': [
+                {
+                    'installment_number': 1,
+                    'due_date': str(date.today() + timedelta(days=30)),
+                    'amount': '1000.00'
+                },
+                {
+                    'installment_number': 2,
+                    'due_date': str(date.today() + timedelta(days=60)),
+                    'amount': '1000.00'
+                },
+                {
+                    'installment_number': 3,
+                    'due_date': str(date.today() + timedelta(days=90)),
+                    'amount': '1000.00'
+                }
+            ]
+        }
+        
+        response = self.client.post(self.create_plan_url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(InvoicePaymentPlan.objects.count(), 1)
+        self.assertEqual(PaymentPlanInstallment.objects.count(), 3)
+        
+        plan_id = response.data['id']
+        plan = InvoicePaymentPlan.objects.get(id=plan_id)
+        self.assertEqual(plan.total_amount, Decimal('3000.00'))
+        self.assertEqual(plan.status, 'pending')
+
+    def test_create_payment_plan_validation_error(self):
+        """Test validation: sum of installments must equal total"""
+        data = {
+            'total_amount': '3000.00',
+            'installments': [
+                {
+                    'installment_number': 1,
+                    'due_date': str(date.today()),
+                    'amount': '1000.00'
+                }
+            ]
+        }
+        
+        response = self.client.post(self.create_plan_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_suggest_payment_plan(self):
+        """Test suggestion endpoint"""
+        url = reverse(
+            'finance:payments:invoice-suggest-payment-plan',
+            kwargs={'invoice_pk': self.invoice.id}
+        )
+        data = {
+            'start_date': str(date.today()),
+            'num_installments': 3,
+            'frequency': 'monthly'
+        }
+        
+        response = self.client.post(url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['suggested_installments']), 3)
+        self.assertEqual(response.data['invoice_total'], '3000.00')
+
+    def test_process_payment(self):
+        """Test processing a payment"""
+        # Create plan first
+        plan = InvoicePaymentPlan.objects.create(
+            invoice=self.invoice,
+            total_amount=Decimal('3000.00')
+        )
+        PaymentPlanInstallment.objects.create(
+            payment_plan=plan,
+            installment_number=1,
+            due_date=date.today(),
+            amount=Decimal('1000.00')
+        )
+        
+        url = reverse('finance:payments:payment-plan-process-payment', kwargs={'pk': plan.id})
+        data = {'payment_amount': '500.00'}
+        
+        response = self.client.post(url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['payment_applied'], 500.0)
+        
+        plan.refresh_from_db()
+        self.assertEqual(plan.status, 'partial')
+        self.assertEqual(plan.installments.first().paid_amount, Decimal('500.00'))
+
+    def test_get_payment_plan_summary(self):
+        """Test summary endpoint"""
+        plan = InvoicePaymentPlan.objects.create(
+            invoice=self.invoice,
+            total_amount=Decimal('3000.00')
+        )
+        
+        url = reverse('finance:payments:payment-plan-summary', kwargs={'pk': plan.id})
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(Decimal(response.data['total_amount']), Decimal('3000.00'))
+        self.assertEqual(Decimal(response.data['total_paid']), Decimal('0.00'))
+
+    def test_cancel_payment_plan(self):
+        """Test cancelling a plan"""
+        plan = InvoicePaymentPlan.objects.create(
+            invoice=self.invoice,
+            total_amount=Decimal('3000.00')
+        )
+        
+        url = reverse('finance:payments:payment-plan-cancel', kwargs={'pk': plan.id})
+        response = self.client.post(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        plan.refresh_from_db()
+        self.assertEqual(plan.status, 'cancelled')
+
+    def test_list_overdue_payment_plans(self):
+        """Test listing overdue payment plans (Regression test for NameError)"""
+        # Create a plan with an overdue installment
+        plan = InvoicePaymentPlan.objects.create(
+            invoice=self.invoice,
+            total_amount=Decimal('3000.00'),
+            description="Overdue Plan"
+        )
+        PaymentPlanInstallment.objects.create(
+            payment_plan=plan,
+            installment_number=1,
+            due_date=date.today() - timedelta(days=5), # Past due
+            amount=Decimal('1000.00'),
+            paid_amount=Decimal('0.00')
+        )
+        
+        url = reverse('finance:payments:payment-plans-overdue-list')
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Check standard response structure from auto_paginate
+        self.assertEqual(len(response.data['data']['results']), 1)
+        self.assertEqual(response.data['data']['results'][0]['id'], plan.id)
+
+    def test_overdue_installments(self):
+        """Test overdue installments list"""
+        plan = InvoicePaymentPlan.objects.create(
+            invoice=self.invoice,
+            total_amount=Decimal('3000.00')
+        )
+        # Past due installment
+        PaymentPlanInstallment.objects.create(
+            payment_plan=plan,
+            installment_number=1,
+            due_date=date.today() - timedelta(days=10),
+            amount=Decimal('1000.00')
+        )
+        
+        url = reverse('finance:payments:payment-plan-overdue-installments', kwargs={'pk': plan.id})
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(len(response.data['overdue_installments']), 1)
