@@ -16,7 +16,7 @@ from core.approval.models import (
     TestInvoice,
     TestPurchaseOrder,
 )
-from core.user_accounts.models import Role
+from core.job_roles.models import JobRole
 
 User = get_user_model()
 
@@ -36,8 +36,8 @@ class WorkflowTemplateAPITest(TestCase):
             password='testpass123'
         )
         
-        # Create role
-        self.role = Role.objects.create(
+        # Create job role
+        self.role = JobRole.objects.create(
             name='Manager'
         )
         
@@ -309,8 +309,8 @@ class StageTemplateAPITest(TestCase):
         """Set up test data."""
         self.client = APIClient()
         
-        # Create role
-        self.role = Role.objects.create(
+        # Create job role
+        self.role = JobRole.objects.create(
             name='Approver'
         )
         

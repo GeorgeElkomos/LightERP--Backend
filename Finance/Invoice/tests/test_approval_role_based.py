@@ -20,7 +20,7 @@ from decimal import Decimal
 from datetime import date
 from unittest.mock import patch
 
-from core.user_accounts.models import Role
+from core.job_roles.models import JobRole
 from core.approval.models import (
     ApprovalWorkflowTemplate,
     ApprovalWorkflowStageTemplate,
@@ -43,10 +43,10 @@ class InvoiceApprovalRoleBasedTest(TestCase):
     
     def setUp(self):
         """Set up test data with roles, users, and invoice workflow."""
-        # Create roles (they should already exist from the database setup script)
-        self.accountant_role, _ = Role.objects.get_or_create(name='accountant')
-        self.manager_role, _ = Role.objects.get_or_create(name='manager')
-        self.director_role, _ = Role.objects.get_or_create(name='director')
+        # Create job roles (they should already exist from the database setup script)
+        self.accountant_role, _ = JobRole.objects.get_or_create(name='accountant')
+        self.manager_role, _ = JobRole.objects.get_or_create(name='manager')
+        self.director_role, _ = JobRole.objects.get_or_create(name='director')
         
         # Create users with different roles
         self.accountant1 = self._create_user(
@@ -136,7 +136,7 @@ class InvoiceApprovalRoleBasedTest(TestCase):
             phone_number=phone_number,
             password='testpass123'
         )
-        user.role = role
+        user.job_role = role
         user.save()
         return user
     

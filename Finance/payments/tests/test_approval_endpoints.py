@@ -27,7 +27,7 @@ from rest_framework import status as http_status
 from decimal import Decimal
 from datetime import date
 
-from core.user_accounts.models import Role, UserType
+from core.job_roles.models import JobRole
 from core.approval.models import (
     ApprovalWorkflowTemplate,
     ApprovalWorkflowStageTemplate,
@@ -53,10 +53,10 @@ class PaymentApprovalEndpointTest(TestCase):
         """Set up test data with roles, users, and workflow template."""
         self.client = APIClient()
         
-        # Create roles
-        self.accountant_role, _ = Role.objects.get_or_create(name='accountant')
-        self.manager_role, _ = Role.objects.get_or_create(name='manager')
-        self.director_role, _ = Role.objects.get_or_create(name='director')
+        # Create job roles
+        self.accountant_role, _ = JobRole.objects.get_or_create(name='accountant')
+        self.manager_role, _ = JobRole.objects.get_or_create(name='manager')
+        self.director_role, _ = JobRole.objects.get_or_create(name='director')
         
         # Create users with different roles
         self.accountant = self._create_user(
@@ -110,6 +110,7 @@ class PaymentApprovalEndpointTest(TestCase):
     
     def _create_user(self, email, name, phone_number, role=None):
         """Helper to create a user with specified role."""
+        from core.user_accounts.models import UserType
         user_type, _ = UserType.objects.get_or_create(
             type_name='user',
             defaults={'description': 'Regular user'}
@@ -121,7 +122,7 @@ class PaymentApprovalEndpointTest(TestCase):
             phone_number=phone_number,
             password='testpass123'
         )
-        user.role = role
+        user.job_role = role
         user.save()
         return user
     

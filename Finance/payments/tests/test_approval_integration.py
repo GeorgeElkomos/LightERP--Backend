@@ -25,7 +25,7 @@ from core.approval.models import (
     ApprovalAssignment,
 )
 from core.approval.managers import ApprovalManager
-from core.user_accounts.models import Role, UserType
+from core.job_roles.models import JobRole
 
 User = get_user_model()
 
@@ -35,11 +35,12 @@ class PaymentApprovalIntegrationTest(TestCase):
     
     def setUp(self):
         """Set up test data for each test."""
-        # Create roles
-        self.manager_role, _ = Role.objects.get_or_create(name='manager')
-        self.director_role, _ = Role.objects.get_or_create(name='director')
+        # Create job roles
+        self.manager_role, _ = JobRole.objects.get_or_create(name='manager')
+        self.director_role, _ = JobRole.objects.get_or_create(name='director')
         
         # Create user type
+        from core.user_accounts.models import UserType
         self.user_type, _ = UserType.objects.get_or_create(
             type_name='user',
             defaults={'description': 'Regular user'}
@@ -125,7 +126,7 @@ class PaymentApprovalIntegrationTest(TestCase):
             phone_number=phone_number,
             password='testpass123'
         )
-        user.role = role
+        user.job_role = role
         user.save()
         return user
     
