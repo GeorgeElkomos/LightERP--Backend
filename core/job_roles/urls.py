@@ -12,6 +12,7 @@ urlpatterns = [
     path('job-roles/', views.job_role_list, name='job-role-list'),
     path('job-roles/<int:pk>/', views.job_role_detail, name='job-role-detail'),
     path('job-roles/<int:pk>/assign-page/', views.job_role_assign_page, name='job-role-assign-page'),
+    path('job-roles/<int:pk>/assign-user/', views.job_role_assign_user, name='job-role-assign-user'),
     path('job-roles/<int:pk>/remove-page/', views.job_role_remove_page, name='job-role-remove-page'),
     
     # Page endpoints
@@ -27,6 +28,9 @@ urlpatterns = [
     # PageAction endpoints
     path('page-actions/', views.page_action_list, name='page-action-list'),
     path('page-actions/<int:pk>/', views.page_action_detail, name='page-action-detail'),
+    
+    # User-specific permissions
+    path('users/<int:pk>/actions/', views.user_actions, name='user-actions'),
     
     # UserActionDenial endpoints
     path('user-action-denials/', views.user_action_denial_list, name='user-action-denial-list'),

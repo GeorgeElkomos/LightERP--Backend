@@ -2,9 +2,10 @@
 API Views for Job Roles and Permissions models.
 Provides REST API endpoints for managing role-based access control.
 """
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ValidationError
 from django.db.models import Q
@@ -30,6 +31,7 @@ from .serializers import (
     UserActionDenialSerializer,
     UserActionDenialCreateSerializer,
 )
+from core.user_accounts.models import CustomUser
 
 
 # ============================================================================
@@ -71,7 +73,10 @@ def job_role_list(request):
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method == 'POST':
-        serializer = JobRoleSerializer(data=request.data)
+        # Support both single-object and bulk (list) creates
+        data = request.data
+        is_list = isinstance(data, list)
+        serializer = JobRoleSerializer(data=data, many=is_list)
         if serializer.is_valid():
             try:
                 serializer.save()
@@ -202,6 +207,54 @@ def job_role_remove_page(request, pk):
             {'error': 'Page assignment not found'},
             status=status.HTTP_404_NOT_FOUND
         )
+
+
+@api_view(['POST'])
+def job_role_assign_user(request, pk):
+    """
+    Assign a user to a job role.
+
+    POST /job-roles/{id}/assign-user/
+    - Request body: { "user_id": <int> }
+    - Only users with admin privileges can assign roles
+    """
+    job_role = get_object_or_404(JobRole, pk=pk)
+
+    user_id = request.data.get('user_id')
+    if not user_id:
+        return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Import user model dynamically to avoid circular imports
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+
+    # Permission: only admin users can assign roles
+    requesting_user = request.user
+    if not getattr(requesting_user, 'is_admin', lambda: False)():
+        return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        return Response({'error': f'User with id {user_id} does not exist'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Assign and save
+    user.job_role = job_role
+    user.save()
+
+    # Minimal user info response
+    return Response({
+        'message': 'User assigned to job role successfully',
+        'user': {
+            'id': user.id,
+            'email': user.email,
+            'name': user.name,
+            'job_role': {
+                'id': job_role.id,
+                'name': job_role.name
+            }
+        }
+    }, status=status.HTTP_200_OK)
 
 
 # ============================================================================
@@ -483,8 +536,8 @@ def page_action_list(request):
     GET /page-actions/
     - Returns list of all page-action relationships
     - Query params:
-        - page: Filter by page ID
-        - action: Filter by action ID
+        - page_id: Filter by page ID (use this instead of `page` to avoid colliding with pagination)
+        - action_id: Filter by action ID (use this instead of `action` to avoid ambiguity)
     
     POST /page-actions/
     - Create a new page-action relationship
@@ -493,12 +546,14 @@ def page_action_list(request):
     if request.method == 'GET':
         page_actions = PageAction.objects.select_related('page', 'action').all()
         
-        # Apply filters
-        page_id = request.query_params.get('page')
+        # Apply filters. Use `page_id` and `action_id` query params so they don't
+        # conflict with the pagination query param `page` which is reserved for
+        # page numbers (and will raise "Invalid page." if out of range).
+        page_id = request.query_params.get('page_id') or request.query_params.get('page')
         if page_id:
             page_actions = page_actions.filter(page_id=page_id)
-        
-        action_id = request.query_params.get('action')
+
+        action_id = request.query_params.get('action_id')
         if action_id:
             page_actions = page_actions.filter(action_id=action_id)
         
@@ -644,3 +699,37 @@ def user_action_denial_detail(request, pk):
             {'message': 'User action denial removed successfully'},
             status=status.HTTP_204_NO_CONTENT
         )
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def user_actions(request, pk):
+    """
+    GET /users/{id}/actions/ - Return the allowed actions (page_actions)
+    for a specific user based on their job role minus any explicit denials.
+
+    Permission: user themselves or super_admin.
+    """
+    # Fetch target user
+    target_user = get_object_or_404(CustomUser, pk=pk)
+
+    # Authorization: allow if requesting user is super_admin or the user themselves
+    if not (request.user.is_authenticated and (request.user.is_super_admin() or request.user.pk == target_user.pk)):
+        return Response({'error': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+
+    # If user has no job role, they have no inherited actions
+    if not target_user.job_role:
+        return Response([], status=status.HTTP_200_OK)
+
+    # Actions available to the user's job role
+    # Use an explicit JobRolePage -> PageAction lookup to avoid
+    # ambiguous ORM coercion when values aren't strictly model instances.
+    page_ids = JobRolePage.objects.filter(job_role=target_user.job_role).values_list('page_id', flat=True)
+    available = PageAction.objects.filter(page_id__in=page_ids).select_related('page', 'action').distinct()
+
+    # Exclude any explicit denials for this user
+    denied_ids = UserActionDenial.objects.filter(user=target_user).values_list('page_action_id', flat=True)
+    if denied_ids:
+        available = available.exclude(id__in=denied_ids)
+
+    serializer = PageActionSerializer(available, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
