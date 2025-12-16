@@ -15,7 +15,7 @@ class UserTypeSerializer(serializers.ModelSerializer):
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
-    """Serializer for public user registration - always creates 'user' type"""
+    """Serializer for public user registration"""
     password = serializers.CharField(
         write_only=True,
         required=True,
@@ -171,7 +171,11 @@ class AdminUserCreationSerializer(serializers.ModelSerializer):
         
         # Default to 'user' if not specified
         if 'user_type' not in attrs or attrs['user_type'] is None:
-            attrs['user_type'] = UserType.objects.get(type_name='user')
+            user_type, _ = UserType.objects.get_or_create(
+                type_name='user',
+                defaults={'description': 'Regular user with basic permissions'}
+            )
+            attrs['user_type'] = user_type
         
         return attrs
     

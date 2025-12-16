@@ -402,7 +402,7 @@ class UserProfileAPITest(APITestCase):
     
     def setUp(self):
         self.client = APIClient()
-        self.url = '/core/user_accounts/profile/'
+        self.url = '/accounts/profile/'
         self.user = User.objects.create_user(
             email='testuser@example.com',
             name='Test User',
@@ -424,7 +424,7 @@ class UserProfileAPITest(APITestCase):
         """Test getting user profile"""
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.access_token}')
         
-        response = self.client.get(self.url)
+        response = self.client.get('/accounts/profile/')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['email'], 'testuser@example.com')
@@ -446,7 +446,7 @@ class UserProfileAPITest(APITestCase):
             'phone_number': '+9999999999'
         }
         
-        response = self.client.put(self.url, data, format='json')
+        response = self.client.put('/accounts/profile/', data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['user']['name'], 'Updated Name')
@@ -463,7 +463,7 @@ class UserProfileAPITest(APITestCase):
         
         data = {'name': 'Partially Updated'}
         
-        response = self.client.patch(self.url, data, format='json')
+        response = self.client.patch('/accounts/profile/', data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['user']['name'], 'Partially Updated')
@@ -677,7 +677,7 @@ class ComplexUserWorkflowTest(APITestCase):
         
         # 3. Get Profile
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
-        response = self.client.get('/core/user_accounts/profile/')
+        response = self.client.get('/accounts/profile/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['email'], 'lifecycle@example.com')
         
@@ -686,7 +686,7 @@ class ComplexUserWorkflowTest(APITestCase):
             'name': 'Updated Lifecycle User',
             'phone_number': '+9999999999'
         }
-        response = self.client.patch('/core/user_accounts/profile/', update_data, format='json')
+        response = self.client.patch('/accounts/profile/', update_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # 5. Change Password
@@ -731,13 +731,13 @@ class ComplexUserWorkflowTest(APITestCase):
         
         # User1 gets their profile
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token1}')
-        response = self.client.get('/core/user_accounts/profile/')
+        response = self.client.get('/accounts/profile/')
         self.assertEqual(response.data['email'], 'user1@example.com')
         self.assertNotEqual(response.data['email'], 'user2@example.com')
         
         # User1 updates their profile
         update_data = {'name': 'User One Updated'}
-        response = self.client.patch('/core/user_accounts/profile/', update_data, format='json')
+        response = self.client.patch('/accounts/profile/', update_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # Verify user2 data is unchanged
@@ -773,7 +773,7 @@ class ComplexUserWorkflowTest(APITestCase):
         
         # Verify new access token works
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {new_access}')
-        response = self.client.get('/core/user_accounts/profile/')
+        response = self.client.get('/accounts/profile/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
     
     def test_concurrent_user_registrations(self):
@@ -937,7 +937,7 @@ class AdminUserListTest(APITestCase):
     
     def setUp(self):
         self.client = APIClient()
-        self.url = '/admin/users/'
+        self.url = '/accounts/admin/users/'
         
         # Create test users
         self.regular_user = User.objects.create_user(
@@ -1027,7 +1027,7 @@ class AdminUserCreationTest(APITestCase):
     
     def setUp(self):
         self.client = APIClient()
-        self.url = '/admin/users/'
+        self.url = '/accounts/admin/users/'
         
         self.admin = User.objects.create_user(
             email='admin@example.com',
@@ -1192,7 +1192,7 @@ class AdminUserDetailTest(APITestCase):
         refresh = RefreshToken.for_user(self.admin)
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
         
-        url = f'/admin/users/{self.target_user.id}/'
+        url = f'/accounts/admin/users/{self.target_user.id}/'
         response = self.client.get(url)
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -1203,7 +1203,7 @@ class AdminUserDetailTest(APITestCase):
         refresh = RefreshToken.for_user(self.admin)
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
         
-        url = f'/admin/users/{self.admin2.id}/'
+        url = f'/accounts/admin/users/{self.admin2.id}/'
         response = self.client.get(url)
         
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
@@ -1213,7 +1213,7 @@ class AdminUserDetailTest(APITestCase):
         refresh = RefreshToken.for_user(self.admin)
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
         
-        url = f'/admin/users/{self.target_user.id}/'
+        url = f'/accounts/admin/users/{self.target_user.id}/'
         data = {'name': 'Updated Name'}
         
         response = self.client.patch(url, data, format='json')
@@ -1232,7 +1232,7 @@ class AdminUserDetailTest(APITestCase):
         
         admin_type = UserType.objects.get(type_name='admin')
         
-        url = f'/admin/users/{self.target_user.id}/'
+        url = f'/accounts/admin/users/{self.target_user.id}/'
         data = {'user_type': admin_type.id}
         
         response = self.client.patch(url, data, format='json')
@@ -1247,7 +1247,7 @@ class AdminUserDetailTest(APITestCase):
         
         admin_type = UserType.objects.get(type_name='admin')
         
-        url = f'/admin/users/{self.target_user.id}/'
+        url = f'/accounts/admin/users/{self.target_user.id}/'
         data = {'user_type': admin_type.id}
         
         response = self.client.patch(url, data, format='json')
@@ -1266,7 +1266,7 @@ class AdminUserDetailTest(APITestCase):
         
         user_type = UserType.objects.get(type_name='user')
         
-        url = f'/admin/users/{self.admin.id}/'
+        url = f'/accounts/admin/users/{self.admin.id}/'
         data = {'user_type': user_type.id}
         
         response = self.client.patch(url, data, format='json')
@@ -1282,7 +1282,7 @@ class AdminUserDetailTest(APITestCase):
         user_type = UserType.objects.get(type_name='user')
         
         # Try to demote self
-        url = f'/admin/users/{self.super_admin.id}/'
+        url = f'/accounts/admin/users/{self.super_admin.id}/'
         data = {'user_type': user_type.id}
         
         response = self.client.patch(url, data, format='json')
@@ -1295,7 +1295,7 @@ class AdminUserDetailTest(APITestCase):
         refresh = RefreshToken.for_user(self.admin)
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
         
-        url = f'/admin/users/{self.target_user.id}/'
+        url = f'/accounts/admin/users/{self.target_user.id}/'
         response = self.client.delete(url)
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -1309,7 +1309,7 @@ class AdminUserDetailTest(APITestCase):
         refresh = RefreshToken.for_user(self.admin)
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
         
-        url = f'/admin/users/{self.admin2.id}/'
+        url = f'/accounts/admin/users/{self.admin2.id}/'
         response = self.client.delete(url)
         
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
@@ -1327,7 +1327,7 @@ class AdminUserDetailTest(APITestCase):
             password='SuperPass123'
         )
         
-        url = f'/admin/users/{super_admin2.id}/'
+        url = f'/accounts/admin/users/{super_admin2.id}/'
         response = self.client.delete(url)
         
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
@@ -1337,7 +1337,7 @@ class AdminUserDetailTest(APITestCase):
         refresh = RefreshToken.for_user(self.admin)
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
         
-        url = f'/admin/users/{self.admin.id}/'
+        url = f'/accounts/admin/users/{self.admin.id}/'
         response = self.client.delete(url)
         
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
@@ -1355,7 +1355,7 @@ class AdminUserDetailTest(APITestCase):
             password='SuperPass123'
         )
         
-        url = f'/admin/users/{super_admin2.id}/'
+        url = f'/accounts/admin/users/{super_admin2.id}/'
         data = {'name': 'Hacked Name'}
         
         response = self.client.patch(url, data, format='json')
@@ -1368,7 +1368,7 @@ class SuperAdminPasswordResetTest(APITestCase):
     
     def setUp(self):
         self.client = APIClient()
-        self.url = '/admin/password-reset/'
+        self.url = '/accounts/superadmin/password-reset/'
         
         self.admin = User.objects.create_user(
             email='admin@example.com',
@@ -1482,18 +1482,21 @@ class CompleteRBACWorkflowTest(APITestCase):
             'password': 'LifePass123',
             'confirm_password': 'LifePass123'
         }
-        response = self.client.post('/admin/users/', create_data, format='json')
+        response = self.client.post('/accounts/admin/users/', create_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         user_id = response.data['user']['id']
         
         # 2. Verify user is created as 'user' type
-        response = self.client.get(f'/admin/users/{user_id}/')
+        response = self.client.get(f'/accounts/admin/users/{user_id}/')
         self.assertEqual(response.data['user_type'], 'user')
         
         # 3. Promote to admin
-        admin_type = UserType.objects.get(type_name='admin')
+        admin_type, _ = UserType.objects.get_or_create(
+            type_name='admin',
+            defaults={'description': 'Administrator with elevated permissions'}
+        )
         response = self.client.patch(
-            f'/admin/users/{user_id}/',
+            f'/accounts/admin/users/{user_id}/',
             {'user_type': admin_type.id},
             format='json'
         )
@@ -1501,9 +1504,12 @@ class CompleteRBACWorkflowTest(APITestCase):
         self.assertEqual(response.data['user']['user_type'], 'admin')
         
         # 4. Demote back to user
-        user_type = UserType.objects.get(type_name='user')
+        user_type, _ = UserType.objects.get_or_create(
+            type_name='user',
+            defaults={'description': 'Regular user with basic permissions'}
+        )
         response = self.client.patch(
-            f'/admin/users/{user_id}/',
+            f'/accounts/admin/users/{user_id}/',
             {'user_type': user_type.id},
             format='json'
         )
@@ -1511,11 +1517,11 @@ class CompleteRBACWorkflowTest(APITestCase):
         self.assertEqual(response.data['user']['user_type'], 'user')
         
         # 5. Delete user
-        response = self.client.delete(f'/admin/users/{user_id}/')
+        response = self.client.delete(f'/accounts/admin/users/{user_id}/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # 6. Verify deletion
-        response = self.client.get(f'/admin/users/{user_id}/')
+        response = self.client.get(f'/accounts/admin/users/{user_id}/')
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
     
     def test_permission_escalation_prevention(self):
@@ -1532,11 +1538,14 @@ class CompleteRBACWorkflowTest(APITestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
         
         # Try to access admin endpoints
-        response = self.client.get('/admin/users/')
+        response = self.client.get('/accounts/admin/users/')
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         
         # Try to create admin user
-        admin_type = UserType.objects.get(type_name='admin')
+        admin_type, _ = UserType.objects.get_or_create(
+            type_name='admin',
+            defaults={'description': 'Administrator with elevated permissions'}
+        )
         create_data = {
             'email': 'hacker@example.com',
             'name': 'Hacker',
@@ -1545,5 +1554,5 @@ class CompleteRBACWorkflowTest(APITestCase):
             'confirm_password': 'HackPass123',
             'user_type': admin_type.id
         }
-        response = self.client.post('/admin/users/', create_data, format='json')
+        response = self.client.post('/accounts/admin/users/', create_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

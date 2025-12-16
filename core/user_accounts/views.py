@@ -321,6 +321,14 @@ def admin_user_detail(request, user_id):
             status=status.HTTP_404_NOT_FOUND
         )
     
+    # Check for self-deletion/modification first (applies to DELETE only, but we check early)
+    # This ensures proper error messages for test_cannot_delete_self
+    if request.method == 'DELETE' and request.user.id == target_user.id:
+        return Response(
+            {'error': 'Cannot delete your own account'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
     # Permission check: Regular admins can only manage regular users
     if not request.user.is_super_admin():
         if target_user.is_admin():
@@ -367,12 +375,7 @@ def admin_user_detail(request, user_id):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        # Cannot delete self
-        if request.user.id == target_user.id:
-            return Response(
-                {'error': 'Cannot delete your own account'},
-                status=status.HTTP_403_FORBIDDEN
-            )
+        # Self-deletion check is now handled earlier in the function
         
         try:
             target_user.delete()
