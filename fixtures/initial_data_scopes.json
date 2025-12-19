@@ -1,0 +1,29 @@
+[
+    {
+        "model": "hr.userdatascope",
+        "pk": 1,
+        "fields": {
+            "user": 1,
+            "is_global": true,
+            "business_group": null
+        }
+    },
+    {
+        "model": "hr.userdatascope",
+        "pk": 2,
+        "fields": {
+            "user": 2,
+            "is_global": false,
+            "business_group": 1
+        }
+    },
+    {
+        "model": "hr.userdatascope",
+        "pk": 3,
+        "fields": {
+            "user": 3,
+            "is_global": false,
+            "business_group": 2
+        }
+    }
+]
