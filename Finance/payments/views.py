@@ -16,19 +16,25 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ValidationError
-from django.db.models import Q, Sum
+from django.db.models import Q, Sum, F
 from decimal import Decimal
 
 from erp_project.pagination import auto_paginate
 
-from Finance.payments.models import Payment, PaymentAllocation
+from Finance.payments.models import Payment, PaymentAllocation, InvoicePaymentPlan, PaymentPlanInstallment
 from Finance.Invoice.models import Invoice
 from Finance.BusinessPartner.models import BusinessPartner
 from Finance.payments.serializers import (
     PaymentListSerializer, PaymentDetailSerializer,
     PaymentCreateSerializer, PaymentUpdateSerializer,
     AllocationCreateSerializer, AllocationUpdateSerializer,
-    PaymentAllocationDetailSerializer
+    PaymentAllocationDetailSerializer,
+    PaymentPlanListSerializer, PaymentPlanDetailSerializer,
+    PaymentPlanCreateSerializer, PaymentPlanUpdateSerializer,
+    InstallmentListSerializer, InstallmentDetailSerializer,
+    InstallmentCreateSerializer, InstallmentUpdateSerializer,
+    ProcessPaymentSerializer, SuggestPaymentPlanSerializer,
+    PaymentPlanSummarySerializer, OverdueInstallmentSerializer
 )
 
 
@@ -683,3 +689,524 @@ def payment_approval_action(request, pk):
             {'error': f'An error occurred: {str(e)}'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+# ============================================================================
+# Payment Plan API Views
+# ============================================================================
+
+@api_view(['GET', 'POST'])
+@auto_paginate
+def invoice_payment_plans_list(request, invoice_pk):
+    """
+    List or create payment plans for a specific invoice.
+    
+    GET /invoices/{invoice_id}/payment-plans/
+    - Returns list of payment plans for this invoice
+    
+    POST /invoices/{invoice_id}/payment-plans/
+    - Create a new payment plan for this invoice
+    - Request body: PaymentPlanCreateSerializer fields
+    """
+    invoice = get_object_or_404(Invoice, pk=invoice_pk)
+    
+    if request.method == 'GET':
+        plans = invoice.payment_plans.all().select_related(
+            'invoice', 'invoice__business_partner', 'invoice__currency'
+        )
+        serializer = PaymentPlanListSerializer(plans, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    elif request.method == 'POST':
+        # Pass invoice_id in context for serializer validation/creation
+        context = {'invoice_id': invoice.id}
+        serializer = PaymentPlanCreateSerializer(data=request.data, context=context)
+        
+        if serializer.is_valid():
+            try:
+                payment_plan = serializer.save()
+                response_serializer = PaymentPlanDetailSerializer(payment_plan)
+                return Response(
+                    response_serializer.data,
+                    status=status.HTTP_201_CREATED
+                )
+            except ValidationError as e:
+                return Response(
+                    {'error': str(e.message_dict) if hasattr(e, 'message_dict') else str(e)},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            except Exception as e:
+                return Response(
+                    {'error': str(e)},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
+def payment_plan_detail(request, pk):
+    """
+    Retrieve, update, or delete a payment plan.
+    
+    GET /payment-plans/{id}/
+    - Returns detailed payment plan with installments
+    
+    PUT/PATCH /payment-plans/{id}/
+    - Update payment plan (description, status - limited)
+    
+    DELETE /payment-plans/{id}/
+    - Delete payment plan (only if no payments made)
+    """
+    payment_plan = get_object_or_404(InvoicePaymentPlan, pk=pk)
+    
+    if request.method == 'GET':
+        serializer = PaymentPlanDetailSerializer(payment_plan)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    elif request.method in ['PUT', 'PATCH']:
+        serializer = PaymentPlanUpdateSerializer(data=request.data)
+        if serializer.is_valid():
+            try:
+                if 'description' in serializer.validated_data:
+                    payment_plan.description = serializer.validated_data['description']
+                
+                if 'status' in serializer.validated_data:
+                    payment_plan.status = serializer.validated_data['status']
+                
+                payment_plan.save()
+                
+                response_serializer = PaymentPlanDetailSerializer(payment_plan)
+                return Response(response_serializer.data)
+            except ValidationError as e:
+                return Response(
+                    {'error': str(e)},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    elif request.method == 'DELETE':
+        # Check if any installments have payments
+        if payment_plan.get_total_paid() > 0:
+            return Response(
+                {'error': 'Cannot delete payment plan that has payments. Cancel it instead.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        payment_plan.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ============================================================================
+# Payment Plan Operations Views
+# ============================================================================
+
+@api_view(['POST'])
+def payment_plan_process_payment(request, pk):
+    """
+    Apply a payment to the payment plan installments.
+    
+    POST /payment-plans/{id}/process-payment/
+    - Request body: {payment_amount: decimal}
+    - Applies payment using waterfall method (oldest unpaid first)
+    """
+    payment_plan = get_object_or_404(InvoicePaymentPlan, pk=pk)
+    
+    serializer = ProcessPaymentSerializer(data=request.data)
+    if serializer.is_valid():
+        try:
+            payment_amount = serializer.validated_data['payment_amount']
+            result = payment_plan.process_payment(payment_amount)
+            return Response(result, status=status.HTTP_200_OK)
+        except ValidationError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+def payment_plan_update_status(request, pk):
+    """
+    Force update of payment plan status based on installment states.
+    
+    POST /payment-plans/{id}/update-status/
+    """
+    payment_plan = get_object_or_404(InvoicePaymentPlan, pk=pk)
+    
+    try:
+        payment_plan.update_status()
+        
+        # Also update all installment statuses
+        for installment in payment_plan.installments.all():
+            installment.update_status()
+            
+        return Response({
+            'message': 'Status updated successfully',
+            'status': payment_plan.status
+        }, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+def payment_plan_cancel(request, pk):
+    """
+    Cancel a payment plan.
+    
+    POST /payment-plans/{id}/cancel/
+    """
+    payment_plan = get_object_or_404(InvoicePaymentPlan, pk=pk)
+    
+    try:
+        payment_plan.status = 'cancelled'
+        payment_plan.save(update_fields=['status', 'updated_at'])
+        
+        return Response({
+            'message': 'Payment plan cancelled successfully',
+            'status': payment_plan.status
+        }, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+def payment_plan_summary(request, pk):
+    """
+    Get summary for a payment plan.
+    
+    GET /payment-plans/{id}/summary/
+    """
+    payment_plan = get_object_or_404(InvoicePaymentPlan, pk=pk)
+    
+    # Get next due installment manually for serializer
+    from django.db.models import F
+    next_installment = payment_plan.installments.filter(
+        paid_amount__lt=F('amount')
+    ).order_by('due_date').first()
+    
+    next_due_data = None
+    if next_installment:
+        next_due_data = {
+            'installment_number': next_installment.installment_number,
+            'due_date': next_installment.due_date,
+            'amount': next_installment.amount,
+            'paid_amount': next_installment.paid_amount,
+            'remaining_balance': next_installment.get_remaining_balance()
+        }
+    
+    serializer = PaymentPlanSummarySerializer({
+        'payment_plan_id': payment_plan.id,
+        'invoice_id': payment_plan.invoice.id,
+        'total_amount': payment_plan.total_amount,
+        'total_paid': payment_plan.get_total_paid(),
+        'remaining_balance': payment_plan.get_remaining_balance(),
+        'is_fully_paid': payment_plan.is_fully_paid(),
+        'has_overdue_installments': payment_plan.has_overdue_installments(),
+        'overdue_count': payment_plan.get_overdue_installments().count(),
+        'next_due_installment': next_due_data
+    })
+    
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+def payment_plan_overdue_installments(request, pk):
+    """
+    List all overdue installments for a payment plan.
+    
+    GET /payment-plans/{id}/overdue-installments/
+    """
+    payment_plan = get_object_or_404(InvoicePaymentPlan, pk=pk)
+    
+    overdue_installments = payment_plan.get_overdue_installments()
+    serializer = OverdueInstallmentSerializer(overdue_installments, many=True)
+    
+    return Response({
+        'overdue_installments': serializer.data,
+        'count': overdue_installments.count()
+    }, status=status.HTTP_200_OK)
+
+
+# ============================================================================
+# Installment API Views
+# ============================================================================
+
+@api_view(['GET', 'POST'])
+def payment_plan_installments_list(request, payment_plan_pk):
+    """
+    List or create installments for a payment plan.
+    
+    GET /payment-plans/{payment_plan_id}/installments/
+    - List all installments
+    - Query params: status (paid/pending/overdue/partial)
+    
+    POST /payment-plans/{payment_plan_id}/installments/
+    - Add new installment manually
+    """
+    payment_plan = get_object_or_404(InvoicePaymentPlan, pk=payment_plan_pk)
+    
+    if request.method == 'GET':
+        installments = payment_plan.installments.all()
+        
+        # Filtering
+        status_param = request.query_params.get('status')
+        if status_param:
+            installments = installments.filter(status=status_param)
+            
+        overdue = request.query_params.get('overdue')
+        if overdue == 'true':
+            # Use model method logic for filtering overdue
+            from django.utils import timezone
+            today = timezone.now().date()
+            installments = installments.filter(
+                due_date__lt=today,
+                paid_amount__lt=F('amount')
+            )
+            
+        serializer = InstallmentListSerializer(installments, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+        
+    elif request.method == 'POST':
+        serializer = InstallmentCreateSerializer(data=request.data)
+        if serializer.is_valid():
+            try:
+                # Check for duplicate installment number
+                if PaymentPlanInstallment.objects.filter(
+                    payment_plan=payment_plan,
+                    installment_number=serializer.validated_data['installment_number']
+                ).exists():
+                    return Response(
+                        {'error': f"Installment number {serializer.validated_data['installment_number']} already exists"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                installment = PaymentPlanInstallment.objects.create(
+                    payment_plan=payment_plan,
+                    installment_number=serializer.validated_data['installment_number'],
+                    due_date=serializer.validated_data['due_date'],
+                    amount=serializer.validated_data['amount'],
+                    description=serializer.validated_data.get('description', ''),
+                    status='pending',
+                    paid_amount=Decimal('0.00')
+                )
+                
+                response_serializer = InstallmentDetailSerializer(installment)
+                return Response(
+                    response_serializer.data,
+                    status=status.HTTP_201_CREATED
+                )
+            except ValidationError as e:
+                return Response(
+                    {'error': str(e)},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
+def installment_detail(request, pk):
+    """
+    Retrieve, update, or delete an installment.
+    
+    GET /installments/{id}/
+    - Returns detailed installment info
+    
+    PUT/PATCH /installments/{id}/
+    - Update installment (due_date, amount, description)
+    - Cannot modify if already paid
+    
+    DELETE /installments/{id}/
+    - Delete installment (only if not paid)
+    """
+    installment = get_object_or_404(PaymentPlanInstallment, pk=pk)
+    
+    if request.method == 'GET':
+        serializer = InstallmentDetailSerializer(installment)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    elif request.method in ['PUT', 'PATCH']:
+        serializer = InstallmentUpdateSerializer(installment, data=request.data, partial=True)
+        if serializer.is_valid():
+            try:
+                serializer.save()
+                response_serializer = InstallmentDetailSerializer(installment)
+                return Response(response_serializer.data)
+            except ValidationError as e:
+                return Response(
+                    {'error': str(e)},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    elif request.method == 'DELETE':
+        if installment.paid_amount > 0:
+            return Response(
+                {'error': 'Cannot delete installment that has payments'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        installment.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['POST'])
+def installment_update_status(request, pk):
+    """
+    Force update of installment status.
+    
+    POST /installments/{id}/update-status/
+    """
+    installment = get_object_or_404(PaymentPlanInstallment, pk=pk)
+    
+    try:
+        installment.update_status()
+        return Response({
+            'message': 'Status updated successfully',
+            'status': installment.status
+        }, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response(
+            {'error': str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+# ============================================================================
+# Payment Plan Utility Views
+# ============================================================================
+
+@api_view(['POST'])
+def invoice_suggest_payment_plan(request, invoice_pk):
+    """
+    Generate a suggested payment plan (preview only).
+    
+    POST /invoices/{invoice_id}/suggest-payment-plan/
+    - Request body: {start_date, num_installments, frequency}
+    - Returns suggested schedule
+    """
+    invoice = get_object_or_404(Invoice, pk=invoice_pk)
+    
+    serializer = SuggestPaymentPlanSerializer(data=request.data)
+    if serializer.is_valid():
+        try:
+            suggestions = InvoicePaymentPlan.suggest_schedule(
+                invoice_total=invoice.total,
+                start_date=serializer.validated_data['start_date'],
+                num_installments=serializer.validated_data['num_installments'],
+                frequency=serializer.validated_data['frequency']
+            )
+            
+            return Response({
+                'invoice_id': invoice.id,
+                'invoice_total': str(invoice.total),
+                'suggested_installments': suggestions
+            }, status=status.HTTP_200_OK)
+        except ValueError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@auto_paginate
+def payment_plans_overdue_list(request):
+    """
+    List all payment plans with overdue installments.
+    
+    GET /payment-plans/overdue/
+    - Query params: business_partner_id
+    """
+    # Find plans that match overdue criteria
+    # This complex query mimics has_overdue_installments() logic but in ORM
+    from django.utils import timezone
+    today = timezone.now().date()
+    
+    plans = InvoicePaymentPlan.objects.filter(
+        installments__due_date__lt=today,
+        installments__paid_amount__lt=F('installments__amount')
+    ).distinct().select_related(
+        'invoice', 'invoice__business_partner'
+    )
+    
+    business_partner_id = request.query_params.get('business_partner_id')
+    if business_partner_id:
+        plans = plans.filter(invoice__business_partner_id=business_partner_id)
+    
+    serializer = PaymentPlanListSerializer(plans, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@auto_paginate
+def installments_due_soon(request):
+    """
+    List installments due within a specified timeframe.
+    
+    GET /installments/due-soon/
+    - Query params: days_ahead (default 7), business_partner_id
+    """
+    from django.utils import timezone
+    from datetime import timedelta
+    
+    days_ahead = int(request.query_params.get('days_ahead', 7))
+    today = timezone.now().date()
+    future_date = today + timedelta(days=days_ahead)
+    
+    # Get unpaid installments due between today and future_date
+    installments = PaymentPlanInstallment.objects.filter(
+        due_date__gte=today,
+        due_date__lte=future_date,
+        paid_amount__lt=F('amount')
+    ).select_related(
+        'payment_plan', 
+        'payment_plan__invoice', 
+        'payment_plan__invoice__business_partner'
+    ).order_by('due_date')
+    
+    business_partner_id = request.query_params.get('business_partner_id')
+    if business_partner_id:
+        installments = installments.filter(
+            payment_plan__invoice__business_partner_id=business_partner_id
+        )
+    
+    serializer = InstallmentListSerializer(installments, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@auto_paginate
+def business_partner_payment_plans(request, bp_pk):
+    """
+    Get all payment plans for a business partner.
+    
+    GET /business-partners/{bp_id}/payment-plans/
+    """
+    bp = get_object_or_404(BusinessPartner, pk=bp_pk)
+    
+    plans = InvoicePaymentPlan.objects.filter(
+        invoice__business_partner=bp
+    ).select_related(
+        'invoice', 'invoice__currency'
+    ).order_by('-created_at')
+    
+    serializer = PaymentPlanListSerializer(plans, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
