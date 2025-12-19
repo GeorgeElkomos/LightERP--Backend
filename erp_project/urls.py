@@ -22,6 +22,7 @@ urlpatterns = [
     path('finance/', include('Finance.urls')),
     path('core/', include('core.urls')),
     # path('procurement/', include('procurement.urls')),
+    path('hr/', include('hr.urls')),
     
     # Authentication endpoints (register, login, logout, password, tokens)
     path('auth/', include('core.user_accounts.auth_urls')),

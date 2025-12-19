@@ -63,6 +63,9 @@ INSTALLED_APPS = [
     # 'procurement.catalog',      # Catalog management
     # 'procurement.PR',           # Purchase Requisitions
     # 'procurement.po',           # Purchase Orders
+
+    # HR Module
+    'hr'
 ]
 
 MIDDLEWARE = [
