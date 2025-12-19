@@ -1,0 +1,415 @@
+[
+    {
+        "model": "job_roles.action",
+        "pk": 1,
+        "fields": {
+            "name": "view",
+            "display_name": "View",
+            "description": "View records",
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.action",
+        "pk": 2,
+        "fields": {
+            "name": "create",
+            "display_name": "Create",
+            "description": "Create new records",
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.action",
+        "pk": 3,
+        "fields": {
+            "name": "edit",
+            "display_name": "Edit",
+            "description": "Edit existing records",
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.action",
+        "pk": 4,
+        "fields": {
+            "name": "delete",
+            "display_name": "Delete",
+            "description": "Delete records",
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.page",
+        "pk": 1,
+        "fields": {
+            "name": "hr_enterprise",
+            "display_name": "HR - Enterprises",
+            "description": "Manage enterprise organizational structure",
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.page",
+        "pk": 2,
+        "fields": {
+            "name": "hr_business_group",
+            "display_name": "HR - Business Groups",
+            "description": "Manage business groups within enterprises",
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.page",
+        "pk": 3,
+        "fields": {
+            "name": "hr_location",
+            "display_name": "HR - Locations",
+            "description": "Manage physical or logical workplace locations",
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.page",
+        "pk": 4,
+        "fields": {
+            "name": "hr_department",
+            "display_name": "HR - Departments",
+            "description": "Manage departments and their hierarchies",
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.page",
+        "pk": 5,
+        "fields": {
+            "name": "hr_department_manager",
+            "display_name": "HR - Department Managers",
+            "description": "Manage department manager assignments",
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.page",
+        "pk": 6,
+        "fields": {
+            "name": "hr_position",
+            "display_name": "HR - Positions",
+            "description": "Manage job positions",
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.page",
+        "pk": 7,
+        "fields": {
+            "name": "hr_grade",
+            "display_name": "HR - Grades",
+            "description": "Manage job grades and grade rates",
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.jobrole",
+        "pk": 1,
+        "fields": {
+            "name": "System Admin",
+            "description": "Full system access and control",
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.jobrole",
+        "pk": 2,
+        "fields": {
+            "name": "HR Administrator",
+            "description": "Full administrative access to all HR modules.",
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.jobrole",
+        "pk": 3,
+        "fields": {
+            "name": "HR Manager",
+            "description": "Manage HR operations and staff",
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.jobrole",
+        "pk": 4,
+        "fields": {
+            "name": "HR Admin",
+            "description": "Administrative HR tasks",
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.jobrole",
+        "pk": 5,
+        "fields": {
+            "name": "Department Manager",
+            "description": "Manage department resources",
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.jobrole",
+        "pk": 6,
+        "fields": {
+            "name": "Employee",
+            "description": "Basic employee access",
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.pageaction",
+        "pk": 1,
+        "fields": {
+            "page": 1,
+            "action": 1,
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.pageaction",
+        "pk": 2,
+        "fields": {
+            "page": 1,
+            "action": 2,
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.pageaction",
+        "pk": 3,
+        "fields": {
+            "page": 1,
+            "action": 3,
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.pageaction",
+        "pk": 4,
+        "fields": {
+            "page": 1,
+            "action": 4,
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.pageaction",
+        "pk": 5,
+        "fields": {
+            "page": 2,
+            "action": 1,
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.pageaction",
+        "pk": 6,
+        "fields": {
+            "page": 2,
+            "action": 2,
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.pageaction",
+        "pk": 7,
+        "fields": {
+            "page": 2,
+            "action": 3,
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.pageaction",
+        "pk": 8,
+        "fields": {
+            "page": 2,
+            "action": 4,
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.pageaction",
+        "pk": 9,
+        "fields": {
+            "page": 3,
+            "action": 1,
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.pageaction",
+        "pk": 10,
+        "fields": {
+            "page": 3,
+            "action": 2,
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.pageaction",
+        "pk": 11,
+        "fields": {
+            "page": 3,
+            "action": 3,
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.pageaction",
+        "pk": 12,
+        "fields": {
+            "page": 3,
+            "action": 4,
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.pageaction",
+        "pk": 13,
+        "fields": {
+            "page": 4,
+            "action": 1,
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.pageaction",
+        "pk": 14,
+        "fields": {
+            "page": 4,
+            "action": 2,
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.pageaction",
+        "pk": 15,
+        "fields": {
+            "page": 4,
+            "action": 3,
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.pageaction",
+        "pk": 16,
+        "fields": {
+            "page": 4,
+            "action": 4,
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.jobrolepage",
+        "pk": 4,
+        "fields": {
+            "job_role": 2,
+            "page": 1,
+            "created_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.jobrolepage",
+        "pk": 5,
+        "fields": {
+            "job_role": 2,
+            "page": 2,
+            "created_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.jobrolepage",
+        "pk": 6,
+        "fields": {
+            "job_role": 2,
+            "page": 3,
+            "created_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.jobrolepage",
+        "pk": 7,
+        "fields": {
+            "job_role": 2,
+            "page": 4,
+            "created_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.jobrolepage",
+        "pk": 8,
+        "fields": {
+            "job_role": 2,
+            "page": 5,
+            "created_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.jobrolepage",
+        "pk": 9,
+        "fields": {
+            "job_role": 2,
+            "page": 6,
+            "created_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.jobrolepage",
+        "pk": 10,
+        "fields": {
+            "job_role": 2,
+            "page": 7,
+            "created_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "job_roles.jobrolepage",
+        "pk": 11,
+        "fields": {
+            "job_role": 3,
+            "page": 4,
+            "created_at": "2025-12-19T10:00:00Z"
+        }
+    }
+]

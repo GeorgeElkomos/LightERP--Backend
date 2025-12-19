@@ -1,0 +1,202 @@
+[
+    {
+        "model": "hr.enterprise",
+        "pk": 1,
+        "fields": {
+            "code": "lightidea",
+            "name": "Lightidea Technologies",
+            "status": "active",
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "hr.businessgroup",
+        "pk": 1,
+        "fields": {
+            "enterprise": 1,
+            "code": "GULF",
+            "name": "Gulf Operations",
+            "status": "active",
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "hr.businessgroup",
+        "pk": 2,
+        "fields": {
+            "enterprise": 1,
+            "code": "LEVANT",
+            "name": "Levant Operations",
+            "status": "active",
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "hr.businessgroup",
+        "pk": 3,
+        "fields": {
+            "enterprise": 1,
+            "code": "NAFR",
+            "name": "North Africa Operations",
+            "status": "active",
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "hr.location",
+        "pk": 1,
+        "fields": {
+            "enterprise": 1,
+            "business_group": 1,
+            "code": "DXB",
+            "name": "Dubai Headquarters",
+            "city": "Dubai",
+            "country": "UAE",
+            "status": "active",
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "hr.location",
+        "pk": 2,
+        "fields": {
+            "enterprise": 1,
+            "business_group": 1,
+            "code": "RUH",
+            "name": "Riyadh Office",
+            "city": "Riyadh",
+            "country": "Saudi Arabia",
+            "status": "active",
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "hr.location",
+        "pk": 3,
+        "fields": {
+            "enterprise": 1,
+            "business_group": 2,
+            "code": "AMM",
+            "name": "Amman Branch",
+            "city": "Amman",
+            "country": "Jordan",
+            "status": "active",
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "hr.location",
+        "pk": 4,
+        "fields": {
+            "enterprise": 1,
+            "business_group": 3,
+            "code": "CAI",
+            "name": "Cairo Hub",
+            "city": "Cairo",
+            "country": "Egypt",
+            "status": "active",
+            "created_at": "2025-12-19T10:00:00Z",
+            "updated_at": "2025-12-19T10:00:00Z"
+        }
+    },
+    {
+        "model": "hr.department",
+        "pk": 1,
+        "fields": {
+            "business_group": 1,
+            "code": "TECH",
+            "name": "Technology & Engineering",
+            "location": 1,
+            "parent": null,
+            "effective_start_date": "2024-01-01",
+            "status": "active"
+        }
+    },
+    {
+        "model": "hr.department",
+        "pk": 2,
+        "fields": {
+            "business_group": 1,
+            "code": "BE",
+            "name": "Backend Development",
+            "location": 1,
+            "parent": 1,
+            "effective_start_date": "2024-01-01",
+            "status": "active"
+        }
+    },
+    {
+        "model": "hr.department",
+        "pk": 3,
+        "fields": {
+            "business_group": 1,
+            "code": "FE",
+            "name": "Frontend Development",
+            "location": 1,
+            "parent": 1,
+            "effective_start_date": "2024-01-01",
+            "status": "active"
+        }
+    },
+    {
+        "model": "hr.department",
+        "pk": 4,
+        "fields": {
+            "business_group": 1,
+            "code": "HR",
+            "name": "Human Resources",
+            "location": 1,
+            "parent": null,
+            "effective_start_date": "2024-01-01",
+            "status": "active"
+        }
+    },
+    {
+        "model": "hr.grade",
+        "pk": 1,
+        "fields": {
+            "business_group": 1,
+            "code": "JR",
+            "name": "Junior",
+            "effective_start_date": "2024-01-01"
+        }
+    },
+    {
+        "model": "hr.grade",
+        "pk": 2,
+        "fields": {
+            "business_group": 1,
+            "code": "ML",
+            "name": "Mid-Level",
+            "effective_start_date": "2024-01-01"
+        }
+    },
+    {
+        "model": "hr.grade",
+        "pk": 3,
+        "fields": {
+            "business_group": 1,
+            "code": "SR",
+            "name": "Senior",
+            "effective_start_date": "2024-01-01"
+        }
+    },
+    {
+        "model": "hr.graderate",
+        "pk": 1,
+        "fields": {
+            "grade": 1,
+            "currency": "AED",
+            "amount": "10000.00",
+            "rate_type": "Base",
+            "effective_start_date": "2024-01-01"
+        }
+    }
+]

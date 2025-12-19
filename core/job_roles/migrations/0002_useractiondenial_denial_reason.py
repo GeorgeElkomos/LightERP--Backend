@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('job_roles', '0002_seed_hr_roles'),
+        ('job_roles', '0001_initial'),
     ]
 
     operations = [
