@@ -46,6 +46,7 @@ class SegmentTypeListSerializer(serializers.ModelSerializer):
             'has_hierarchy',
             'display_order',
             'description',
+            'length',
             'is_active',
             'values_count',
         ]
