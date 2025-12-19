@@ -382,10 +382,11 @@ class PaymentApprovalEndpointTest(TestCase):
         response = self.client.get(url)
         
         self.assertEqual(response.status_code, http_status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)
+        results = response.data['data']['results']
+        self.assertEqual(len(results), 2)
         
         # Verify response structure
-        for item in response.data:
+        for item in results:
             self.assertIn('payment_id', item)
             self.assertIn('business_partner_name', item)
             self.assertIn('amount', item)
@@ -407,7 +408,8 @@ class PaymentApprovalEndpointTest(TestCase):
         response = self.client.get(url)
         
         self.assertEqual(response.status_code, http_status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 0)  # No payments at manager stage yet
+        results = response.data['data']['results']
+        self.assertEqual(len(results), 0)  # No payments at manager stage yet
     
     def test_get_pending_approvals_for_manager_after_stage1(self):
         """Test getting pending approvals for manager after stage 1 approval."""
@@ -428,9 +430,10 @@ class PaymentApprovalEndpointTest(TestCase):
         response = self.client.get(url)
         
         self.assertEqual(response.status_code, http_status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['current_stage'], 'Finance Manager Review')
-        self.assertTrue(response.data[0]['can_approve'])
+        results = response.data['data']['results']
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['current_stage'], 'Finance Manager Review')
+        self.assertTrue(results[0]['can_approve'])
     
     def test_get_pending_approvals_no_auth_uses_first_user(self):
         """Test pending approvals without authentication uses first user."""
@@ -463,8 +466,9 @@ class PaymentApprovalEndpointTest(TestCase):
         response = self.client.get(url)
         
         self.assertEqual(response.status_code, http_status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['payment_id'], payment2.id)
+        results = response.data['data']['results']
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['payment_id'], payment2.id)
     
     # ========================================================================
     # Approval Action Tests

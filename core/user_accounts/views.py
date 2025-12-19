@@ -59,16 +59,6 @@ def register(request):
                 'access': str(refresh.access_token)
             }
         }, status=status.HTTP_201_CREATED)
-    
-    # Log validation errors for debugging
-    try:
-        print('\n' + '='*60)
-        print('REGISTER VALIDATION ERRORS:')
-        print(serializer.errors)
-        print('='*60 + '\n')
-    except Exception:
-        pass
-
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -460,15 +450,7 @@ def superadmin_password_reset(request):
         user.set_password(temporary_password)
         user.save()
 
-        # Logging for audit (replace with proper audit logging/email in production)
-        print(f"\n{'='*60}")
-        print(f"TEMPORARY PASSWORD SET BY SUPER ADMIN")
-        print(f"User: {user.email}")
-        print(f"Temporary Password: {temporary_password}")
-        print(f"Admin: {request.user.email}")
-        print(f"NOTE: User should change this password after logging in")
-        print(f"{'='*60}\n")
-
+        
         return Response({
             'message': f'Temporary password set successfully for {user.email}',
             'user': {
