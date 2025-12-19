@@ -57,7 +57,7 @@ class POHeader(models.Model):
     
     
     # Financial - Transaction Currency
-    currency = models.ForeignKey(Currency, on_delete=models.PROTECT, help_text="Transaction currency")
+    # currency = models.ForeignKey(Currency, on_delete=models.PROTECT, help_text="Transaction currency")
     subtotal = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00'), help_text="Subtotal in transaction currency")
     tax_amount = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00'), help_text="Tax in transaction currency")
     discount_amount = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00'), help_text="Discount in transaction currency")
