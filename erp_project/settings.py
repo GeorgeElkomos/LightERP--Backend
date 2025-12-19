@@ -57,6 +57,12 @@ INSTALLED_APPS = [
     'core.job_roles',    # Job roles and permissions (must load before user_accounts)
     'core.user_accounts',     # Accounts management
     'core.approval',     # Approval workflows
+    
+    # Procurement Module
+    'procurement',              # Main Procurement App  
+    'procurement.catalog',      # Catalog management
+    'procurement.PR',           # Purchase Requisitions
+    'procurement.po',           # Purchase Orders
 ]
 
 MIDDLEWARE = [
