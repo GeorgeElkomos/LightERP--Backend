@@ -25,4 +25,7 @@ urlpatterns = [
     
     # Authentication endpoints (register, login, logout, password, tokens)
     path('auth/', include('core.user_accounts.auth_urls')),
+    
+    # Account management endpoints (profile, users, etc.)
+    path('accounts/', include('core.user_accounts.urls')),
 ]

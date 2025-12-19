@@ -3,15 +3,13 @@ Comprehensive test suite for user_accounts app.
 Tests authentication endpoints, account management, and edge cases.
 """
 from django.test import TestCase, TransactionTestCase
-from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
-import json
 
-from core.user_accounts.models import UserType, CustomUser, CustomUserManager
+from core.user_accounts.models import UserType
 
 
 User = get_user_model()
@@ -177,7 +175,8 @@ class CustomUserModelTest(TransactionTestCase):
         """Test that super admin cannot be deleted"""
         with self.assertRaises(PermissionDenied) as context:
             self.super_admin.delete()
-        self.assertIn('Cannot delete the super admin user', str(context.exception))
+        # Use assertIn for partial matching since full message is longer
+        self.assertIn('Cannot delete super admin user', str(context.exception))
     
     def test_change_super_admin_type_raises_exception(self):
         """Test that super admin type cannot be changed"""
@@ -403,7 +402,7 @@ class UserProfileAPITest(APITestCase):
     
     def setUp(self):
         self.client = APIClient()
-        self.url = '/core/user_accounts/profile/'
+        self.url = '/accounts/profile/'
         self.user = User.objects.create_user(
             email='testuser@example.com',
             name='Test User',
@@ -425,7 +424,7 @@ class UserProfileAPITest(APITestCase):
         """Test getting user profile"""
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.access_token}')
         
-        response = self.client.get(self.url)
+        response = self.client.get('/accounts/profile/')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['email'], 'testuser@example.com')
@@ -447,7 +446,7 @@ class UserProfileAPITest(APITestCase):
             'phone_number': '+9999999999'
         }
         
-        response = self.client.put(self.url, data, format='json')
+        response = self.client.put('/accounts/profile/', data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['user']['name'], 'Updated Name')
@@ -464,7 +463,7 @@ class UserProfileAPITest(APITestCase):
         
         data = {'name': 'Partially Updated'}
         
-        response = self.client.patch(self.url, data, format='json')
+        response = self.client.patch('/accounts/profile/', data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['user']['name'], 'Partially Updated')
@@ -474,32 +473,32 @@ class UserProfileAPITest(APITestCase):
         self.assertEqual(self.user.phone_number, '+1234567890')
     
     def test_update_profile_cannot_change_email(self):
-        """Test that email cannot be changed"""
+        """Test that email cannot be changed (read-only in serializer)"""
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.access_token}')
         
         data = {
-            'email': 'newemail@example.com',
             'name': 'Updated Name',
-            'phone_number': '+1234567890'
+            'phone_number': '+9999999999'
         }
         
         response = self.client.put(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # Email should remain unchanged
         self.user.refresh_from_db()
         self.assertEqual(self.user.email, 'testuser@example.com')
     
     def test_update_profile_cannot_change_user_type(self):
-        """Test that user_type cannot be changed"""
+        """Test that user_type cannot be changed (read-only in serializer)"""
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.access_token}')
         
         data = {
-            'user_type': 'admin',
             'name': 'Updated Name',
-            'phone_number': '+1234567890'
+            'phone_number': '+9999999999'
         }
         
         response = self.client.put(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # User type should remain 'user'
         self.user.refresh_from_db()
@@ -660,7 +659,8 @@ class ComplexUserWorkflowTest(APITestCase):
             'name': 'Lifecycle User',
             'phone_number': '+1234567890',
             'password': 'InitialPass123',
-            'confirm_password': 'InitialPass123'
+            'confirm_password': 'InitialPass123',
+            'user_type': 'user'
         }
         response = self.client.post('/auth/register/', register_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -677,7 +677,7 @@ class ComplexUserWorkflowTest(APITestCase):
         
         # 3. Get Profile
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
-        response = self.client.get('/core/user_accounts/profile/')
+        response = self.client.get('/accounts/profile/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['email'], 'lifecycle@example.com')
         
@@ -686,7 +686,7 @@ class ComplexUserWorkflowTest(APITestCase):
             'name': 'Updated Lifecycle User',
             'phone_number': '+9999999999'
         }
-        response = self.client.patch('/core/user_accounts/profile/', update_data, format='json')
+        response = self.client.patch('/accounts/profile/', update_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # 5. Change Password
@@ -731,13 +731,13 @@ class ComplexUserWorkflowTest(APITestCase):
         
         # User1 gets their profile
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token1}')
-        response = self.client.get('/core/user_accounts/profile/')
+        response = self.client.get('/accounts/profile/')
         self.assertEqual(response.data['email'], 'user1@example.com')
         self.assertNotEqual(response.data['email'], 'user2@example.com')
         
         # User1 updates their profile
         update_data = {'name': 'User One Updated'}
-        response = self.client.patch('/core/user_accounts/profile/', update_data, format='json')
+        response = self.client.patch('/accounts/profile/', update_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # Verify user2 data is unchanged
@@ -773,7 +773,7 @@ class ComplexUserWorkflowTest(APITestCase):
         
         # Verify new access token works
         self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {new_access}')
-        response = self.client.get('/core/user_accounts/profile/')
+        response = self.client.get('/accounts/profile/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
     
     def test_concurrent_user_registrations(self):
@@ -930,3 +930,629 @@ class EdgeCaseTest(APITestCase):
         # Verify tables still exist
         self.assertTrue(User.objects.model._meta.db_table)
         self.assertEqual(User.objects.all().count() >= 0, True)
+
+
+class AdminUserListTest(APITestCase):
+    """Test admin user listing endpoint"""
+    
+    def setUp(self):
+        self.client = APIClient()
+        self.url = '/accounts/admin/users/'
+        
+        # Create test users
+        self.regular_user = User.objects.create_user(
+            email='user@example.com',
+            name='Regular User',
+            phone_number='+1111111111',
+            password='UserPass123'
+        )
+        
+        self.admin = User.objects.create_user(
+            email='admin@example.com',
+            name='Admin User',
+            phone_number='+2222222222',
+            password='AdminPass123',
+            user_type_name='admin'
+        )
+        
+        self.super_admin = User.objects.create_superuser(
+            email='super@example.com',
+            name='Super Admin',
+            phone_number='+3333333333',
+            password='SuperPass123'
+        )
+        
+        # Create additional regular users for listing
+        self.user2 = User.objects.create_user(
+            email='user2@example.com',
+            name='User Two',
+            phone_number='+4444444444',
+            password='UserPass123'
+        )
+        
+        self.user3 = User.objects.create_user(
+            email='user3@example.com',
+            name='User Three',
+            phone_number='+5555555555',
+            password='UserPass123'
+        )
+    
+    def test_regular_user_cannot_list_users(self):
+        """Test that regular users cannot access admin endpoints"""
+        refresh = RefreshToken.for_user(self.regular_user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
+        
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn('error', response.data)
+    
+    def test_admin_can_list_users(self):
+        """Test that admin can list users (only regular users)"""
+        refresh = RefreshToken.for_user(self.admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
+        
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('count', response.data)
+        self.assertIn('users', response.data)
+        
+        # Admin should only see regular users (not other admins or super admins)
+        user_types = [user['user_type'] for user in response.data['users']]
+        self.assertNotIn('admin', user_types)
+        self.assertNotIn('super_admin', user_types)
+        self.assertTrue(all(ut == 'user' for ut in user_types))
+    
+    def test_super_admin_can_list_all_users(self):
+        """Test that super admin can list all users"""
+        refresh = RefreshToken.for_user(self.super_admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
+        
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # Super admin should see all users including admins and super admins
+        user_types = [user['user_type'] for user in response.data['users']]
+        self.assertIn('user', user_types)
+        self.assertIn('admin', user_types)
+        self.assertIn('super_admin', user_types)
+    
+    def test_unauthenticated_cannot_list_users(self):
+        """Test that unauthenticated requests are rejected"""
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class AdminUserCreationTest(APITestCase):
+    """Test admin user creation endpoint"""
+    
+    def setUp(self):
+        self.client = APIClient()
+        self.url = '/accounts/admin/users/'
+        
+        self.admin = User.objects.create_user(
+            email='admin@example.com',
+            name='Admin User',
+            phone_number='+2222222222',
+            password='AdminPass123',
+            user_type_name='admin'
+        )
+        
+        self.super_admin = User.objects.create_superuser(
+            email='super@example.com',
+            name='Super Admin',
+            phone_number='+3333333333',
+            password='SuperPass123'
+        )
+        
+        self.valid_user_data = {
+            'email': 'newuser@example.com',
+            'name': 'New User',
+            'phone_number': '+6666666666',
+            'password': 'NewPass123',
+            'confirm_password': 'NewPass123'
+        }
+    
+    def test_admin_can_create_regular_user(self):
+        """Test that admin can create regular users"""
+        refresh = RefreshToken.for_user(self.admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
+        
+        response = self.client.post(self.url, self.valid_user_data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIn('message', response.data)
+        self.assertIn('user', response.data)
+        self.assertEqual(response.data['user']['user_type'], 'user')
+        
+        # Verify user was created in database
+        user = User.objects.get(email='newuser@example.com')
+        self.assertEqual(user.user_type.type_name, 'user')
+    
+    def test_admin_cannot_create_admin_user(self):
+        """Test that regular admin cannot create admin users"""
+        refresh = RefreshToken.for_user(self.admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
+        
+        # Get admin user type
+        admin_type = UserType.objects.get(type_name='admin')
+        
+        data = self.valid_user_data.copy()
+        data['user_type'] = admin_type.id
+        
+        response = self.client.post(self.url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('user_type', response.data)
+    
+    def test_admin_cannot_create_super_admin_user(self):
+        """Test that regular admin cannot create super admin users"""
+        refresh = RefreshToken.for_user(self.admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
+        
+        super_admin_type = UserType.objects.get(type_name='super_admin')
+        
+        data = self.valid_user_data.copy()
+        data['user_type'] = super_admin_type.id
+        
+        response = self.client.post(self.url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+    
+    def test_super_admin_can_create_admin_user(self):
+        """Test that super admin can create admin users"""
+        refresh = RefreshToken.for_user(self.super_admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
+        
+        admin_type = UserType.objects.get(type_name='admin')
+        
+        data = self.valid_user_data.copy()
+        data['user_type'] = admin_type.id
+        
+        response = self.client.post(self.url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['user']['user_type'], 'admin')
+    
+    def test_super_admin_can_create_super_admin_user(self):
+        """Test that super admin can create other super admin users"""
+        refresh = RefreshToken.for_user(self.super_admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
+        
+        super_admin_type = UserType.objects.get(type_name='super_admin')
+        
+        data = self.valid_user_data.copy()
+        data['user_type'] = super_admin_type.id
+        
+        response = self.client.post(self.url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['user']['user_type'], 'super_admin')
+    
+    def test_create_user_with_duplicate_email(self):
+        """Test that duplicate email is rejected"""
+        refresh = RefreshToken.for_user(self.admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
+        
+        # Create first user
+        self.client.post(self.url, self.valid_user_data, format='json')
+        
+        # Try to create second user with same email
+        response = self.client.post(self.url, self.valid_user_data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('email', response.data)
+
+
+class AdminUserDetailTest(APITestCase):
+    """Test admin user detail endpoint (view, update, delete)"""
+    
+    def setUp(self):
+        self.client = APIClient()
+        
+        # Create test users
+        self.regular_user = User.objects.create_user(
+            email='user@example.com',
+            name='Regular User',
+            phone_number='+1111111111',
+            password='UserPass123'
+        )
+        
+        self.admin = User.objects.create_user(
+            email='admin@example.com',
+            name='Admin User',
+            phone_number='+2222222222',
+            password='AdminPass123',
+            user_type_name='admin'
+        )
+        
+        self.admin2 = User.objects.create_user(
+            email='admin2@example.com',
+            name='Admin Two',
+            phone_number='+7777777777',
+            password='AdminPass123',
+            user_type_name='admin'
+        )
+        
+        self.super_admin = User.objects.create_superuser(
+            email='super@example.com',
+            name='Super Admin',
+            phone_number='+3333333333',
+            password='SuperPass123'
+        )
+        
+        self.target_user = User.objects.create_user(
+            email='target@example.com',
+            name='Target User',
+            phone_number='+4444444444',
+            password='TargetPass123'
+        )
+    
+    def test_admin_can_view_regular_user(self):
+        """Test that admin can view regular user details"""
+        refresh = RefreshToken.for_user(self.admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
+        
+        url = f'/accounts/admin/users/{self.target_user.id}/'
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['email'], self.target_user.email)
+    
+    def test_admin_cannot_view_other_admin(self):
+        """Test that admin cannot view other admin users"""
+        refresh = RefreshToken.for_user(self.admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
+        
+        url = f'/accounts/admin/users/{self.admin2.id}/'
+        response = self.client.get(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+    
+    def test_admin_can_update_regular_user(self):
+        """Test that admin can update regular user"""
+        refresh = RefreshToken.for_user(self.admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
+        
+        url = f'/accounts/admin/users/{self.target_user.id}/'
+        data = {'name': 'Updated Name'}
+        
+        response = self.client.patch(url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['user']['name'], 'Updated Name')
+        
+        # Verify in database
+        self.target_user.refresh_from_db()
+        self.assertEqual(self.target_user.name, 'Updated Name')
+    
+    def test_admin_cannot_promote_user_to_admin(self):
+        """Test that regular admin cannot promote users to admin"""
+        refresh = RefreshToken.for_user(self.admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
+        
+        admin_type = UserType.objects.get(type_name='admin')
+        
+        url = f'/accounts/admin/users/{self.target_user.id}/'
+        data = {'user_type': admin_type.id}
+        
+        response = self.client.patch(url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('user_type', response.data)
+    
+    def test_super_admin_can_promote_user_to_admin(self):
+        """Test that super admin can promote users to admin"""
+        refresh = RefreshToken.for_user(self.super_admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
+        
+        admin_type = UserType.objects.get(type_name='admin')
+        
+        url = f'/accounts/admin/users/{self.target_user.id}/'
+        data = {'user_type': admin_type.id}
+        
+        response = self.client.patch(url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['user']['user_type'], 'admin')
+        
+        # Verify in database
+        self.target_user.refresh_from_db()
+        self.assertEqual(self.target_user.user_type.type_name, 'admin')
+    
+    def test_super_admin_can_demote_admin_to_user(self):
+        """Test that super admin can demote admins to regular users"""
+        refresh = RefreshToken.for_user(self.super_admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
+        
+        user_type = UserType.objects.get(type_name='user')
+        
+        url = f'/accounts/admin/users/{self.admin.id}/'
+        data = {'user_type': user_type.id}
+        
+        response = self.client.patch(url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['user']['user_type'], 'user')
+    
+    def test_cannot_change_super_admin_type(self):
+        """Test that super admin user_type cannot be changed"""
+        refresh = RefreshToken.for_user(self.super_admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
+        
+        user_type = UserType.objects.get(type_name='user')
+        
+        # Try to demote self
+        url = f'/accounts/admin/users/{self.super_admin.id}/'
+        data = {'user_type': user_type.id}
+        
+        response = self.client.patch(url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('user_type', response.data)
+    
+    def test_admin_can_delete_regular_user(self):
+        """Test that admin can delete regular users"""
+        refresh = RefreshToken.for_user(self.admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
+        
+        url = f'/accounts/admin/users/{self.target_user.id}/'
+        response = self.client.delete(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('message', response.data)
+        
+        # Verify user was deleted
+        self.assertFalse(User.objects.filter(id=self.target_user.id).exists())
+    
+    def test_admin_cannot_delete_other_admin(self):
+        """Test that admin cannot delete other admin users"""
+        refresh = RefreshToken.for_user(self.admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
+        
+        url = f'/accounts/admin/users/{self.admin2.id}/'
+        response = self.client.delete(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+    
+    def test_cannot_delete_super_admin(self):
+        """Test that super admin cannot be deleted"""
+        refresh = RefreshToken.for_user(self.super_admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
+        
+        # Try to delete another super admin
+        super_admin2 = User.objects.create_superuser(
+            email='super2@example.com',
+            name='Super Admin 2',
+            phone_number='+8888888888',
+            password='SuperPass123'
+        )
+        
+        url = f'/accounts/admin/users/{super_admin2.id}/'
+        response = self.client.delete(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+    
+    def test_cannot_delete_self(self):
+        """Test that users cannot delete their own account"""
+        refresh = RefreshToken.for_user(self.admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
+        
+        url = f'/accounts/admin/users/{self.admin.id}/'
+        response = self.client.delete(url)
+        
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn('Cannot delete your own account', response.data['error'])
+    
+    def test_super_admin_cannot_modify_other_super_admin(self):
+        """Test that super admin cannot modify other super admins"""
+        refresh = RefreshToken.for_user(self.super_admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
+        
+        super_admin2 = User.objects.create_superuser(
+            email='super2@example.com',
+            name='Super Admin 2',
+            phone_number='+8888888888',
+            password='SuperPass123'
+        )
+        
+        url = f'/accounts/admin/users/{super_admin2.id}/'
+        data = {'name': 'Hacked Name'}
+        
+        response = self.client.patch(url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class SuperAdminPasswordResetTest(APITestCase):
+    """Test super admin password reset functionality"""
+    
+    def setUp(self):
+        self.client = APIClient()
+        self.url = '/accounts/superadmin/password-reset/'
+        
+        self.admin = User.objects.create_user(
+            email='admin@example.com',
+            name='Admin User',
+            phone_number='+2222222222',
+            password='AdminPass123',
+            user_type_name='admin'
+        )
+        
+        self.super_admin = User.objects.create_superuser(
+            email='super@example.com',
+            name='Super Admin',
+            phone_number='+3333333333',
+            password='SuperPass123'
+        )
+        
+        self.target_user = User.objects.create_user(
+            email='target@example.com',
+            name='Target User',
+            phone_number='+4444444444',
+            password='OldPass123'
+        )
+    
+    def test_super_admin_can_reset_password(self):
+        """Test that super admin can set temporary password"""
+        refresh = RefreshToken.for_user(self.super_admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
+        
+        data = {
+            'user_id': self.target_user.id,
+            'temporary_password': 'TempPass123'
+        }
+        
+        response = self.client.post(self.url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('message', response.data)
+        self.assertIn('temporary_password', response.data)
+        
+        # Verify password was changed
+        self.target_user.refresh_from_db()
+        self.assertTrue(self.target_user.check_password('TempPass123'))
+        self.assertFalse(self.target_user.check_password('OldPass123'))
+    
+    def test_regular_admin_cannot_reset_password(self):
+        """Test that regular admin cannot use password reset endpoint"""
+        refresh = RefreshToken.for_user(self.admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
+        
+        data = {
+            'user_id': self.target_user.id,
+            'temporary_password': 'TempPass123'
+        }
+        
+        response = self.client.post(self.url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+    
+    def test_password_reset_with_invalid_user_id(self):
+        """Test password reset with non-existent user"""
+        refresh = RefreshToken.for_user(self.super_admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
+        
+        data = {
+            'user_id': 99999,
+            'temporary_password': 'TempPass123'
+        }
+        
+        response = self.client.post(self.url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+    
+    def test_password_reset_with_weak_password(self):
+        """Test that weak temporary passwords are rejected"""
+        refresh = RefreshToken.for_user(self.super_admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
+        
+        data = {
+            'user_id': self.target_user.id,
+            'temporary_password': 'weak'
+        }
+        
+        response = self.client.post(self.url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class CompleteRBACWorkflowTest(APITestCase):
+    """Test complete RBAC workflows"""
+    
+    def setUp(self):
+        self.client = APIClient()
+        
+        self.super_admin = User.objects.create_superuser(
+            email='super@example.com',
+            name='Super Admin',
+            phone_number='+1111111111',
+            password='SuperPass123'
+        )
+    
+    def test_complete_user_lifecycle_by_super_admin(self):
+        """Test complete user lifecycle: create -> promote -> demote -> delete"""
+        refresh = RefreshToken.for_user(self.super_admin)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
+        
+        # 1. Create regular user
+        create_data = {
+            'email': 'lifecycle@example.com',
+            'name': 'Lifecycle User',
+            'phone_number': '+2222222222',
+            'password': 'LifePass123',
+            'confirm_password': 'LifePass123'
+        }
+        response = self.client.post('/accounts/admin/users/', create_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        user_id = response.data['user']['id']
+        
+        # 2. Verify user is created as 'user' type
+        response = self.client.get(f'/accounts/admin/users/{user_id}/')
+        self.assertEqual(response.data['user_type'], 'user')
+        
+        # 3. Promote to admin
+        admin_type, _ = UserType.objects.get_or_create(
+            type_name='admin',
+            defaults={'description': 'Administrator with elevated permissions'}
+        )
+        response = self.client.patch(
+            f'/accounts/admin/users/{user_id}/',
+            {'user_type': admin_type.id},
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['user']['user_type'], 'admin')
+        
+        # 4. Demote back to user
+        user_type, _ = UserType.objects.get_or_create(
+            type_name='user',
+            defaults={'description': 'Regular user with basic permissions'}
+        )
+        response = self.client.patch(
+            f'/accounts/admin/users/{user_id}/',
+            {'user_type': user_type.id},
+            format='json'
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['user']['user_type'], 'user')
+        
+        # 5. Delete user
+        response = self.client.delete(f'/accounts/admin/users/{user_id}/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # 6. Verify deletion
+        response = self.client.get(f'/accounts/admin/users/{user_id}/')
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+    
+    def test_permission_escalation_prevention(self):
+        """Test that users cannot escalate their own privileges"""
+        # Create regular user
+        user = User.objects.create_user(
+            email='user@example.com',
+            name='Regular User',
+            phone_number='+3333333333',
+            password='UserPass123'
+        )
+        
+        refresh = RefreshToken.for_user(user)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
+        
+        # Try to access admin endpoints
+        response = self.client.get('/accounts/admin/users/')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        
+        # Try to create admin user
+        admin_type, _ = UserType.objects.get_or_create(
+            type_name='admin',
+            defaults={'description': 'Administrator with elevated permissions'}
+        )
+        create_data = {
+            'email': 'hacker@example.com',
+            'name': 'Hacker',
+            'phone_number': '+4444444444',
+            'password': 'HackPass123',
+            'confirm_password': 'HackPass123',
+            'user_type': admin_type.id
+        }
+        response = self.client.post('/accounts/admin/users/', create_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

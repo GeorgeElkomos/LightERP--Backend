@@ -43,7 +43,7 @@ from django.conf import settings
 from django.utils import timezone
 from core.approval.mixins import ApprovableMixin, ApprovableInterface
 from core.approval.managers import ApprovalManager
-from core.user_accounts.models import Role
+from core.job_roles.models import JobRole
 
 
 # ============================================================================
@@ -444,10 +444,10 @@ def create_budget_transfer_workflow_template():
         version=1
     )
     
-    # Get or create roles
-    supervisor_role, _ = Role.objects.get_or_create(name='supervisor')
-    manager_role, _ = Role.objects.get_or_create(name='manager')
-    cfo_role, _ = Role.objects.get_or_create(name='cfo')
+    # Get or create job roles
+    supervisor_role, _ = JobRole.objects.get_or_create(name='supervisor')
+    manager_role, _ = JobRole.objects.get_or_create(name='manager')
+    cfo_role, _ = JobRole.objects.get_or_create(name='cfo')
     
     # Stage 1: Supervisor Review (ANY policy)
     ApprovalWorkflowStageTemplate.objects.create(
@@ -455,7 +455,7 @@ def create_budget_transfer_workflow_template():
         order_index=1,
         name='Supervisor Review',
         decision_policy=ApprovalWorkflowStageTemplate.POLICY_ANY,
-        required_role=supervisor_role,  # ForeignKey to Role
+        required_role=supervisor_role,  # ForeignKey to JobRole
         quorum_count=None,
         allow_reject=True,
         allow_delegate=True,
@@ -515,9 +515,9 @@ def create_purchase_order_workflow_template():
         version=1
     )
     
-    # Get or create roles
-    dept_head_role, _ = Role.objects.get_or_create(name='department_head')
-    finance_director_role, _ = Role.objects.get_or_create(name='finance_director')
+    # Get or create job roles
+    dept_head_role, _ = JobRole.objects.get_or_create(name='department_head')
+    finance_director_role, _ = JobRole.objects.get_or_create(name='finance_director')
     
     # Stage 1: Department Heads (QUORUM policy)
     ApprovalWorkflowStageTemplate.objects.create(
@@ -567,8 +567,8 @@ def create_simple_workflow_template():
         version=1
     )
     
-    # Get or create manager role
-    manager_role, _ = Role.objects.get_or_create(name='manager')
+    # Get or create manager job role
+    manager_role, _ = JobRole.objects.get_or_create(name='manager')
     
     # Single stage: Manager approval
     ApprovalWorkflowStageTemplate.objects.create(

@@ -84,7 +84,8 @@ class PaymentListAPITestCase(PaymentAPITestCase):
         response = self.client.get(url)
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)
+        results = response.data['data']['results']
+        self.assertEqual(len(results), 2)
     
     def test_filter_by_business_partner(self):
         """GET /payments/?business_partner_id=X should filter by BP"""
@@ -92,8 +93,9 @@ class PaymentListAPITestCase(PaymentAPITestCase):
         response = self.client.get(url, {'business_partner_id': self.supplier.business_partner.id})
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['business_partner_id'], self.supplier.business_partner.id)
+        results = response.data['data']['results']
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['business_partner_id'], self.supplier.business_partner.id)
     
     def test_create_payment_minimal(self):
         """POST /payments/ should create a new payment"""
@@ -256,8 +258,9 @@ class PaymentAllocationAPITestCase(PaymentAPITestCase):
         response = self.client.get(url)
         
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(Decimal(response.data[0]['amount_allocated']), Decimal('500.00'))
+        results = response.data['data']['results']
+        self.assertEqual(len(results), 1)
+        self.assertEqual(Decimal(results[0]['amount_allocated']), Decimal('500.00'))
     
     def test_create_allocation(self):
         """POST /payments/{id}/allocations/ should create allocation"""
