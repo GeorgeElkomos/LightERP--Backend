@@ -279,14 +279,14 @@ class ApprovalManager:
         stage_template = stage_instance.stage_template
         qs = User.objects.all()
         
-        # Filter by role if specified (now uses ForeignKey relationship)
+        # Filter by job_role if specified (now uses ForeignKey relationship)
         if stage_template.required_role:
-            qs = qs.filter(role=stage_template.required_role)
+            qs = qs.filter(job_role=stage_template.required_role)
         
         created = []
         for user in qs.distinct():
-            # Get role name for snapshot (role_snapshot is CharField)
-            role_name = user.role.name if user.role else None
+            # Get job_role name for snapshot (role_snapshot is CharField)
+            role_name = user.job_role.name if user.job_role else None
             
             obj, created_flag = ApprovalAssignment.objects.get_or_create(
                 stage_instance=stage_instance,
@@ -760,7 +760,7 @@ class ApprovalManager:
             ApprovalAssignment.objects.create(
                 stage_instance=stage_instance,
                 user=to_user,
-                role_snapshot=getattr(to_user, "role", None),
+                role_snapshot=getattr(to_user.job_role, "name", None) if hasattr(to_user, "job_role") and to_user.job_role else None,
                 level_snapshot=None,
                 is_mandatory=from_assignment.is_mandatory,
                 status=ApprovalAssignment.STATUS_PENDING,

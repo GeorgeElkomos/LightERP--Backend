@@ -276,7 +276,7 @@ class Currency(ProtectedDeleteMixin, models.Model):
         return base_amount
     
 class Country(ProtectedDeleteMixin, models.Model):
-    code = models.CharField(max_length=2, unique=True)  # AE, SA, etc.
+    code = models.CharField(max_length=3, unique=True)  # AE, SA, etc.
     name = models.CharField(max_length=100)
     class Meta:
         verbose_name_plural = "Countries"

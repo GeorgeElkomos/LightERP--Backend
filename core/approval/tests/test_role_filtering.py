@@ -8,7 +8,7 @@ from django.test import TestCase
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth import get_user_model
 
-from core.user_accounts.models import Role
+from core.job_roles.models import JobRole
 from core.approval.models import (
     ApprovalWorkflowTemplate,
     ApprovalWorkflowStageTemplate,
@@ -28,11 +28,11 @@ class RoleFilteringTest(TestCase):
     
     def setUp(self):
         """Set up test data with roles and users."""
-        # Create roles
-        self.manager_role = Role.objects.create(name='manager')
-        self.director_role = Role.objects.create(name='director')
-        self.supervisor_role = Role.objects.create(name='supervisor')
-        self.employee_role = Role.objects.create(name='employee')
+        # Create job roles
+        self.manager_role = JobRole.objects.create(name='manager')
+        self.director_role = JobRole.objects.create(name='director')
+        self.supervisor_role = JobRole.objects.create(name='supervisor')
+        self.employee_role = JobRole.objects.create(name='employee')
         
         # Create users with different roles
         self.manager1 = User.objects.create_user(
@@ -41,7 +41,7 @@ class RoleFilteringTest(TestCase):
             phone_number='1111111111',
             password='testpass123'
         )
-        self.manager1.role = self.manager_role
+        self.manager1.job_role = self.manager_role
         self.manager1.save()
         
         self.manager2 = User.objects.create_user(
@@ -50,7 +50,7 @@ class RoleFilteringTest(TestCase):
             phone_number='2222222222',
             password='testpass123'
         )
-        self.manager2.role = self.manager_role
+        self.manager2.job_role = self.manager_role
         self.manager2.save()
         
         self.director = User.objects.create_user(
@@ -59,7 +59,7 @@ class RoleFilteringTest(TestCase):
             phone_number='3333333333',
             password='testpass123'
         )
-        self.director.role = self.director_role
+        self.director.job_role = self.director_role
         self.director.save()
         
         self.supervisor = User.objects.create_user(
@@ -68,7 +68,7 @@ class RoleFilteringTest(TestCase):
             phone_number='4444444444',
             password='testpass123'
         )
-        self.supervisor.role = self.supervisor_role
+        self.supervisor.job_role = self.supervisor_role
         self.supervisor.save()
         
         self.employee = User.objects.create_user(
@@ -77,7 +77,7 @@ class RoleFilteringTest(TestCase):
             phone_number='5555555555',
             password='testpass123'
         )
-        self.employee.role = self.employee_role
+        self.employee.job_role = self.employee_role
         self.employee.save()
         
         # Create workflow template
@@ -124,7 +124,7 @@ class RoleFilteringTest(TestCase):
         
         # All assignments should be managers
         for assignment in assignments:
-            self.assertEqual(assignment.user.role, self.manager_role)
+            self.assertEqual(assignment.user.job_role, self.manager_role)
         
         # Verify specific users
         assigned_users = set(assignments.values_list('user', flat=True))
@@ -168,7 +168,7 @@ class RoleFilteringTest(TestCase):
         assignments1 = stage1.assignments.all()
         self.assertEqual(assignments1.count(), 2)
         for assignment in assignments1:
-            self.assertEqual(assignment.user.role, self.manager_role)
+            self.assertEqual(assignment.user.job_role, self.manager_role)
         
         # Approve first stage
         ApprovalManager.process_action(invoice, self.manager1, 'approve')
@@ -181,7 +181,7 @@ class RoleFilteringTest(TestCase):
         assignments2 = stage2.assignments.all()
         self.assertEqual(assignments2.count(), 1)
         self.assertEqual(assignments2.first().user, self.director)
-        self.assertEqual(assignments2.first().user.role, self.director_role)
+        self.assertEqual(assignments2.first().user.job_role, self.director_role)
     
     def test_no_role_requirement_assigns_all_users(self):
         """Test that stage without role requirement assigns all users."""
@@ -227,8 +227,8 @@ class RoleFilteringTest(TestCase):
     
     def test_role_with_no_users_skips_stage(self):
         """Test that stage is skipped if no users have required role."""
-        # Create a role with no users
-        empty_role = Role.objects.create(name='cfo')
+        # Create a job role with no users
+        empty_role = JobRole.objects.create(name='cfo')
         
         # Create stage requiring this role
         ApprovalWorkflowStageTemplate.objects.create(
@@ -266,7 +266,7 @@ class RoleFilteringTest(TestCase):
             phone_number='6666666666',
             password='testpass123'
         )
-        # Don't assign a role (role field is nullable)
+        # Don't assign a job role (job_role field is nullable)
         
         # Create stage requiring manager role
         ApprovalWorkflowStageTemplate.objects.create(
@@ -518,21 +518,21 @@ class RoleModelIntegrationTest(TestCase):
     
     def test_role_model_exists(self):
         """Test that Role model can be created and queried."""
-        role = Role.objects.create(name='test_role')
+        role = JobRole.objects.create(name='test_role')
         self.assertIsNotNone(role.id)
         self.assertEqual(role.name, 'test_role')
         self.assertEqual(str(role), 'test_role')
     
     def test_role_name_unique(self):
         """Test that role names are unique."""
-        Role.objects.create(name='unique_role')
+        JobRole.objects.create(name='unique_role')
         
         with self.assertRaises(Exception):
-            Role.objects.create(name='unique_role')
+            JobRole.objects.create(name='unique_role')
     
     def test_user_role_relationship(self):
         """Test ForeignKey relationship between User and Role."""
-        role = Role.objects.create(name='test_user_role')
+        role = JobRole.objects.create(name='test_user_role')
         
         user = User.objects.create_user(
             email='roletest@test.com',
@@ -541,20 +541,20 @@ class RoleModelIntegrationTest(TestCase):
             password='testpass123'
         )
         
-        # Assign role
-        user.role = role
+        # Assign job role
+        user.job_role = role
         user.save()
         
         # Retrieve and verify
         user.refresh_from_db()
-        self.assertEqual(user.role, role)
+        self.assertEqual(user.job_role, role)
         
         # Test reverse relationship
         users_with_role = role.users.all()
         self.assertIn(user, users_with_role)
     
     def test_role_can_be_null(self):
-        """Test that user.role can be null."""
+        """Test that user.job_role can be null."""
         user = User.objects.create_user(
             email='norole@test.com',
             name='No Role User',
@@ -562,17 +562,17 @@ class RoleModelIntegrationTest(TestCase):
             password='testpass123'
         )
         
-        # Role should be None
-        self.assertIsNone(user.role)
+        # Job role should be None
+        self.assertIsNone(user.job_role)
         
-        # Should be able to save without role
+        # Should be able to save without job role
         user.save()
         user.refresh_from_db()
-        self.assertIsNone(user.role)
+        self.assertIsNone(user.job_role)
     
     def test_stage_template_role_relationship(self):
         """Test ForeignKey relationship between StageTemplate and Role."""
-        role = Role.objects.create(name='stage_role')
+        role = JobRole.objects.create(name='stage_role')
         
         ct = ContentType.objects.get_for_model(TestInvoice)
         template = ApprovalWorkflowTemplate.objects.create(
@@ -597,7 +597,7 @@ class RoleModelIntegrationTest(TestCase):
     
     def test_role_deletion_with_set_null(self):
         """Test that deleting role sets stage template required_role to null."""
-        role = Role.objects.create(name='deletable_role')
+        role = JobRole.objects.create(name='deletable_role')
         
         ct = ContentType.objects.get_for_model(TestInvoice)
         template = ApprovalWorkflowTemplate.objects.create(
