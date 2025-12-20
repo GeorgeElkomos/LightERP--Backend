@@ -562,14 +562,15 @@ class UtilityViewsAPITest(TestCase):
         )
 
     def test_list_content_types(self):
-        """Test GET /content-types/ - should only return content types with approval templates."""
+        """Test GET /content-types/ - should return all content types that use ApprovableMixin."""
         url = reverse("core:approval:content-types-list")
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        # Should return 1 content type (TestInvoice) since only it has a template
+        # Should return production models using ApprovableMixin: Invoice, Payment
+        # Excludes test models (TestInvoice, TestPurchaseOrder) from approval app
         results = response.data["data"]["results"]
-        self.assertEqual(len(results), 1)
+        self.assertEqual(len(results), 2)
 
         # Check structure
         ct_data = results[0]
@@ -577,39 +578,39 @@ class UtilityViewsAPITest(TestCase):
         self.assertIn("app_label", ct_data)
         self.assertIn("model_name", ct_data)
 
-        # Verify it's the TestInvoice content type
-        self.assertEqual(ct_data["id"], self.invoice_ct.id)
+        # Verify test models are NOT included (they're in approval app)
+        po_ct = ContentType.objects.get_for_model(TestPurchaseOrder)
+        returned_ids = [ct["id"] for ct in results]
+        self.assertNotIn(self.invoice_ct.id, returned_ids)  # TestInvoice should not be included
+        self.assertNotIn(po_ct.id, returned_ids)  # TestPurchaseOrder should not be included
+        
+        # Verify no approval app models are included
+        for ct_data in results:
+            self.assertNotEqual(ct_data["app_label"], "approval",
+                              "Test models from approval app should be excluded")
 
-    def test_list_content_types_only_linked_modules(self):
-        """Test that content_types endpoint only returns modules linked to approval workflows."""
-        # Initially has TEST_UTIL template for TestInvoice
+    def test_list_content_types_only_approvable_models(self):
+        """Test that content_types endpoint returns all models with ApprovableMixin, excluding test models."""
+        # Should return models that use ApprovableMixin, even without templates
         url = reverse("core:approval:content-types-list")
         response = self.client.get(url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         results = response.data["data"]["results"]
-        initial_count = len(results)
-
-        # Create a template for TestPurchaseOrder
-        po_ct = ContentType.objects.get_for_model(TestPurchaseOrder)
-        ApprovalWorkflowTemplate.objects.create(
-            code="TEST_PO",
-            name="Test PO Template",
-            content_type=po_ct,
-            is_active=True,
-            version=1,
-        )
-
-        # Now should return 2 content types
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        results = response.data["data"]["results"]
-        self.assertEqual(len(results), initial_count + 1)
-
-        # Verify both content types are present
-        returned_ids = [ct["id"] for ct in results]
-        self.assertIn(self.invoice_ct.id, returned_ids)
-        self.assertIn(po_ct.id, returned_ids)
+        
+        # Should have Invoice and Payment (production models only)
+        self.assertEqual(len(results), 2)
+        
+        # Verify all returned models use ApprovableMixin
+        from core.approval.mixins import ApprovableMixin
+        for ct_data in results:
+            ct = ContentType.objects.get(id=ct_data["id"])
+            model_class = ct.model_class()
+            self.assertTrue(issubclass(model_class, ApprovableMixin),
+                          f"{model_class} should use ApprovableMixin")
+            # Verify no test models from approval app
+            self.assertNotEqual(ct_data["app_label"], "approval",
+                              "Test models from approval app should be excluded")
 
 
 class EdgeCasesAPITest(TestCase):
