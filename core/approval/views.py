@@ -327,16 +327,36 @@ def stage_template_detail(request, pk):
 @auto_paginate
 def content_types_list(request):
     """
-    List content types that have approval workflows configured.
+    List content types for models that support approval workflows.
     
     GET /content-types/
-    - Returns only content types that are linked to approval workflows
-    - Currently: payments and invoice modules
+    - Returns content types for all models that use ApprovableMixin
+    - Excludes test models from the approval app
+    - Currently: Invoice and Payment models
     - Useful for dropdown in UI when creating workflow templates
     """
-    # Get only content types that have at least one workflow template
-    content_type_ids = ApprovalWorkflowTemplate.objects.values_list('content_type_id', flat=True).distinct()
-    content_types = ContentType.objects.filter(id__in=content_type_ids).order_by('app_label', 'model')
+    from django.apps import apps
+    from .mixins import ApprovableMixin
+    
+    # Find all models that inherit from ApprovableMixin
+    approvable_models = []
+    for model in apps.get_models():
+        # Check if model uses ApprovableMixin (but is not abstract)
+        # Exclude test models from the approval app itself
+        if (issubclass(model, ApprovableMixin) and 
+            not model._meta.abstract and
+            model._meta.app_label != 'approval'):
+            approvable_models.append(model)
+    
+    # Get content types for these models
+    content_types = []
+    for model in approvable_models:
+        ct = ContentType.objects.get_for_model(model)
+        content_types.append(ct)
+    
+    # Sort by app_label and model name
+    content_types.sort(key=lambda ct: (ct.app_label, ct.model))
+    
     serializer = ContentTypeSerializer(content_types, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
