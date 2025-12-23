@@ -106,14 +106,14 @@ class UserFriendlyJobRoleAPITests(APITestCase):
         self.assertEqual(response.data['removed_count'], 2)
     
     def test_assign_job_role_by_email_and_name(self):
-        """PUT /job-roles/assign/ - Assign role using user_email and job_role_name"""
+        """POST /job-roles/assign/ - Assign role using user_email and job_role_name"""
         self.client.force_authenticate(user=self.admin_user)
         
         data = {
             'user_email': 'test@example.com',
             'job_role_name': 'Accountant'
         }
-        response = self.client.put('/core/job_roles/job-roles/assign/', data)
+        response = self.client.post('/core/job_roles/job-roles/assign/', data)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         
         # Verify assignment

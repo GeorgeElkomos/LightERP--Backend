@@ -287,13 +287,13 @@ def job_role_remove_page(request, pk):
     return Response(response_data, status=status.HTTP_200_OK)
 
 
-@api_view(['PUT'])
+@api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def assign_job_role(request):
     """
     Assign a job role to a user.
     
-    PUT /job-roles/assign/
+    POST /job-roles/assign/
     - Request body (by user_id and job_role_id): 
         {"user_id": 1, "job_role_id": 2}
     - Request body (by email and job_role_name): 
