@@ -154,3 +154,71 @@ class UserActionDenialCreateSerializer(serializers.ModelSerializer):
             )
         
         return data
+
+
+class JobRoleWithPagesSerializer(serializers.ModelSerializer):
+    """
+    Serializer for creating a job role with page assignments in one request.
+    Handles atomic creation of JobRole and JobRolePage entries.
+    """
+    page_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        write_only=True,
+        required=False,
+        help_text="List of page IDs to assign to this job role"
+    )
+    pages = JobRolePageSerializer(source='job_role_pages', many=True, read_only=True)
+    
+    class Meta:
+        model = JobRole
+        fields = ['id', 'name', 'description', 'page_ids', 'pages', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+    
+    def validate_page_ids(self, value):
+        """
+        Validate that all page IDs exist before creating the job role.
+        This ensures atomic operation - either all pages are valid or we fail.
+        """
+        if not value:
+            return value
+        
+        # Check for duplicates
+        if len(value) != len(set(value)):
+            raise serializers.ValidationError("Duplicate page IDs found in the list.")
+        
+        # Verify all pages exist
+        existing_page_ids = set(Page.objects.filter(id__in=value).values_list('id', flat=True))
+        invalid_ids = set(value) - existing_page_ids
+        
+        if invalid_ids:
+            raise serializers.ValidationError(
+                f"The following page IDs do not exist: {sorted(invalid_ids)}"
+            )
+        
+        return value
+    
+    def create(self, validated_data):
+        """
+        Create job role and assign pages atomically.
+        Uses transaction to ensure data consistency - if page assignment fails,
+        the job role creation is rolled back.
+        """
+        from django.db import transaction
+        
+        # Extract page_ids before creating the job role
+        page_ids = validated_data.pop('page_ids', [])
+        
+        # Create job role and assign pages in a single transaction
+        with transaction.atomic():
+            # Create the job role
+            job_role = JobRole.objects.create(**validated_data)
+            
+            # Create JobRolePage entries for each page
+            if page_ids:
+                job_role_pages = [
+                    JobRolePage(job_role=job_role, page_id=page_id)
+                    for page_id in page_ids
+                ]
+                JobRolePage.objects.bulk_create(job_role_pages)
+        
+        return job_role

@@ -23,6 +23,7 @@ from .models import (
 from .serializers import (
     JobRoleSerializer,
     JobRoleListSerializer,
+    JobRoleWithPagesSerializer,
     PageSerializer,
     PageListSerializer,
     ActionSerializer,
@@ -255,6 +256,31 @@ def job_role_assign_user(request, pk):
             }
         }
     }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+def job_role_create_with_pages(request):
+    """
+    Create a job role and assign pages to it in one atomic operation.
+    
+    POST /job-roles/with-pages/
+    - Request body: {
+        "name": "Manager",
+        "description": "Manager role with specific page access",
+        "page_ids": [1, 2, 3]
+      }
+    - page_ids is optional - if omitted, creates job role with no pages
+    - All page_ids must exist or the entire operation fails (atomic)
+    - Returns: Created job role with assigned pages
+    """
+    serializer = JobRoleWithPagesSerializer(data=request.data)
+    if serializer.is_valid():
+        try:
+            job_role = serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        except ValidationError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 # ============================================================================
