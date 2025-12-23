@@ -476,7 +476,7 @@ class JobRolePageAPITests(APITestCase):
             {}
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('page_id is required', response.data['error'])
+        self.assertIn('Either page_id or page_name is required', response.data['error'])
     
     def test_assign_nonexistent_page(self):
         """POST /core/job_roles/job-roles/{id}/assign-page/ - Nonexistent page"""
@@ -497,7 +497,7 @@ class JobRolePageAPITests(APITestCase):
             data
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['message'], 'Page removed successfully')
+        self.assertIn('removed successfully', response.data['message'])
         
         # Verify assignment removed
         self.assertFalse(

@@ -295,8 +295,6 @@ class UserFriendlyUserActionDenialAPITests(APITestCase):
         response = self.client.post('/core/job_roles/user-action-denials/', data, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('action_name', str(response.data))
-<<<<<<< HEAD
-=======
     
     def test_create_denial_with_reason_using_names(self):
         """POST /user-action-denials/ - Create denial with reason using names/email"""
@@ -327,7 +325,6 @@ class UserFriendlyUserActionDenialAPITests(APITestCase):
         response = self.client.post('/core/job_roles/user-action-denials/', data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['denial_reason'], 'Restricted access due to audit period')
->>>>>>> 6ac46c4 (Added more front-end friendly APIs)
 
 
 class MixedInputTests(APITestCase):
