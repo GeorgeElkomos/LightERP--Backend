@@ -178,36 +178,75 @@ def job_role_assign_page(request, pk):
 @api_view(['POST'])
 def job_role_remove_page(request, pk):
     """
-    Remove a page from a job role.
+    Remove one or more pages from a job role.
     
     POST /job-roles/{id}/remove-page/
-    - Request body: { "page_id": 1 }
-    - Returns: Success message
+    - Request body: { "page_ids": [1, 2, 3] } for bulk removal
+    - OR: { "page_id": 1 } for single removal (backward compatible)
+    - Returns: Summary of removed pages and any not found
     """
     job_role = get_object_or_404(JobRole, pk=pk)
+    
+    # Support both page_ids (list) and page_id (single) for backward compatibility
+    page_ids = request.data.get('page_ids')
     page_id = request.data.get('page_id')
     
-    if not page_id:
+    if page_ids is None and page_id is None:
         return Response(
-            {'error': 'page_id is required'},
+            {'error': 'Either page_ids (list) or page_id (single) is required'},
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    try:
-        job_role_page = JobRolePage.objects.get(
-            job_role=job_role,
-            page_id=page_id
-        )
-        job_role_page.delete()
+    # Normalize to list
+    if page_ids is not None:
+        if not isinstance(page_ids, list):
+            return Response(
+                {'error': 'page_ids must be a list'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        ids_to_remove = page_ids
+    else:
+        ids_to_remove = [page_id]
+    
+    if not ids_to_remove:
         return Response(
-            {'message': 'Page removed successfully'},
-            status=status.HTTP_200_OK
+            {'error': 'At least one page_id is required'},
+            status=status.HTTP_400_BAD_REQUEST
         )
-    except JobRolePage.DoesNotExist:
+    
+    # Find and delete all matching JobRolePage entries
+    job_role_pages = JobRolePage.objects.filter(
+        job_role=job_role,
+        page_id__in=ids_to_remove
+    )
+    
+    found_page_ids = set(job_role_pages.values_list('page_id', flat=True))
+    not_found_page_ids = [pid for pid in ids_to_remove if pid not in found_page_ids]
+    
+    deleted_count = job_role_pages.count()
+    job_role_pages.delete()
+    
+    # Build response message
+    if deleted_count == 0:
         return Response(
-            {'error': 'Page assignment not found'},
+            {
+                'error': 'No page assignments found',
+                'not_found_page_ids': not_found_page_ids
+            },
             status=status.HTTP_404_NOT_FOUND
         )
+    
+    response_data = {
+        'message': f'{deleted_count} page(s) removed successfully',
+        'removed_count': deleted_count,
+        'removed_page_ids': list(found_page_ids)
+    }
+    
+    if not_found_page_ids:
+        response_data['not_found_page_ids'] = not_found_page_ids
+        response_data['message'] += f' ({len(not_found_page_ids)} not found)'
+    
+    return Response(response_data, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
