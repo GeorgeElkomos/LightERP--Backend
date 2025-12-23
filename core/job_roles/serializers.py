@@ -114,7 +114,7 @@ class UserActionDenialSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'user', 'user_email', 'user_name',
             'page_action', 'page_action_details',
-            'created_at', 'updated_at'
+            'denial_reason', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
@@ -126,6 +126,9 @@ class UserActionDenialCreateSerializer(serializers.ModelSerializer):
         model = UserActionDenial
         fields = ['id', 'user', 'page_action']
         read_only_fields = ['id']
+    
+    # Optional reason for denial
+    denial_reason = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     
     def validate(self, data):
         """
