@@ -1,0 +1,626 @@
+[
+  {
+    "model": "user_accounts.usertype",
+    "pk": 1,
+    "fields": {
+      "type_name": "super_admin",
+      "description": "Super administrator with full system access"
+    }
+  },
+  {
+    "model": "user_accounts.usertype",
+    "pk": 2,
+    "fields": {
+      "type_name": "admin",
+      "description": "Administrator with elevated permissions"
+    }
+  },
+  {
+    "model": "user_accounts.usertype",
+    "pk": 3,
+    "fields": {
+      "type_name": "user",
+      "description": "Regular user with basic permissions"
+    }
+  },
+  {
+    "model": "job_roles.jobrole",
+    "pk": 1,
+    "fields": {
+      "name": "Accountant",
+      "description": "Manages financial records and transactions",
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.jobrole",
+    "pk": 2,
+    "fields": {
+      "name": "HR Manager",
+      "description": "Manages human resources and employee records",
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.jobrole",
+    "pk": 3,
+    "fields": {
+      "name": "Sales Representative",
+      "description": "Manages sales and customer relations",
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.jobrole",
+    "pk": 4,
+    "fields": {
+      "name": "Inventory Manager",
+      "description": "Manages inventory and stock levels",
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "user_accounts.customuser",
+    "pk": 1,
+    "fields": {
+      "email": "superadmin@lightidea.com",
+      "name": "Super Admin",
+      "phone_number": "+1234567890",
+      "password": "pbkdf2_sha256$1000000$o05ZMtM18KvqQn7FBUQmor$uj1wWHZaZztfebumeGZ2Iu+ZuA1HqLnbzVdYqqYn3x0=",
+      "user_type": 1,
+      "job_role": null
+    }
+  },
+  {
+    "model": "user_accounts.customuser",
+    "pk": 2,
+    "fields": {
+      "email": "admin@lightidea.com",
+      "name": "Amr Admin",
+      "phone_number": "+1234567891",
+      "password": "pbkdf2_sha256$1000000$o05ZMtM18KvqQn7FBUQmor$uj1wWHZaZztfebumeGZ2Iu+ZuA1HqLnbzVdYqqYn3x0=",
+      "user_type": 2,
+      "job_role": null
+    }
+  },
+  {
+    "model": "user_accounts.customuser",
+    "pk": 3,
+    "fields": {
+      "email": "accountant@lightidea.com",
+      "name": "Peter Joseph",
+      "phone_number": "+1234567892",
+      "password": "pbkdf2_sha256$1000000$o05ZMtM18KvqQn7FBUQmor$uj1wWHZaZztfebumeGZ2Iu+ZuA1HqLnbzVdYqqYn3x0=",
+      "user_type": 3,
+      "job_role": 1
+    }
+  },
+  {
+    "model": "user_accounts.customuser",
+    "pk": 4,
+    "fields": {
+      "email": "hrmanager@lightidea.com",
+      "name": "George Elkomos",
+      "phone_number": "+1234567893",
+      "password": "pbkdf2_sha256$1000000$o05ZMtM18KvqQn7FBUQmor$uj1wWHZaZztfebumeGZ2Iu+ZuA1HqLnbzVdYqqYn3x0=",
+      "user_type": 3,
+      "job_role": 2
+    }
+  },
+  {
+    "model": "user_accounts.customuser",
+    "pk": 5,
+    "fields": {
+      "email": "sales@lightidea.com",
+      "name": "Ahmed Salam",
+      "phone_number": "+1234567894",
+      "password": "pbkdf2_sha256$1000000$o05ZMtM18KvqQn7FBUQmor$uj1wWHZaZztfebumeGZ2Iu+ZuA1HqLnbzVdYqqYn3x0=",
+      "user_type": 3,
+      "job_role": 3
+    }
+  },
+  {
+    "model": "user_accounts.customuser",
+    "pk": 6,
+    "fields": {
+      "email": "inventory@lightidea.com",
+      "name": "Samy",
+      "phone_number": "+1234567895",
+      "password": "pbkdf2_sha256$1000000$o05ZMtM18KvqQn7FBUQmor$uj1wWHZaZztfebumeGZ2Iu+ZuA1HqLnbzVdYqqYn3x0=",
+      "user_type": 3,
+      "job_role": 4
+    }
+  },
+  {
+    "model": "job_roles.page",
+    "pk": 1,
+    "fields": {
+      "name": "invoice_management",
+      "display_name": "Invoice Management",
+      "description": "Manage customer invoices and billing",
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.page",
+    "pk": 2,
+    "fields": {
+      "name": "payment_processing",
+      "display_name": "Payment Processing",
+      "description": "Process and track payments",
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.page",
+    "pk": 3,
+    "fields": {
+      "name": "employee_management",
+      "display_name": "Employee Management",
+      "description": "Manage employee records and information",
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.page",
+    "pk": 4,
+    "fields": {
+      "name": "customer_management",
+      "display_name": "Customer Management",
+      "description": "Manage customer information and relationships",
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.page",
+    "pk": 5,
+    "fields": {
+      "name": "inventory_control",
+      "display_name": "Inventory Control",
+      "description": "Track and manage inventory levels",
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.page",
+    "pk": 6,
+    "fields": {
+      "name": "reports_dashboard",
+      "display_name": "Reports & Dashboard",
+      "description": "View system reports and analytics",
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.action",
+    "pk": 1,
+    "fields": {
+      "name": "view",
+      "display_name": "View",
+      "description": "View and read data",
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.action",
+    "pk": 2,
+    "fields": {
+      "name": "create",
+      "display_name": "Create",
+      "description": "Create new records",
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.action",
+    "pk": 3,
+    "fields": {
+      "name": "edit",
+      "display_name": "Edit",
+      "description": "Edit existing records",
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.action",
+    "pk": 4,
+    "fields": {
+      "name": "delete",
+      "display_name": "Delete",
+      "description": "Delete records",
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.action",
+    "pk": 5,
+    "fields": {
+      "name": "approve",
+      "display_name": "Approve",
+      "description": "Approve records or transactions",
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.action",
+    "pk": 6,
+    "fields": {
+      "name": "export",
+      "display_name": "Export",
+      "description": "Export data to external formats",
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 1,
+    "fields": {
+      "page": 1,
+      "action": 1,
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 2,
+    "fields": {
+      "page": 1,
+      "action": 2,
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 3,
+    "fields": {
+      "page": 1,
+      "action": 3,
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 4,
+    "fields": {
+      "page": 1,
+      "action": 4,
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 5,
+    "fields": {
+      "page": 1,
+      "action": 5,
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 6,
+    "fields": {
+      "page": 1,
+      "action": 6,
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 7,
+    "fields": {
+      "page": 2,
+      "action": 1,
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 8,
+    "fields": {
+      "page": 2,
+      "action": 2,
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 9,
+    "fields": {
+      "page": 2,
+      "action": 3,
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 10,
+    "fields": {
+      "page": 2,
+      "action": 5,
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 11,
+    "fields": {
+      "page": 3,
+      "action": 1,
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 12,
+    "fields": {
+      "page": 3,
+      "action": 2,
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 13,
+    "fields": {
+      "page": 3,
+      "action": 3,
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 14,
+    "fields": {
+      "page": 3,
+      "action": 4,
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 15,
+    "fields": {
+      "page": 4,
+      "action": 1,
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 16,
+    "fields": {
+      "page": 4,
+      "action": 2,
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 17,
+    "fields": {
+      "page": 4,
+      "action": 3,
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 18,
+    "fields": {
+      "page": 4,
+      "action": 4,
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 19,
+    "fields": {
+      "page": 5,
+      "action": 1,
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 20,
+    "fields": {
+      "page": 5,
+      "action": 2,
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 21,
+    "fields": {
+      "page": 5,
+      "action": 3,
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 22,
+    "fields": {
+      "page": 5,
+      "action": 4,
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 23,
+    "fields": {
+      "page": 6,
+      "action": 1,
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 24,
+    "fields": {
+      "page": 6,
+      "action": 6,
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.jobrolepage",
+    "pk": 1,
+    "fields": {
+      "job_role": 1,
+      "page": 1,
+      "created_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.jobrolepage",
+    "pk": 2,
+    "fields": {
+      "job_role": 1,
+      "page": 2,
+      "created_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.jobrolepage",
+    "pk": 3,
+    "fields": {
+      "job_role": 1,
+      "page": 6,
+      "created_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.jobrolepage",
+    "pk": 4,
+    "fields": {
+      "job_role": 2,
+      "page": 3,
+      "created_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.jobrolepage",
+    "pk": 5,
+    "fields": {
+      "job_role": 2,
+      "page": 6,
+      "created_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.jobrolepage",
+    "pk": 6,
+    "fields": {
+      "job_role": 3,
+      "page": 4,
+      "created_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.jobrolepage",
+    "pk": 7,
+    "fields": {
+      "job_role": 3,
+      "page": 1,
+      "created_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.jobrolepage",
+    "pk": 8,
+    "fields": {
+      "job_role": 4,
+      "page": 5,
+      "created_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.useractiondenial",
+    "pk": 1,
+    "fields": {
+      "user": 3,
+      "page_action": 4,
+      "denial_reason": "Junior accountant not authorized to delete invoices",
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.useractiondenial",
+    "pk": 2,
+    "fields": {
+      "user": 3,
+      "page_action": 5,
+      "denial_reason": "Invoice approvals require senior accountant level",
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.useractiondenial",
+    "pk": 3,
+    "fields": {
+      "user": 5,
+      "page_action": 4,
+      "denial_reason": "Sales representatives cannot delete invoices",
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  },
+  {
+    "model": "job_roles.useractiondenial",
+    "pk": 4,
+    "fields": {
+      "user": 6,
+      "page_action": 22,
+      "denial_reason": "Inventory deletions require supervisor approval",
+      "created_at": "2025-01-01T10:00:00Z",
+      "updated_at": "2025-01-01T10:00:00Z"
+    }
+  }
+]
