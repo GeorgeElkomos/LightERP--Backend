@@ -73,7 +73,8 @@ class JournalEntryDetailSerializer(serializers.Serializer):
 class SegmentInputSerializer(serializers.Serializer):
     """Serializer for segment input in journal line creation"""
 
-    segment_type_id = serializers.IntegerField(min_value=1)
+    segment_type_id = serializers.IntegerField(min_value=Decimal("1"))
+ 
     segment_code = serializers.CharField(max_length=50)
 
 
@@ -97,7 +98,8 @@ class JournalEntryInputSerializer(serializers.Serializer):
     """Serializer for creating journal entries"""
 
     date = serializers.DateField()
-    currency_id = serializers.IntegerField(min_value=1)
+    currency_id = serializers.IntegerField(min_value=Decimal("1"))
+ 
     memo = serializers.CharField(
         max_length=255, required=False, allow_blank=True, default=""
     )
@@ -132,7 +134,8 @@ class JournalEntryInputSerializer(serializers.Serializer):
 class PaymentAllocationInputSerializer(serializers.Serializer):
     """Serializer for creating payment allocations"""
 
-    invoice_id = serializers.IntegerField(min_value=1)
+    invoice_id = serializers.IntegerField(min_value=Decimal("1"))
+ 
     amount_allocated = serializers.DecimalField(
         max_digits=15, decimal_places=2, min_value=Decimal("0.01")
     )
@@ -343,8 +346,10 @@ class PaymentCreateSerializer(serializers.Serializer):
     """Serializer for creating a new payment"""
 
     date = serializers.DateField()
-    business_partner_id = serializers.IntegerField(min_value=1)
-    currency_id = serializers.IntegerField(min_value=1)
+    business_partner_id = serializers.IntegerField(min_value=Decimal("1"))
+ 
+    currency_id = serializers.IntegerField(min_value=Decimal("1"))
+ 
     exchange_rate = serializers.DecimalField(
         max_digits=10, decimal_places=4, required=False, allow_null=True
     )
@@ -520,7 +525,8 @@ class PaymentUpdateSerializer(serializers.Serializer):
 class AllocationCreateSerializer(serializers.Serializer):
     """Serializer for adding allocation to existing payment"""
 
-    invoice_id = serializers.IntegerField(min_value=1)
+    invoice_id = serializers.IntegerField(min_value=Decimal("1"))
+ 
     amount_allocated = serializers.DecimalField(
         max_digits=15, decimal_places=2, min_value=Decimal("0.01")
     )
@@ -606,7 +612,8 @@ class BusinessPartnerPaymentSummarySerializer(serializers.Serializer):
 class InstallmentInputSerializer(serializers.Serializer):
     """Serializer for creating installments within a payment plan"""
 
-    installment_number = serializers.IntegerField(min_value=1)
+    installment_number = serializers.IntegerField(min_value=Decimal("1"))
+ 
     due_date = serializers.DateField()
     amount = serializers.DecimalField(
         max_digits=10, decimal_places=2, min_value=Decimal("0.01")
@@ -725,7 +732,8 @@ class InstallmentDetailSerializer(serializers.ModelSerializer):
 class InstallmentCreateSerializer(serializers.Serializer):
     """Serializer for creating a single installment"""
 
-    installment_number = serializers.IntegerField(min_value=1)
+    installment_number = serializers.IntegerField(min_value=Decimal("1"))
+ 
     due_date = serializers.DateField()
     amount = serializers.DecimalField(
         max_digits=10, decimal_places=2, min_value=Decimal("0.01")
@@ -1030,7 +1038,8 @@ class SuggestPaymentPlanSerializer(serializers.Serializer):
     """Serializer for suggesting a payment plan"""
 
     start_date = serializers.DateField()
-    num_installments = serializers.IntegerField(min_value=1, max_value=100)
+    num_installments = serializers.IntegerField(min_value=Decimal("1"),
+  max_value=100)
     frequency = serializers.ChoiceField(
         choices=["weekly", "monthly", "quarterly"], default="monthly"
     )

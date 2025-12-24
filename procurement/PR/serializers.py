@@ -73,9 +73,12 @@ class PRItemCreateSerializer(serializers.Serializer):
     item_name = serializers.CharField(max_length=255)
     item_description = serializers.CharField(required=False, allow_blank=True, default='')
     catalog_item_id = serializers.IntegerField(required=False, allow_null=True)
-    quantity = serializers.DecimalField(max_digits=14, decimal_places=2, min_value=0.01)
-    unit_of_measure_id = serializers.IntegerField(min_value=1)
-    estimated_unit_price = serializers.DecimalField(max_digits=14, decimal_places=2, min_value=0, default=0)
+    quantity = serializers.DecimalField(max_digits=14, decimal_places=2, min_value=Decimal("0.01"))
+ 
+    unit_of_measure_id = serializers.IntegerField(min_value=Decimal("1"))
+ 
+    estimated_unit_price = serializers.DecimalField(max_digits=14, decimal_places=2, min_value=Decimal("0"),
+  default=0)
     notes = serializers.CharField(required=False, allow_blank=True, default='')
     
     def validate_quantity(self, value):

@@ -35,7 +35,8 @@ from Finance.GL.models import JournalEntry, JournalLine
 class SegmentSerializer(serializers.Serializer):
     """Serializer for segment in a combination"""
 
-    segment_type_id = serializers.IntegerField(min_value=1)
+    segment_type_id = serializers.IntegerField(min_value=Decimal("1"))
+ 
     segment_code = serializers.CharField(max_length=50)
 
     def to_dto(self) -> SegmentDTO:
@@ -85,7 +86,8 @@ class JournalEntrySerializer(serializers.Serializer):
     """Serializer for journal entry"""
 
     date = serializers.DateField()
-    currency_id = serializers.IntegerField(min_value=1)
+    currency_id = serializers.IntegerField(min_value=Decimal("1"))
+ 
     memo = serializers.CharField(
         max_length=255, required=False, allow_blank=True, default=""
     )
@@ -205,8 +207,10 @@ class APInvoiceCreateSerializer(serializers.Serializer):
 
     # Invoice fields
     date = serializers.DateField()
-    currency_id = serializers.IntegerField(min_value=1)
-    country_id = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    currency_id = serializers.IntegerField(min_value=Decimal("1"))
+ 
+    country_id = serializers.IntegerField(min_value=Decimal("1"),
+  required=False, allow_null=True)
 
     # Calculated fields (optional - will be calculated from items if not provided)
     subtotal = serializers.DecimalField(
@@ -232,7 +236,8 @@ class APInvoiceCreateSerializer(serializers.Serializer):
     )
 
     # AP specific
-    supplier_id = serializers.IntegerField(min_value=1)
+    supplier_id = serializers.IntegerField(min_value=Decimal("1"))
+ 
 
     # Nested data
     items = InvoiceItemSerializer(many=True)
@@ -421,8 +426,10 @@ class ARInvoiceCreateSerializer(serializers.Serializer):
 
     # Invoice fields
     date = serializers.DateField()
-    currency_id = serializers.IntegerField(min_value=1)
-    country_id = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    currency_id = serializers.IntegerField(min_value=Decimal("1"))
+ 
+    country_id = serializers.IntegerField(min_value=Decimal("1"),
+  required=False, allow_null=True)
 
     subtotal = serializers.DecimalField(
         max_digits=14, decimal_places=2, required=False, allow_null=True
@@ -446,7 +453,8 @@ class ARInvoiceCreateSerializer(serializers.Serializer):
     )
 
     # AR specific
-    customer_id = serializers.IntegerField(min_value=1)
+    customer_id = serializers.IntegerField(min_value=Decimal("1"))
+ 
 
     # Nested data
     items = InvoiceItemSerializer(many=True)
@@ -631,8 +639,10 @@ class OneTimeSupplierCreateSerializer(serializers.Serializer):
 
     # Invoice fields
     date = serializers.DateField()
-    currency_id = serializers.IntegerField(min_value=1)
-    country_id = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    currency_id = serializers.IntegerField(min_value=Decimal("1"))
+ 
+    country_id = serializers.IntegerField(min_value=Decimal("1"),
+  required=False, allow_null=True)
 
     subtotal = serializers.DecimalField(
         max_digits=14, decimal_places=2, required=False, allow_null=True
@@ -657,7 +667,8 @@ class OneTimeSupplierCreateSerializer(serializers.Serializer):
 
     # One-time supplier specific (either provide one_time_supplier_id OR supplier_name to create new)
     one_time_supplier_id = serializers.IntegerField(
-        min_value=1, required=False, allow_null=True
+        min_value=Decimal("1"),
+  required=False, allow_null=True
     )
     supplier_name = serializers.CharField(
         max_length=255, required=False, allow_null=True
@@ -897,14 +908,17 @@ class APInvoiceUpdateSerializer(serializers.Serializer):
 
     # Invoice fields
     date = serializers.DateField(required=False)
-    currency_id = serializers.IntegerField(min_value=1, required=False)
-    country_id = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    currency_id = serializers.IntegerField(min_value=Decimal("1"),
+  required=False)
+    country_id = serializers.IntegerField(min_value=Decimal("1"),
+  required=False, allow_null=True)
     tax_amount = serializers.DecimalField(
         max_digits=14, decimal_places=2, required=False, allow_null=True
     )
 
     # AP specific
-    supplier_id = serializers.IntegerField(min_value=1, required=False)
+    supplier_id = serializers.IntegerField(min_value=Decimal("1"),
+  required=False)
 
     # Nested data
     items = InvoiceItemSerializer(many=True, required=False)
@@ -1053,14 +1067,17 @@ class ARInvoiceUpdateSerializer(serializers.Serializer):
 
     # Invoice fields
     date = serializers.DateField(required=False)
-    currency_id = serializers.IntegerField(min_value=1, required=False)
-    country_id = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    currency_id = serializers.IntegerField(min_value=Decimal("1"),
+  required=False)
+    country_id = serializers.IntegerField(min_value=Decimal("1"),
+  required=False, allow_null=True)
     tax_amount = serializers.DecimalField(
         max_digits=14, decimal_places=2, required=False, allow_null=True
     )
 
     # AR specific
-    customer_id = serializers.IntegerField(min_value=1, required=False)
+    customer_id = serializers.IntegerField(min_value=Decimal("1"),
+  required=False)
 
     # Nested data
     items = InvoiceItemSerializer(many=True, required=False)
@@ -1192,15 +1209,18 @@ class OneTimeSupplierUpdateSerializer(serializers.Serializer):
 
     # Invoice fields
     date = serializers.DateField(required=False)
-    currency_id = serializers.IntegerField(min_value=1, required=False)
-    country_id = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    currency_id = serializers.IntegerField(min_value=Decimal("1"),
+  required=False)
+    country_id = serializers.IntegerField(min_value=Decimal("1"),
+  required=False, allow_null=True)
     tax_amount = serializers.DecimalField(
         max_digits=14, decimal_places=2, required=False, allow_null=True
     )
 
     # One-time supplier specific (can update existing or change to another one)
     one_time_supplier_id = serializers.IntegerField(
-        min_value=1, required=False, allow_null=True
+        min_value=Decimal("1"),
+  required=False, allow_null=True
     )
 
     # Supplier details (to update the current supplier's information)

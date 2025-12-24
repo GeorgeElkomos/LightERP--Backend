@@ -14,6 +14,7 @@ Business logic is in the models themselves.
 from rest_framework import serializers
 from decimal import Decimal
 from datetime import date
+from django.utils import timezone
 
 from procurement.po.models import POHeader, POLineItem
 from procurement.PR.models import PR, PRItem
@@ -79,13 +80,17 @@ class POLineItemSerializer(serializers.ModelSerializer):
 class POLineItemCreateSerializer(serializers.Serializer):
     """Serializer for creating PO line items"""
     
-    line_number = serializers.IntegerField(min_value=1)
+    line_number = serializers.IntegerField(min_value=Decimal("1"))
+ 
     line_type = serializers.ChoiceField(choices=['Catalog', 'Non-Catalog', 'Service'])
     item_name = serializers.CharField(max_length=255)
     item_description = serializers.CharField(required=False, allow_blank=True, default='')
-    quantity = serializers.DecimalField(max_digits=15, decimal_places=3, min_value=0.001)
-    unit_of_measure_id = serializers.IntegerField(min_value=1)
-    unit_price = serializers.DecimalField(max_digits=15, decimal_places=2, min_value=0)
+    quantity = serializers.DecimalField(max_digits=15, decimal_places=3, min_value=Decimal("0.001"))
+ 
+    unit_of_measure_id = serializers.IntegerField(min_value=Decimal("1"))
+ 
+    unit_price = serializers.DecimalField(max_digits=15, decimal_places=2, min_value=Decimal("0"))
+ 
     line_notes = serializers.CharField(required=False, allow_blank=True, default='')
     
     # Optional PR reference
@@ -101,11 +106,13 @@ class POLineItemCreateSerializer(serializers.Serializer):
 class POLineItemFromPRSerializer(serializers.Serializer):
     """Serializer for creating PO line items from PR items"""
     
-    pr_item_id = serializers.IntegerField(min_value=1)
+    pr_item_id = serializers.IntegerField(min_value=Decimal("1"))
+ 
     quantity_to_convert = serializers.DecimalField(
         max_digits=15, 
         decimal_places=3, 
-        min_value=0.001,
+        min_value=Decimal("0.001"),
+ 
         required=False,
         allow_null=True,
         help_text="Quantity to convert from PR. If not specified, uses remaining quantity."
@@ -113,7 +120,8 @@ class POLineItemFromPRSerializer(serializers.Serializer):
     unit_price = serializers.DecimalField(
         max_digits=15, 
         decimal_places=2, 
-        min_value=0,
+        min_value=Decimal("0"),
+ 
         help_text="Actual unit price from vendor (may differ from PR estimated price)"
     )
     line_notes = serializers.CharField(required=False, allow_blank=True, default='')
@@ -219,8 +227,10 @@ class POHeaderCreateSerializer(serializers.Serializer):
     # PO fields
     po_date = serializers.DateField(default=date.today)
     po_type = serializers.ChoiceField(choices=['Catalog', 'Non-Catalog', 'Service'])
-    supplier_id = serializers.IntegerField(min_value=1)
-    currency_id = serializers.IntegerField(min_value=1)
+    supplier_id = serializers.IntegerField(min_value=Decimal("1"))
+ 
+    currency_id = serializers.IntegerField(min_value=Decimal("1"))
+ 
     
     # Delivery information
     receiving_date = serializers.DateField(required=False, allow_null=True)
@@ -359,7 +369,7 @@ class POHeaderCreateSerializer(serializers.Serializer):
                 pr_item.quantity_converted += item_data['quantity_to_convert']
                 if pr_item.quantity_converted >= pr_item.quantity:
                     pr_item.converted_to_po = True
-                    pr_item.conversion_date = date.today()
+                    pr_item.conversion_date = timezone.now()
                 pr_item.save()
             
             # Link all source PR headers to PO
@@ -484,8 +494,10 @@ class POCancelSerializer(serializers.Serializer):
 class POReceiveSerializer(serializers.Serializer):
     """Serializer for recording goods receipt"""
     
-    line_item_id = serializers.IntegerField(min_value=1)
-    quantity_received = serializers.DecimalField(max_digits=15, decimal_places=3, min_value=0.001)
+    line_item_id = serializers.IntegerField(min_value=Decimal("1"))
+ 
+    quantity_received = serializers.DecimalField(max_digits=15, decimal_places=3, min_value=Decimal("0.001"))
+ 
     
     def validate(self, attrs):
         """Validate line item belongs to PO"""
