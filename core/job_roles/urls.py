@@ -10,9 +10,10 @@ app_name = 'job_roles'
 urlpatterns = [
     # JobRole endpoints
     path('job-roles/', views.job_role_list, name='job-role-list'),
+    path('job-roles/assign/', views.assign_job_role, name='assign-job-role'),
+    path('job-roles/with-pages/', views.job_role_create_with_pages, name='job-role-create-with-pages'),
     path('job-roles/<int:pk>/', views.job_role_detail, name='job-role-detail'),
     path('job-roles/<int:pk>/assign-page/', views.job_role_assign_page, name='job-role-assign-page'),
-    path('job-roles/<int:pk>/assign-user/', views.job_role_assign_user, name='job-role-assign-user'),
     path('job-roles/<int:pk>/remove-page/', views.job_role_remove_page, name='job-role-remove-page'),
     
     # Page endpoints

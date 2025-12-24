@@ -229,6 +229,7 @@ class UserActionDenial(models.Model):
         on_delete=models.CASCADE, 
         related_name='user_denials'
     )
+    denial_reason = models.TextField(blank=True, null=True, help_text="Optional reason for the denial")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

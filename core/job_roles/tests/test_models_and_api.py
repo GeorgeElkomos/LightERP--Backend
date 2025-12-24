@@ -476,7 +476,7 @@ class JobRolePageAPITests(APITestCase):
             {}
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('page_id is required', response.data['error'])
+        self.assertIn('Either page_id or page_name is required', response.data['error'])
     
     def test_assign_nonexistent_page(self):
         """POST /core/job_roles/job-roles/{id}/assign-page/ - Nonexistent page"""
@@ -497,7 +497,7 @@ class JobRolePageAPITests(APITestCase):
             data
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['message'], 'Page removed successfully')
+        self.assertIn('removed successfully', response.data['message'])
         
         # Verify assignment removed
         self.assertFalse(
@@ -707,6 +707,51 @@ class UserActionDenialAPITests(APITestCase):
             f'/core/job_roles/user-action-denials/?action={self.action.id}&page_size=100'
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+    
+    def test_user_action_denial_with_reason(self):
+        """POST /core/job_roles/user-action-denials/ - Create denial with reason"""
+        data = {
+            'user': self.user.id,
+            'page_action': self.page_action.id,
+            'denial_reason': 'User is still in training and should not delete invoices yet'
+        }
+        response = self.client.post('/core/job_roles/user-action-denials/', data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['denial_reason'], 'User is still in training and should not delete invoices yet')
+        
+        # Verify denial exists with reason
+        denial = UserActionDenial.objects.get(
+            user=self.user,
+            page_action=self.page_action
+        )
+        self.assertEqual(denial.denial_reason, 'User is still in training and should not delete invoices yet')
+    
+    def test_user_action_denial_without_reason(self):
+        """POST /core/job_roles/user-action-denials/ - Create denial without reason (optional)"""
+        data = {
+            'user': self.user.id,
+            'page_action': self.page_action.id
+        }
+        response = self.client.post('/core/job_roles/user-action-denials/', data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        # Verify denial exists without reason
+        denial = UserActionDenial.objects.get(
+            user=self.user,
+            page_action=self.page_action
+        )
+        self.assertIsNone(denial.denial_reason)
+    
+    def test_user_action_denial_detail_includes_reason(self):
+        """GET /core/job_roles/user-action-denials/{id}/ - Retrieve denial with reason"""
+        denial = UserActionDenial.objects.create(
+            user=self.user,
+            page_action=self.page_action,
+            denial_reason='Temporary restriction during audit period'
+        )
+        response = self.client.get(f'/core/job_roles/user-action-denials/{denial.id}/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['denial_reason'], 'Temporary restriction during audit period')
 
 
 # ============================================================================

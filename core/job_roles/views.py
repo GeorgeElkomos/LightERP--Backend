@@ -23,6 +23,7 @@ from .models import (
 from .serializers import (
     JobRoleSerializer,
     JobRoleListSerializer,
+    JobRoleWithPagesSerializer,
     PageSerializer,
     PageListSerializer,
     ActionSerializer,
@@ -138,23 +139,28 @@ def job_role_assign_page(request, pk):
     Assign a page to a job role.
     
     POST /job-roles/{id}/assign-page/
-    - Request body: { "page_id": 1 }
+    - Request body: { "page_id": 1 } or { "page_name": "invoice_page" }
     - Returns: JobRolePage details
     """
     job_role = get_object_or_404(JobRole, pk=pk)
     page_id = request.data.get('page_id')
+    page_name = request.data.get('page_name')
     
-    if not page_id:
+    if not page_id and not page_name:
         return Response(
-            {'error': 'page_id is required'},
+            {'error': 'Either page_id or page_name is required'},
             status=status.HTTP_400_BAD_REQUEST
         )
     
     try:
-        page = Page.objects.get(id=page_id)
+        if page_name:
+            page = Page.objects.get(name=page_name)
+        else:
+            page = Page.objects.get(id=page_id)
     except Page.DoesNotExist:
+        identifier = page_name if page_name else f'id {page_id}'
         return Response(
-            {'error': f'Page with id {page_id} does not exist'},
+            {'error': f'Page with {identifier} does not exist'},
             status=status.HTTP_404_NOT_FOUND
         )
     
@@ -177,74 +183,191 @@ def job_role_assign_page(request, pk):
 @api_view(['POST'])
 def job_role_remove_page(request, pk):
     """
-    Remove a page from a job role.
+    Remove one or more pages from a job role.
     
     POST /job-roles/{id}/remove-page/
-    - Request body: { "page_id": 1 }
-    - Returns: Success message
+    - Request body: { "page_ids": [1, 2, 3] } or { "page_names": ["invoice_page", "hr_page"] } for bulk removal
+    - OR: { "page_id": 1 } or { "page_name": "invoice_page" } for single removal
+    - Returns: Summary of removed pages and any not found
     """
     job_role = get_object_or_404(JobRole, pk=pk)
-    page_id = request.data.get('page_id')
     
-    if not page_id:
+    # Support both IDs and names for backward compatibility
+    page_ids = request.data.get('page_ids')
+    page_id = request.data.get('page_id')
+    page_names = request.data.get('page_names')
+    page_name = request.data.get('page_name')
+    
+    if not any([page_ids, page_id, page_names, page_name]):
         return Response(
-            {'error': 'page_id is required'},
+            {'error': 'Either page_ids, page_id, page_names, or page_name is required'},
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    try:
-        job_role_page = JobRolePage.objects.get(
-            job_role=job_role,
-            page_id=page_id
-        )
-        job_role_page.delete()
+    # Normalize to list of IDs
+    ids_to_remove = []
+    provided_names = []
+    
+    if page_names is not None:
+        if not isinstance(page_names, list):
+            return Response(
+                {'error': 'page_names must be a list'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        # Convert names to IDs
+        provided_names = page_names
+        pages = Page.objects.filter(name__in=page_names)
+        ids_to_remove = list(pages.values_list('id', flat=True))
+        
+        # Check if all names were found
+        found_names = set(pages.values_list('name', flat=True))
+        missing_names = set(page_names) - found_names
+        if missing_names:
+            return Response(
+                {'error': f'Pages with names {list(missing_names)} do not exist'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+    elif page_name:
+        try:
+            page = Page.objects.get(name=page_name)
+            ids_to_remove = [page.id]
+        except Page.DoesNotExist:
+            return Response(
+                {'error': f'Page with name {page_name} does not exist'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+    elif page_ids is not None:
+        if not isinstance(page_ids, list):
+            return Response(
+                {'error': 'page_ids must be a list'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        ids_to_remove = page_ids
+    else:
+        ids_to_remove = [page_id]
+    
+    if not ids_to_remove:
         return Response(
-            {'message': 'Page removed successfully'},
-            status=status.HTTP_200_OK
+            {'error': 'No valid pages found to remove'},
+            status=status.HTTP_400_BAD_REQUEST
         )
-    except JobRolePage.DoesNotExist:
+    
+    # Find and delete all matching JobRolePage entries
+    job_role_pages = JobRolePage.objects.filter(
+        job_role=job_role,
+        page_id__in=ids_to_remove
+    )
+    
+    found_page_ids = set(job_role_pages.values_list('page_id', flat=True))
+    not_found_page_ids = [pid for pid in ids_to_remove if pid not in found_page_ids]
+    
+    deleted_count = job_role_pages.count()
+    job_role_pages.delete()
+    
+    # Build response message
+    if deleted_count == 0:
         return Response(
-            {'error': 'Page assignment not found'},
+            {
+                'error': 'No page assignments found',
+                'not_found_page_ids': not_found_page_ids
+            },
             status=status.HTTP_404_NOT_FOUND
         )
+    
+    response_data = {
+        'message': f'{deleted_count} page(s) removed successfully',
+        'removed_count': deleted_count,
+        'removed_page_ids': list(found_page_ids)
+    }
+    
+    if not_found_page_ids:
+        response_data['not_found_page_ids'] = not_found_page_ids
+        response_data['message'] += f' ({len(not_found_page_ids)} not found)'
+    
+    return Response(response_data, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
-def job_role_assign_user(request, pk):
+@permission_classes([IsAuthenticated])
+def assign_job_role(request):
     """
-    Assign a user to a job role.
-
-    POST /job-roles/{id}/assign-user/
-    - Request body: { "user_id": <int> }
-    - Only users with admin privileges can assign roles
+    Assign a job role to a user.
+    
+    POST /job-roles/assign/
+    - Request body (by user_id and job_role_id): 
+        {"user_id": 1, "job_role_id": 2}
+    - Request body (by email and job_role_name): 
+        {"user_email": "user@example.com", "job_role_name": "Accountant"}
+    - Returns: User details with assigned role
+    - Permission: Only admins can assign roles
     """
-    job_role = get_object_or_404(JobRole, pk=pk)
-
-    user_id = request.data.get('user_id')
-    if not user_id:
-        return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
-
-    # Import user model dynamically to avoid circular imports
     from django.contrib.auth import get_user_model
     User = get_user_model()
-
-    # Permission: only admin users can assign roles
-    requesting_user = request.user
-    if not getattr(requesting_user, 'is_admin', lambda: False)():
-        return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
-
+    
+    # Check admin permission
     try:
-        user = User.objects.get(pk=user_id)
+        is_authorized = request.user.is_admin()
+    except (AttributeError, TypeError):
+        is_authorized = False
+    
+    if not is_authorized:
+        return Response(
+            {'error': 'Permission denied. Only admins can assign job roles.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    # Get job role (support both ID and name)
+    job_role_id = request.data.get('job_role_id') or request.data.get('role_id')
+    job_role_name = request.data.get('job_role_name') or request.data.get('role_name')
+    
+    if not job_role_id and not job_role_name:
+        return Response(
+            {'error': 'Either job_role_id or job_role_name is required'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Find job role
+    try:
+        if job_role_name:
+            job_role = JobRole.objects.get(name=job_role_name)
+        else:
+            job_role = JobRole.objects.get(pk=job_role_id)
+    except JobRole.DoesNotExist:
+        identifier = job_role_name if job_role_name else f'id {job_role_id}'
+        return Response(
+            {'error': f'Job role with {identifier} not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    # Handle both email and user_id
+    email = request.data.get('user_email') or request.data.get('email')
+    user_id = request.data.get('user_id')
+    
+    if not email and not user_id:
+        return Response(
+            {'error': 'Either user_id or user_email is required'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Find user
+    try:
+        if email:
+            user = User.objects.get(email=email)
+        else:
+            user = User.objects.get(pk=user_id)
     except User.DoesNotExist:
-        return Response({'error': f'User with id {user_id} does not exist'}, status=status.HTTP_404_NOT_FOUND)
-
+        identifier = email if email else f'id {user_id}'
+        return Response(
+            {'error': f'User with {identifier} not found'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
     # Assign and save
     user.job_role = job_role
     user.save()
-
-    # Minimal user info response
+    
     return Response({
-        'message': 'User assigned to job role successfully',
+        'message': 'Job role assigned successfully',
         'user': {
             'id': user.id,
             'email': user.email,
@@ -255,6 +378,35 @@ def job_role_assign_user(request, pk):
             }
         }
     }, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+def job_role_create_with_pages(request):
+    """
+    Create a job role and assign pages to it in one atomic operation.
+    
+    POST /job-roles/with-pages/
+    - Request body (using page IDs): {
+        "name": "Manager",
+        "description": "Manager role with specific page access",
+        "page_ids": [1, 2, 3]
+      }
+    - Request body (using page names): {
+        "name": "Manager",
+        "description": "Manager role with specific page access",
+        "page_names": ["invoice_page", "reports_page"]
+      }
+    - page_ids/page_names are optional - if omitted, creates job role with no pages
+    - All page_ids/page_names must exist or the entire operation fails (atomic)
+    - Returns: Created job role with assigned pages
+    """
+    serializer = JobRoleWithPagesSerializer(data=request.data)
+    if serializer.is_valid():
+        try:
+            job_role = serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        except ValidationError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 # ============================================================================
@@ -359,23 +511,28 @@ def page_assign_action(request, pk):
     Assign an action to a page.
     
     POST /pages/{id}/assign-action/
-    - Request body: { "action_id": 1 }
+    - Request body: { "action_id": 1 } or { "action_name": "view" }
     - Returns: PageAction details
     """
     page = get_object_or_404(Page, pk=pk)
     action_id = request.data.get('action_id')
+    action_name = request.data.get('action_name')
     
-    if not action_id:
+    if not action_id and not action_name:
         return Response(
-            {'error': 'action_id is required'},
+            {'error': 'Either action_id or action_name is required'},
             status=status.HTTP_400_BAD_REQUEST
         )
     
     try:
-        action = Action.objects.get(id=action_id)
+        if action_name:
+            action = Action.objects.get(name=action_name)
+        else:
+            action = Action.objects.get(id=action_id)
     except Action.DoesNotExist:
+        identifier = action_name if action_name else f'id {action_id}'
         return Response(
-            {'error': f'Action with id {action_id} does not exist'},
+            {'error': f'Action with {identifier} does not exist'},
             status=status.HTTP_404_NOT_FOUND
         )
     
@@ -401,31 +558,39 @@ def page_remove_action(request, pk):
     Remove an action from a page.
     
     POST /pages/{id}/remove-action/
-    - Request body: { "action_id": 1 }
+    - Request body: { "action_id": 1 } or { "action_name": "view" }
     - Returns: Success message
     """
     page = get_object_or_404(Page, pk=pk)
     action_id = request.data.get('action_id')
+    action_name = request.data.get('action_name')
     
-    if not action_id:
+    if not action_id and not action_name:
         return Response(
-            {'error': 'action_id is required'},
+            {'error': 'Either action_id or action_name is required'},
             status=status.HTTP_400_BAD_REQUEST
         )
     
     try:
-        page_action = PageAction.objects.get(
-            page=page,
-            action_id=action_id
-        )
+        if action_name:
+            page_action = PageAction.objects.get(
+                page=page,
+                action__name=action_name
+            )
+        else:
+            page_action = PageAction.objects.get(
+                page=page,
+                action_id=action_id
+            )
         page_action.delete()
         return Response(
             {'message': 'Action removed successfully'},
             status=status.HTTP_200_OK
         )
     except PageAction.DoesNotExist:
+        identifier = action_name if action_name else f'id {action_id}'
         return Response(
-            {'error': 'Action assignment not found'},
+            {'error': f'Action assignment with {identifier} not found'},
             status=status.HTTP_404_NOT_FOUND
         )
 
@@ -541,7 +706,8 @@ def page_action_list(request):
     
     POST /page-actions/
     - Create a new page-action relationship
-    - Request body: { "page": 1, "action_id": 2 }
+    - Request body (using IDs): { "page": 1, "action_id": 2 }
+    - Request body (using names): { "page": 1, "action_name": "view" }
     """
     if request.method == 'GET':
         page_actions = PageAction.objects.select_related('page', 'action').all()
@@ -636,7 +802,12 @@ def user_action_denial_list(request):
     
     POST /user-action-denials/
     - Create a new user action denial
-    - Request body: { "user": 1, "page_action": 2 }
+    - Request body (using IDs): { "user": 1, "page_action": 2 }
+    - Request body (using names/email): { 
+        "user_email": "user@example.com", 
+        "page_name": "invoice_page", 
+        "action_name": "delete" 
+      }
     """
     if request.method == 'GET':
         denials = UserActionDenial.objects.select_related(
@@ -733,3 +904,4 @@ def user_actions(request, pk):
 
     serializer = PageActionSerializer(available, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
+
