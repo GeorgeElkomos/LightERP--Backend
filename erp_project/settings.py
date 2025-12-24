@@ -59,10 +59,11 @@ INSTALLED_APPS = [
     'core.approval',     # Approval workflows
     
     # Procurement Module
-    # 'procurement',              # Main Procurement App  
-    # 'procurement.catalog',      # Catalog management
-    # 'procurement.PR',           # Purchase Requisitions
-    # 'procurement.po',           # Purchase Orders
+    'procurement',              # Main Procurement App  
+    'procurement.catalog',      # Catalog management
+    'procurement.PR',           # Purchase Requisitions
+    'procurement.po',           # Purchase Orders
+    'procurement.receiving',    # Goods Receiving
 ]
 
 MIDDLEWARE = [
