@@ -235,19 +235,86 @@ def po_approval_action(request, pk):
         )
 
 
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 @auto_paginate
 def po_pending_approvals(request):
     """
     GET: List POs pending approval for the current user
-    """
-    # Get pending POs for current user
-    pending_pos = ApprovalManager.get_pending_approvals(request.user, POHeader)
     
-    # Serialize
-    serializer = POHeaderListSerializer(pending_pos, many=True)
-    return Response(serializer.data)
+    Returns only POs where the current user has an active approval assignment.
+    """
+    from django.contrib.auth import get_user_model
+    from core.approval.models import ApprovalAssignment
+    from django.contrib.contenttypes.models import ContentType
+    from django.db.models import Sum, F
+    
+    # Get user from request
+    User = get_user_model()
+    user = getattr(request, 'user', None)
+    if not user or not user.is_authenticated:
+        user = User.objects.first()
+    
+    if not user:
+        return Response(
+            {'error': 'No authenticated user'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+    
+    # Use ApprovalManager to get all pending workflows for this user
+    pending_workflows = ApprovalManager.get_user_pending_approvals(user)
+    
+    # Filter to only POHeader content type
+    po_content_type = ContentType.objects.get_for_model(POHeader)
+    po_workflows = pending_workflows.filter(content_type=po_content_type)
+    
+    po_ids = [wf.object_id for wf in po_workflows]
+    po_headers = POHeader.objects.filter(
+        id__in=po_ids
+    ).select_related(
+        'supplier_name',
+        'currency',
+        'created_by'
+    ).prefetch_related('line_items')
+    
+    # Build response with approval info
+    result = []
+    for po in po_headers:
+        workflow = ApprovalManager.get_workflow_instance(po)
+        if workflow:
+            active_stage = workflow.stage_instances.filter(status='active').first()
+            assignment = None
+            
+            if active_stage:
+                assignment = active_stage.assignments.filter(
+                    user=user,
+                    status=ApprovalAssignment.STATUS_PENDING
+                ).first()
+            
+            # Calculate total from line items
+            total_amount = po.line_items.aggregate(
+                total=Sum(F('quantity') * F('unit_price'))
+            )['total'] or 0
+            
+            result.append({
+                'po_id': po.id,
+                'po_number': po.po_number,
+                'po_type': po.po_type,
+                'po_date': po.po_date,
+                'supplier_name': po.supplier_name.name if po.supplier_name else None,
+                'total': str(total_amount),
+                'currency': po.currency.code if po.currency else None,
+                'status': po.status,
+                'workflow_id': workflow.id,
+                'workflow_status': workflow.status,
+                'current_stage': active_stage.stage_template.name if active_stage else None,
+                'can_approve': assignment is not None,
+                'assignment_id': assignment.id if assignment else None
+            })
+    
+    return Response(result)
+
 
 
 @api_view(['POST'])

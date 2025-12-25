@@ -30,4 +30,6 @@ db.sqlite3-journal
 Thumbs.db
 
 # Ignore procurement module
+db.sqlite3
+
 
