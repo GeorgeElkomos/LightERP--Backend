@@ -15,7 +15,6 @@ env/
 
 # Django
 *.log
-db.sqlite3
 db.sqlite3-journal
 *.backup
 
@@ -29,7 +28,6 @@ db.sqlite3-journal
 .DS_Store
 Thumbs.db
 
-# Ignore procurement module
-db.sqlite3
+
 
 
