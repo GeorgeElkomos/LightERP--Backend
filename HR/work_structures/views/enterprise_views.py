@@ -69,18 +69,17 @@ def enterprise_list(request):
         if not include_inactive:
             enterprises = enterprises.active()
         
-        # Filter by status (computed property, so we handle it via date filtering)
+        # Filter by status using the computed status property
         status_filter = request.query_params.get('status')
         if status_filter and status_filter.lower() == 'active':
-            # Explicitly filter to active records
             enterprises = enterprises.active()
         elif status_filter and status_filter.lower() == 'inactive':
-            # Filter to inactive records (future start or past end)
+            # Get all records in scope, then exclude active ones to get inactive
             from django.utils import timezone
             today = timezone.now().date()
             enterprises = enterprises.exclude(
                 Q(effective_start_date__lte=today) &
-                (Q(effective_end_date__gte=today) | Q(effective_end_date__isnull=True))
+                (Q(effective_end_date__gt=today) | Q(effective_end_date__isnull=True))
             )
         
         # Apply standard code/name/search filters
@@ -245,18 +244,17 @@ def business_group_list(request):
                 Q(enterprise__code__icontains=enterprise_filter)
             )
         
-        # Filter by status (computed property, so we handle it via date filtering)
+        # Filter by status using the computed status property
         status_filter = request.query_params.get('status')
         if status_filter and status_filter.lower() == 'active':
-            # Explicitly filter to active records
             business_groups = business_groups.active()
         elif status_filter and status_filter.lower() == 'inactive':
-            # Filter to inactive records (future start or past end)
+            # Get all records in scope, then exclude active ones to get inactive
             from django.utils import timezone
             today = timezone.now().date()
             business_groups = business_groups.exclude(
                 Q(effective_start_date__lte=today) &
-                (Q(effective_end_date__gte=today) | Q(effective_end_date__isnull=True))
+                (Q(effective_end_date__gt=today) | Q(effective_end_date__isnull=True))
             )
         
         # Apply standard code/name/search filters

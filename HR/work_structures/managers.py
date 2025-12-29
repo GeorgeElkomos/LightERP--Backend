@@ -298,7 +298,9 @@ class DateTrackedQuerySet(ScopedQuerySet):
         
         Returns records where:
         - effective_start_date <= today
-        - effective_end_date is NULL OR effective_end_date >= today
+        - effective_end_date is NULL OR effective_end_date > today
+        
+        Note: effective_end_date is EXCLUSIVE (record becomes inactive ON that date)
         
         This is the database-level equivalent of the computed status property.
         Use this for database queries instead of filtering by .status property.
@@ -311,7 +313,7 @@ class DateTrackedQuerySet(ScopedQuerySet):
         today = timezone.now().date()
         return self.filter(
             Q(effective_start_date__lte=today) &
-            (Q(effective_end_date__gte=today) | Q(effective_end_date__isnull=True))
+            (Q(effective_end_date__gt=today) | Q(effective_end_date__isnull=True))
         )
     
     def active_on(self, date):
@@ -323,12 +325,14 @@ class DateTrackedQuerySet(ScopedQuerySet):
             
         Returns records where:
         - effective_start_date <= date
-        - effective_end_date is NULL OR effective_end_date >= date
+        - effective_end_date is NULL OR effective_end_date > date
+        
+        Note: effective_end_date is EXCLUSIVE (record becomes inactive ON that date)
         """
         from django.db.models import Q
         return self.filter(
             Q(effective_start_date__lte=date) &
-            (Q(effective_end_date__gte=date) | Q(effective_end_date__isnull=True))
+            (Q(effective_end_date__gt=date) | Q(effective_end_date__isnull=True))
         )
 
 

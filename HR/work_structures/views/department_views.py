@@ -56,7 +56,7 @@ def department_list(request):
             today = timezone.now().date()
             departments = Department.objects.scoped(request.user).exclude(
                 Q(effective_start_date__lte=today) &
-                (Q(effective_end_date__gte=today) | Q(effective_end_date__isnull=True))
+                (Q(effective_end_date__gt=today) | Q(effective_end_date__isnull=True))
             )
         
         # Filter by business group (name or code)

@@ -336,7 +336,7 @@ class DepartmentModelTests(TestCase):
         self.assertNotIn(inactive_dept, currently_active)
     
     def test_department_active_on_date(self):
-        """Test active_on(date) manager method"""
+        """Test active_on(date) manager method with exclusive end_date"""
         dept = Department.objects.create(
             code='DEPT001',
             business_group=self.business_group,
@@ -353,6 +353,10 @@ class DepartmentModelTests(TestCase):
         # Should not be active before start date
         active_before = Department.objects.active_on(date(2023, 12, 31))
         self.assertNotIn(dept, active_before)
+        
+        # Should not be active ON end date (exclusive end_date pattern)
+        active_on_end = Department.objects.active_on(date(2024, 12, 31))
+        self.assertNotIn(dept, active_on_end)
         
         # Should not be active after end date
         active_after = Department.objects.active_on(date(2025, 1, 1))

@@ -78,6 +78,17 @@ class DateTrackedEntityFixesTest(TestCase):
         )
         assert dept.status == StatusChoices.INACTIVE and dept.effective_end_date is not None
 
+    def test_create_department_with_end_date_today_inactive(self):
+        """Test that record with end_date = today is INACTIVE (exclusive end date)"""
+        today = date.today()
+        dept = Department.objects.create(
+            code='DEPT_TODAY', business_group=self.business_group, name='Department Today', location=self.location,
+            effective_start_date=today - timedelta(days=30), effective_end_date=today
+        )
+        # With exclusive end_date, record becomes inactive ON the end_date
+        assert dept.status == StatusChoices.INACTIVE
+        assert dept.effective_end_date == today
+
     def test_update_department_creates_active_version(self):
         today = date.today()
         dto = DepartmentCreateDTO(
@@ -208,14 +219,19 @@ class DateTrackingWithScopingTests(TestCase):
         UserDataScope.objects.create(user=self.scoped_user, business_group=self.bg, is_global=False)
 
     def test_scoped_active_on_date(self):
+        """Test active_on() with exclusive end_date pattern"""
         today = date.today()
         yesterday = today - timedelta(days=1)
+        # With exclusive end_date: record is active UNTIL end_date (not ON end_date)
+        # To be active on yesterday, end_date must be today or later
         dept_old = Department.objects.create(
             business_group=self.bg, code='IT', name='IT Department Old', location=self.location,
-            effective_start_date=yesterday - timedelta(days=10), effective_end_date=yesterday
+            effective_start_date=yesterday - timedelta(days=10), 
+            effective_end_date=today  # Active through yesterday, inactive starting today
         )
         dept_current = Department.objects.create(
-            business_group=self.bg, code='IT', name='IT Department Current', location=self.location, effective_start_date=today
+            business_group=self.bg, code='IT', name='IT Department Current', location=self.location, 
+            effective_start_date=today
         )
         depts_current = Department.objects.scoped(self.scoped_user).active()
         assert depts_current.count() == 1 and depts_current.first() == dept_current

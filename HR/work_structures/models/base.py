@@ -151,6 +151,8 @@ class DateTrackedModel(models.Model):
         
         Returns:
             StatusChoices.ACTIVE or StatusChoices.INACTIVE
+            
+        Note: effective_end_date is EXCLUSIVE (record becomes inactive ON that date)
         """
         if reference_date is None:
             reference_date = date.today()
@@ -159,8 +161,8 @@ class DateTrackedModel(models.Model):
         if self.effective_start_date > reference_date:
             return StatusChoices.INACTIVE
         
-        # Already ended (past record)
-        if self.effective_end_date and self.effective_end_date < reference_date:
+        # Already ended (past record) - end_date is EXCLUSIVE
+        if self.effective_end_date and self.effective_end_date <= reference_date:
             return StatusChoices.INACTIVE
         
         # Currently active
