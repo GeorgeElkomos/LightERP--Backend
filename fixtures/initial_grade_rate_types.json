@@ -1,0 +1,52 @@
+[
+  {
+    "model": "work_structures.graderatetype",
+    "pk": 1,
+    "fields": {
+      "code": "BASIC_SALARY",
+      "name": "Basic Salary",
+      "has_range": true,
+      "description": "Employee's base salary with minimum and maximum range"
+    }
+  },
+  {
+    "model": "work_structures.graderatetype",
+    "pk": 2,
+    "fields": {
+      "code": "TRANSPORT",
+      "name": "Transportation Allowance",
+      "has_range": false,
+      "description": "Fixed transportation allowance"
+    }
+  },
+  {
+    "model": "work_structures.graderatetype",
+    "pk": 3,
+    "fields": {
+      "code": "HOUSING",
+      "name": "Housing Allowance",
+      "has_range": false,
+      "description": "Fixed housing allowance"
+    }
+  },
+  {
+    "model": "work_structures.graderatetype",
+    "pk": 4,
+    "fields": {
+      "code": "FOOD",
+      "name": "Food Allowance",
+      "has_range": false,
+      "description": "Fixed food/meal allowance"
+    }
+  },
+  {
+    "model": "work_structures.graderatetype",
+    "pk": 5,
+    "fields": {
+      "code": "MOBILE",
+      "name": "Mobile Allowance",
+      "has_range": false,
+      "description": "Fixed mobile/communication allowance"
+    }
+  }
+]

@@ -5,14 +5,6 @@ Usage: python manage.py seed_all_data
 """
 
 from django.core.management.base import BaseCommand
-from django.contrib.auth.hashers import make_password
-from django.utils import timezone
-from datetime import date, timedelta
-from decimal import Decimal
-import random
-
-from core.user_accounts.models import CustomUser
-from core.job_roles.models import JobRole
 
 
 class Command(BaseCommand):
@@ -24,7 +16,13 @@ class Command(BaseCommand):
             'users': [],
             'job_roles': [],
             'pages': [],
-            'actions': []
+            'actions': [],
+            'enterprises': [],
+            'business_groups': [],
+            'locations': [],
+            'departments': [],
+            'grades': [],
+            'positions': [],
         }
 
     def handle(self, *args, **options):
@@ -34,20 +32,38 @@ class Command(BaseCommand):
         
         try:
             # Load basic structure
-            self.stdout.write("Loading seed data for job_roles app...")
-            call_command('loaddata', 'job_roles_test_data.json')
+            self.stdout.write("Loading Job Roles and Pages...")
+            call_command('loaddata', 'initial_roles_pages_actions.json')
             
+            # Load Grade Rate Types (must be before HR structure)
+            self.stdout.write("Loading Grade Rate Types...")
+            call_command('loaddata', 'initial_grade_rate_types.json')
+            
+            # Load HR structure
+            self.stdout.write("Loading HR Structure...")
+            call_command('loaddata', 'initial_hr_structure.json')
+            
+            # Load Users (Enhanced with 5 users)
+            self.stdout.write("Loading Enhanced Seed Users...")
+            call_command('loaddata', 'enhanced_users.json')
+
+            # Load data scopes (Enhanced with 5 users)
+            self.stdout.write("Loading Enhanced Data Scopes...")
+            call_command('loaddata', 'enhanced_data_scopes.json')
+            
+            # Load Department Managers
+            self.stdout.write("Loading Department Managers...")
+            call_command('loaddata', 'department_managers.json')
             
             self.stdout.write(self.style.SUCCESS('\n' + '='*60))
             self.stdout.write(self.style.SUCCESS('SEEDING COMPLETED SUCCESSFULLY VIA FIXTURES'))
             self.stdout.write(self.style.SUCCESS('='*60))
             self.stdout.write(self.style.SUCCESS('Test Users (all passwords: "password123"):'))
-            self.stdout.write(self.style.SUCCESS('  1. superadmin@lightidea.com'))
-            self.stdout.write(self.style.SUCCESS('  2. admin@lightidea.com'))
-            self.stdout.write(self.style.SUCCESS('  3. accountant@lightidea.com'))
-            self.stdout.write(self.style.SUCCESS('  4. hrmanager@lightidea.com'))
-            self.stdout.write(self.style.SUCCESS('  5. sales@lightidea.com'))
-            self.stdout.write(self.style.SUCCESS('  6. inventory@lightidea.com'))
+            self.stdout.write(self.style.SUCCESS('  1. superadmin@lightidea.com (Global Admin)'))
+            self.stdout.write(self.style.SUCCESS('  2. admin1@lightidea.com (GULF BG Admin)'))
+            self.stdout.write(self.style.SUCCESS('  3. admin2@lightidea.com (LEVANT BG Manager)'))
+            self.stdout.write(self.style.SUCCESS('  4. manager.egypt@lightidea.com (Egypt IT Dept Manager)'))
+            self.stdout.write(self.style.SUCCESS('  5. manager.levant@lightidea.com (Lebanon Sales Dept Manager)'))
             self.stdout.write(self.style.SUCCESS('='*60))
             
         except Exception as e:

@@ -32,7 +32,7 @@ from .serializers import (
     UserActionDenialSerializer,
     UserActionDenialCreateSerializer,
 )
-from core.user_accounts.models import CustomUser
+from core.user_accounts.models import UserAccount
 
 
 # ============================================================================
@@ -881,7 +881,7 @@ def user_actions(request, pk):
     Permission: user themselves or super_admin.
     """
     # Fetch target user
-    target_user = get_object_or_404(CustomUser, pk=pk)
+    target_user = get_object_or_404(UserAccount, pk=pk)
 
     # Authorization: allow if requesting user is super_admin or the user themselves
     if not (request.user.is_authenticated and (request.user.is_super_admin() or request.user.pk == target_user.pk)):

@@ -1,0 +1,550 @@
+[
+  {
+    "model": "job_roles.action",
+    "pk": 1,
+    "fields": {
+      "name": "view",
+      "display_name": "View",
+      "description": "View records"
+    }
+  },
+  {
+    "model": "job_roles.action",
+    "pk": 2,
+    "fields": {
+      "name": "create",
+      "display_name": "Create",
+      "description": "Create new records"
+    }
+  },
+  {
+    "model": "job_roles.action",
+    "pk": 3,
+    "fields": {
+      "name": "edit",
+      "display_name": "Edit",
+      "description": "Edit existing records"
+    }
+  },
+  {
+    "model": "job_roles.action",
+    "pk": 4,
+    "fields": {
+      "name": "delete",
+      "display_name": "Delete",
+      "description": "Delete records"
+    }
+  },
+  {
+    "model": "job_roles.page",
+    "pk": 1,
+    "fields": {
+      "name": "hr_enterprise",
+      "display_name": "HR - Enterprises",
+      "description": "Manage enterprise organizational structure"
+    }
+  },
+  {
+    "model": "job_roles.page",
+    "pk": 2,
+    "fields": {
+      "name": "hr_business_group",
+      "display_name": "HR - Business Groups",
+      "description": "Manage business groups within enterprises"
+    }
+  },
+  {
+    "model": "job_roles.page",
+    "pk": 3,
+    "fields": {
+      "name": "hr_location",
+      "display_name": "HR - Locations",
+      "description": "Manage physical or logical workplace locations"
+    }
+  },
+  {
+    "model": "job_roles.page",
+    "pk": 4,
+    "fields": {
+      "name": "hr_department",
+      "display_name": "HR - Departments",
+      "description": "Manage departments and their hierarchies"
+    }
+  },
+  {
+    "model": "job_roles.page",
+    "pk": 5,
+    "fields": {
+      "name": "hr_department_manager",
+      "display_name": "HR - Department Managers",
+      "description": "Manage department manager assignments"
+    }
+  },
+  {
+    "model": "job_roles.page",
+    "pk": 6,
+    "fields": {
+      "name": "hr_position",
+      "display_name": "HR - Positions",
+      "description": "Manage job positions"
+    }
+  },
+  {
+    "model": "job_roles.page",
+    "pk": 7,
+    "fields": {
+      "name": "hr_grade",
+      "display_name": "HR - Grades",
+      "description": "Manage job grades and grade rates"
+    }
+  },
+  {
+    "model": "job_roles.page",
+    "pk": 8,
+    "fields": {
+      "name": "hr_data_scope",
+      "display_name": "HR - Data Scope",
+      "description": "Manage data scope security and user access control"
+    }
+  },
+  {
+    "model": "job_roles.jobrole",
+    "pk": 1,
+    "fields": {
+      "name": "System Admin",
+      "description": "Full system access and control"
+    }
+  },
+  {
+    "model": "job_roles.jobrole",
+    "pk": 2,
+    "fields": {
+      "name": "HR Administrator",
+      "description": "Full administrative access to all HR modules."
+    }
+  },
+  {
+    "model": "job_roles.jobrole",
+    "pk": 3,
+    "fields": {
+      "name": "HR Manager",
+      "description": "Manage HR operations and staff"
+    }
+  },
+  {
+    "model": "job_roles.jobrole",
+    "pk": 4,
+    "fields": {
+      "name": "Department Manager",
+      "description": "Manage department resources"
+    }
+  },
+  {
+    "model": "job_roles.jobrole",
+    "pk": 5,
+    "fields": {
+      "name": "Employee",
+      "description": "Basic employee access"
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 1,
+    "fields": {
+      "page": 1,
+      "action": 1
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 2,
+    "fields": {
+      "page": 1,
+      "action": 2
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 3,
+    "fields": {
+      "page": 1,
+      "action": 3
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 4,
+    "fields": {
+      "page": 1,
+      "action": 4
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 5,
+    "fields": {
+      "page": 2,
+      "action": 1
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 6,
+    "fields": {
+      "page": 2,
+      "action": 2
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 7,
+    "fields": {
+      "page": 2,
+      "action": 3
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 8,
+    "fields": {
+      "page": 2,
+      "action": 4
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 9,
+    "fields": {
+      "page": 3,
+      "action": 1
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 10,
+    "fields": {
+      "page": 3,
+      "action": 2
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 11,
+    "fields": {
+      "page": 3,
+      "action": 3
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 12,
+    "fields": {
+      "page": 3,
+      "action": 4
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 13,
+    "fields": {
+      "page": 4,
+      "action": 1
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 14,
+    "fields": {
+      "page": 4,
+      "action": 2
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 15,
+    "fields": {
+      "page": 4,
+      "action": 3
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 16,
+    "fields": {
+      "page": 4,
+      "action": 4
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 17,
+    "fields": {
+      "page": 5,
+      "action": 1
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 18,
+    "fields": {
+      "page": 5,
+      "action": 2
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 19,
+    "fields": {
+      "page": 5,
+      "action": 3
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 20,
+    "fields": {
+      "page": 5,
+      "action": 4
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 21,
+    "fields": {
+      "page": 6,
+      "action": 1
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 22,
+    "fields": {
+      "page": 6,
+      "action": 2
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 23,
+    "fields": {
+      "page": 6,
+      "action": 3
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 24,
+    "fields": {
+      "page": 6,
+      "action": 4
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 25,
+    "fields": {
+      "page": 7,
+      "action": 1
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 26,
+    "fields": {
+      "page": 7,
+      "action": 2
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 27,
+    "fields": {
+      "page": 7,
+      "action": 3
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 28,
+    "fields": {
+      "page": 7,
+      "action": 4
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 29,
+    "fields": {
+      "page": 8,
+      "action": 1
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 30,
+    "fields": {
+      "page": 8,
+      "action": 2
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 31,
+    "fields": {
+      "page": 8,
+      "action": 3
+    }
+  },
+  {
+    "model": "job_roles.pageaction",
+    "pk": 32,
+    "fields": {
+      "page": 8,
+      "action": 4
+    }
+  },
+  {
+    "model": "job_roles.jobrolepage",
+    "pk": 1,
+    "fields": {
+      "job_role": 1,
+      "page": 1
+    }
+  },
+  {
+    "model": "job_roles.jobrolepage",
+    "pk": 2,
+    "fields": {
+      "job_role": 1,
+      "page": 2
+    }
+  },
+  {
+    "model": "job_roles.jobrolepage",
+    "pk": 3,
+    "fields": {
+      "job_role": 1,
+      "page": 3
+    }
+  },
+  {
+    "model": "job_roles.jobrolepage",
+    "pk": 4,
+    "fields": {
+      "job_role": 1,
+      "page": 4
+    }
+  },
+  {
+    "model": "job_roles.jobrolepage",
+    "pk": 5,
+    "fields": {
+      "job_role": 1,
+      "page": 5
+    }
+  },
+  {
+    "model": "job_roles.jobrolepage",
+    "pk": 6,
+    "fields": {
+      "job_role": 1,
+      "page": 6
+    }
+  },
+  {
+    "model": "job_roles.jobrolepage",
+    "pk": 7,
+    "fields": {
+      "job_role": 1,
+      "page": 7
+    }
+  },
+  {
+    "model": "job_roles.jobrolepage",
+    "pk": 8,
+    "fields": {
+      "job_role": 2,
+      "page": 1
+    }
+  },
+  {
+    "model": "job_roles.jobrolepage",
+    "pk": 9,
+    "fields": {
+      "job_role": 2,
+      "page": 2
+    }
+  },
+  {
+    "model": "job_roles.jobrolepage",
+    "pk": 10,
+    "fields": {
+      "job_role": 2,
+      "page": 3
+    }
+  },
+  {
+    "model": "job_roles.jobrolepage",
+    "pk": 11,
+    "fields": {
+      "job_role": 2,
+      "page": 4
+    }
+  },
+  {
+    "model": "job_roles.jobrolepage",
+    "pk": 12,
+    "fields": {
+      "job_role": 2,
+      "page": 5
+    }
+  },
+  {
+    "model": "job_roles.jobrolepage",
+    "pk": 13,
+    "fields": {
+      "job_role": 2,
+      "page": 6
+    }
+  },
+  {
+    "model": "job_roles.jobrolepage",
+    "pk": 14,
+    "fields": {
+      "job_role": 2,
+      "page": 7
+    }
+  },
+  {
+    "model": "job_roles.jobrolepage",
+    "pk": 15,
+    "fields": {
+      "job_role": 3,
+      "page": 4
+    }
+  },
+  {
+    "model": "job_roles.jobrolepage",
+    "pk": 16,
+    "fields": {
+      "job_role": 3,
+      "page": 5
+    }
+  },
+  {
+    "model": "job_roles.jobrolepage",
+    "pk": 17,
+    "fields": {
+      "job_role": 3,
+      "page": 6
+    }
+  },
+  {
+    "model": "job_roles.jobrolepage",
+    "pk": 18,
+    "fields": {
+      "job_role": 1,
+      "page": 8
+    }
+  }
+]

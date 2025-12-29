@@ -1,0 +1,42 @@
+[
+    {
+        "model": "work_structures.departmentmanager",
+        "pk": 1,
+        "fields": {
+            "department": 1,
+            "manager": 4,
+            "effective_start_date": "2024-01-01",
+            "effective_end_date": null
+        }
+    },
+    {
+        "model": "work_structures.departmentmanager",
+        "pk": 2,
+        "fields": {
+            "department": 2,
+            "manager": 4,
+            "effective_start_date": "2024-01-01",
+            "effective_end_date": null
+        }
+    },
+    {
+        "model": "work_structures.departmentmanager",
+        "pk": 3,
+        "fields": {
+            "department": 3,
+            "manager": 5,
+            "effective_start_date": "2024-01-01",
+            "effective_end_date": null
+        }
+    },
+    {
+        "model": "work_structures.departmentmanager",
+        "pk": 4,
+        "fields": {
+            "department": 4,
+            "manager": 5,
+            "effective_start_date": "2024-01-01",
+            "effective_end_date": null
+        }
+    }
+]

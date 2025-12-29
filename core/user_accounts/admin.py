@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import CustomUser, UserType
+from .models import UserAccount, UserType
 
 
 @admin.register(UserType)
@@ -9,9 +9,9 @@ class UserTypeAdmin(admin.ModelAdmin):
     search_fields = ['type_name']
 
 
-@admin.register(CustomUser)
-class CustomUserAdmin(admin.ModelAdmin):
-    """Admin configuration for CustomUser model"""
+@admin.register(UserAccount)
+class UserAccountAdmin(admin.ModelAdmin):
+    """Admin configuration for UserAccount model"""
     list_display = ['email', 'name', 'phone_number', 'user_type']
     list_filter = ['user_type']
     search_fields = ['email', 'name', 'phone_number']

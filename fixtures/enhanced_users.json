@@ -1,0 +1,125 @@
+[
+  {
+    "model": "user_accounts.usertype",
+    "pk": 1,
+    "fields": {
+      "type_name": "super_admin",
+      "description": "Super administrator with full system access"
+    }
+  },
+  {
+    "model": "user_accounts.usertype",
+    "pk": 2,
+    "fields": {
+      "type_name": "admin",
+      "description": "Administrator with elevated permissions"
+    }
+  },
+  {
+    "model": "user_accounts.usertype",
+    "pk": 3,
+    "fields": {
+      "type_name": "user",
+      "description": "Regular user with basic permissions"
+    }
+  },
+  {
+    "model": "user_accounts.useraccount",
+    "pk": 1,
+    "fields": {
+      "email": "superadmin@lightidea.com",
+      "name": "Amr Elsayed",
+      "phone_number": "+20 100 111 2222",
+      "password": "pbkdf2_sha256$1000000$o05ZMtM18KvqQn7FBUQmor$uj1wWHZaZztfebumeGZ2Iu+ZuA1HqLnbzVdYqqYn3x0=",
+      "user_type": 1,
+      "job_role": 1
+    }
+  },
+  {
+    "model": "user_accounts.useraccount",
+    "pk": 2,
+    "fields": {
+      "email": "admin1@lightidea.com",
+      "name": "Omar Hassan",
+      "phone_number": "+20 100 333 4444",
+      "password": "pbkdf2_sha256$1000000$o05ZMtM18KvqQn7FBUQmor$uj1wWHZaZztfebumeGZ2Iu+ZuA1HqLnbzVdYqqYn3x0=",
+      "user_type": 2,
+      "job_role": 2
+    }
+  },
+  {
+    "model": "user_accounts.useraccount",
+    "pk": 3,
+    "fields": {
+      "email": "admin2@lightidea.com",
+      "name": "Layla Mansour",
+      "phone_number": "+20 100 555 6666",
+      "password": "pbkdf2_sha256$1000000$o05ZMtM18KvqQn7FBUQmor$uj1wWHZaZztfebumeGZ2Iu+ZuA1HqLnbzVdYqqYn3x0=",
+      "user_type": 2,
+      "job_role": 3
+    }
+  },
+  {
+    "model": "user_accounts.useraccount",
+    "pk": 4,
+    "fields": {
+      "email": "manager.egypt@lightidea.com",
+      "name": "Fatima Ahmed",
+      "phone_number": "+20 100 777 8888",
+      "password": "pbkdf2_sha256$1000000$o05ZMtM18KvqQn7FBUQmor$uj1wWHZaZztfebumeGZ2Iu+ZuA1HqLnbzVdYqqYn3x0=",
+      "user_type": 3,
+      "job_role": 2
+    }
+  },
+  {
+    "model": "user_accounts.useraccount",
+    "pk": 5,
+    "fields": {
+      "email": "manager.levant@lightidea.com",
+      "name": "Karim Khouri",
+      "phone_number": "+961 70 999 0000",
+      "password": "pbkdf2_sha256$1000000$o05ZMtM18KvqQn7FBUQmor$uj1wWHZaZztfebumeGZ2Iu+ZuA1HqLnbzVdYqqYn3x0=",
+      "user_type": 3,
+      "job_role": 2
+    }
+  },
+  {
+    "model": "user_accounts.useraccount",
+    "pk": 6,
+    "fields": {
+      "email": "noscope@lightidea.com",
+      "name": "Test No Scope User",
+      "phone_number": "+20 100 000 0000",
+      "password": "pbkdf2_sha256$1000000$o05ZMtM18KvqQn7FBUQmor$uj1wWHZaZztfebumeGZ2Iu+ZuA1HqLnbzVdYqqYn3x0=",
+      "user_type": 3,
+      "job_role": 2
+    }
+  },
+  {
+    "model": "job_roles.useractiondenial",
+    "pk": 1,
+    "fields": {
+      "page_action": 14,
+      "user_id": 3,
+      "denial_reason": "HR Managers cannot create Departments"
+    }
+  },
+  {
+    "model": "job_roles.useractiondenial",
+    "pk": 2,
+    "fields": {
+      "page_action": 15,
+      "user_id": 3,
+      "denial_reason": "HR Managers cannot edit Departments"
+    }
+  },
+  {
+    "model": "job_roles.useractiondenial",
+    "pk": 3,
+    "fields": {
+      "page_action": 16,
+      "user_id": 3,
+      "denial_reason": "HR Managers cannot delete Departments"
+    }
+  }
+]

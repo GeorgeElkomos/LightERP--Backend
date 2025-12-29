@@ -19,6 +19,7 @@ FIXTURE_DIRS = [
     BASE_DIR / 'fixtures',
 ]
 
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
@@ -67,6 +68,11 @@ INSTALLED_APPS = [
     'procurement.PR',           # Purchase Requisitions
     'procurement.po',           # Purchase Orders
     'procurement.receiving',    # Goods Receiving
+    
+    # HR Module
+    'HR',              # Main HR App
+    'HR.work_structures',      # Work Structures
+    'HR.employees',           # Employees
 ]
 
 MIDDLEWARE = [
@@ -175,7 +181,7 @@ REST_FRAMEWORK = {
 from datetime import timedelta
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=120),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
@@ -183,4 +189,4 @@ SIMPLE_JWT = {
 }
 
 # Use custom user model
-AUTH_USER_MODEL = 'user_accounts.CustomUser'
+AUTH_USER_MODEL = 'user_accounts.UserAccount'

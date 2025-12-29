@@ -15,7 +15,7 @@ from ..models import (
     JobRolePage,
     UserActionDenial,
 )
-from core.user_accounts.models import CustomUser, UserType
+from core.user_accounts.models import UserAccount, UserType
 
 
 class UserFriendlyJobRoleAPITests(APITestCase):
@@ -28,7 +28,7 @@ class UserFriendlyJobRoleAPITests(APITestCase):
         
         # Create admin user
         admin_type = UserType.objects.create(type_name='super_admin', description='Super Admin')
-        self.admin_user = CustomUser.objects.create_user(
+        self.admin_user = UserAccount.objects.create_user(
             email='admin@example.com',
             name='Admin User',
             phone_number='1111111111',
@@ -42,7 +42,7 @@ class UserFriendlyJobRoleAPITests(APITestCase):
         self.action = Action.objects.create(name='view', display_name='View')
         
         # Create test user
-        self.user = CustomUser.objects.create_user(
+        self.user = UserAccount.objects.create_user(
             email='test@example.com',
             name='Test User',
             phone_number='2222222222',
@@ -226,7 +226,7 @@ class UserFriendlyUserActionDenialAPITests(APITestCase):
         JobRolePage.objects.create(job_role=self.job_role, page=self.page)
         
         # Create user with job role
-        self.user = CustomUser.objects.create_user(
+        self.user = UserAccount.objects.create_user(
             email='test@example.com',
             name='Test User',
             phone_number='1234567890',

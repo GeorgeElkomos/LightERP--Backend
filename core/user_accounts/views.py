@@ -10,7 +10,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
 from django.core.exceptions import PermissionDenied
 
-from .models import CustomUser, UserType
+from .models import UserAccount, UserType
 from .serializers import (
     UserRegistrationSerializer,
     UserProfileSerializer,
@@ -245,11 +245,11 @@ def admin_user_list(request):
     if request.method == 'GET':
         # Super admin sees all users
         if request.user.is_super_admin():
-            users = CustomUser.objects.all()
+            users = UserAccount.objects.all()
         # Regular admin only sees non-admin users
         else:
             user_type = UserType.objects.get(type_name='user')
-            users = CustomUser.objects.filter(user_type=user_type)
+            users = UserAccount.objects.filter(user_type=user_type)
         
         serializer = UserListSerializer(users, many=True)
         return Response({
@@ -304,8 +304,8 @@ def admin_user_detail(request, user_id):
     
     # Get target user
     try:
-        target_user = CustomUser.objects.get(pk=user_id)
-    except CustomUser.DoesNotExist:
+        target_user = UserAccount.objects.get(pk=user_id)
+    except UserAccount.DoesNotExist:
         return Response(
             {'error': 'User not found'},
             status=status.HTTP_404_NOT_FOUND
@@ -403,7 +403,7 @@ def password_reset_request(request):
     reason = serializer.validated_data.get('reason', '')
 
     # Security: check existence silently
-    user_exists = CustomUser.objects.filter(email=email).exists()
+    user_exists = UserAccount.objects.filter(email=email).exists()
 
     if user_exists:
         # Log request for manual/administrative handling
@@ -445,7 +445,7 @@ def superadmin_password_reset(request):
     temporary_password = serializer.validated_data['temporary_password']
 
     try:
-        user = CustomUser.objects.get(pk=user_id)
+        user = UserAccount.objects.get(pk=user_id)
 
         user.set_password(temporary_password)
         user.save()
@@ -462,7 +462,7 @@ def superadmin_password_reset(request):
             'note': 'User should change this password after logging in'
         }, status=status.HTTP_200_OK)
 
-    except CustomUser.DoesNotExist:
+    except UserAccount.DoesNotExist:
         return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
     except PermissionDenied as e:
         return Response({'error': str(e)}, status=status.HTTP_403_FORBIDDEN)

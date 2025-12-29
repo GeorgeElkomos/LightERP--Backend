@@ -108,7 +108,9 @@ class StandardizedJSONRenderer(JSONRenderer):
         Render data into JSON, ensuring standard format.
         """
         response = renderer_context.get('response') if renderer_context else None
-        
+        # Don't wrap 204 No Content responses - they should have no body
+        if response is not None and response.status_code == 204:
+            return b''
         if response is not None:
             status_code = response.status_code
             

@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from django.core.validators import EmailValidator, RegexValidator
-from .models import CustomUser, UserType
+from .models import UserAccount, UserType
 from core.job_roles.models import JobRole
 import re
 
@@ -34,7 +34,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     )
 
     class Meta:
-        model = CustomUser
+        model = UserAccount
         fields = ['email', 'name', 'phone_number', 'password', 'confirm_password', 'job_role']
     
     def validate_email(self, value):
@@ -42,7 +42,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         validator = EmailValidator(message="Enter a valid email address")
         validator(value)
         
-        if CustomUser.objects.filter(email=value).exists():
+        if UserAccount.objects.filter(email=value).exists():
             raise serializers.ValidationError("Email already registered")
         
         return value
@@ -86,7 +86,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         job_role = validated_data.pop('job_role', None)
         
         # Always create public registrations as 'user' type
-        user = CustomUser.objects.create_user(
+        user = UserAccount.objects.create_user(
             email=validated_data['email'],
             name=validated_data['name'],
             phone_number=validated_data['phone_number'],
@@ -125,7 +125,7 @@ class AdminUserCreationSerializer(serializers.ModelSerializer):
     )
 
     class Meta:
-        model = CustomUser
+        model = UserAccount
         fields = ['email', 'name', 'phone_number', 'password', 'confirm_password', 'job_role', 'user_type']
     
     def validate_email(self, value):
@@ -133,7 +133,7 @@ class AdminUserCreationSerializer(serializers.ModelSerializer):
         validator = EmailValidator(message="Enter a valid email address")
         validator(value)
         
-        if CustomUser.objects.filter(email=value).exists():
+        if UserAccount.objects.filter(email=value).exists():
             raise serializers.ValidationError("Email already registered")
         
         return value
@@ -201,7 +201,7 @@ class AdminUserCreationSerializer(serializers.ModelSerializer):
         
         user_type_name = user_type.type_name if user_type else 'user'
         
-        user = CustomUser.objects.create_user(
+        user = UserAccount.objects.create_user(
             email=validated_data['email'],
             name=validated_data['name'],
             phone_number=validated_data['phone_number'],
@@ -229,7 +229,7 @@ class AdminUserUpdateSerializer(serializers.ModelSerializer):
     )
 
     class Meta:
-        model = CustomUser
+        model = UserAccount
         fields = ['email', 'name', 'phone_number', 'user_type', 'job_role']
         read_only_fields = ['email']  # Email cannot be changed
     
@@ -272,7 +272,7 @@ class UserListSerializer(serializers.ModelSerializer):
     job_role_name = serializers.CharField(source='job_role.name', read_only=True, allow_null=True)
     
     class Meta:
-        model = CustomUser
+        model = UserAccount
         fields = ['id', 'email', 'name', 'phone_number', 'user_type', 'job_role_name']
         read_only_fields = ['id', 'email', 'user_type', 'job_role_name']
 
@@ -283,7 +283,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     job_role_name = serializers.CharField(source='job_role.name', read_only=True, allow_null=True)
     
     class Meta:
-        model = CustomUser
+        model = UserAccount
         fields = ['id', 'email', 'name', 'phone_number', 'user_type', 'job_role_name']
         read_only_fields = ['id', 'user_type', 'email', 'job_role_name']
     

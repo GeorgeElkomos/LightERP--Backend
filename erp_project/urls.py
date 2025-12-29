@@ -25,6 +25,7 @@ urlpatterns = [
     path('procurement/pr/', include('procurement.PR.urls')),
     path('procurement/po/', include('procurement.po.urls')),
     path('procurement/receiving/', include('procurement.receiving.urls')),
+    path('hr/', include('HR.urls')),
     
     # Authentication endpoints (register, login, logout, password, tokens)
     path('auth/', include('core.user_accounts.auth_urls')),

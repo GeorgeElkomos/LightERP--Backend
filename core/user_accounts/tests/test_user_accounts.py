@@ -40,8 +40,8 @@ class UserTypeModelTest(TestCase):
         self.assertEqual(UserType._meta.db_table, 'user_types')
 
 
-class CustomUserManagerTest(TestCase):
-    """Test CustomUserManager functionality"""
+class UserAccountManagerTest(TestCase):
+    """Test UserAccountManager functionality"""
     
     def test_create_user_success(self):
         """Test creating a regular user"""
@@ -124,8 +124,8 @@ class CustomUserManagerTest(TestCase):
         self.assertEqual(user.email, 'Test@example.com')
 
 
-class CustomUserModelTest(TransactionTestCase):
-    """Test CustomUser model functionality"""
+class UserAccountModelTest(TransactionTestCase):
+    """Test UserAccount model functionality"""
     
     def setUp(self):
         self.user = User.objects.create_user(
@@ -198,7 +198,7 @@ class CustomUserModelTest(TransactionTestCase):
     
     def test_db_table_name(self):
         """Test correct database table name"""
-        self.assertEqual(User._meta.db_table, 'custom_users')
+        self.assertEqual(User._meta.db_table, 'user_account')
 
 
 class RegistrationAPITest(APITestCase):
@@ -917,8 +917,8 @@ class EdgeCaseTest(APITestCase):
     def test_sql_injection_attempt(self):
         """Test protection against SQL injection"""
         data = {
-            'email': "test'; DROP TABLE custom_users; --@example.com",
-            'name': "Robert'); DROP TABLE custom_users; --",
+            'email': "test'; DROP TABLE user_account; --@example.com",
+            'name': "Robert'); DROP TABLE user_account; --",
             'phone_number': '+1234567890',
             'password': 'TestPass123',
             'confirm_password': 'TestPass123'

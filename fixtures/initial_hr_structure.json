@@ -1,0 +1,693 @@
+[
+  {
+    "model": "work_structures.enterprise",
+    "pk": 1,
+    "fields": {
+      "code": "LIGHTIDEA",
+      "name": "Lightidea Technologies",
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.businessgroup",
+    "pk": 1,
+    "fields": {
+      "enterprise": 1,
+      "code": "GULF",
+      "name": "Gulf Operations",
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.businessgroup",
+    "pk": 2,
+    "fields": {
+      "enterprise": 1,
+      "code": "LEVANT",
+      "name": "Levant Operations",
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.businessgroup",
+    "pk": 3,
+    "fields": {
+      "enterprise": 1,
+      "code": "NAFR",
+      "name": "North Africa Operations",
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.location",
+    "pk": 1,
+    "fields": {
+      "enterprise": 1,
+      "business_group": 1,
+      "code": "DXB",
+      "name": "Dubai Headquarters",
+      "country": "UAE",
+      "status": "active"
+    }
+  },
+  {
+    "model": "work_structures.location",
+    "pk": 2,
+    "fields": {
+      "enterprise": 1,
+      "business_group": 1,
+      "code": "RUH",
+      "name": "Riyadh Office",
+      "country": "Saudi Arabia",
+      "status": "active"
+    }
+  },
+  {
+    "model": "work_structures.location",
+    "pk": 3,
+    "fields": {
+      "enterprise": 1,
+      "business_group": 2,
+      "code": "AMM",
+      "name": "Amman Branch",
+      "country": "Jordan",
+      "status": "active"
+    }
+  },
+  {
+    "model": "work_structures.location",
+    "pk": 4,
+    "fields": {
+      "enterprise": 1,
+      "business_group": 3,
+      "code": "CAI",
+      "name": "Cairo Hub",
+      "country": "Egypt",
+      "status": "active"
+    }
+  },
+  {
+    "model": "work_structures.location",
+    "pk": 5,
+    "fields": {
+      "enterprise": 1,
+      "business_group": 1,
+      "code": "AUH",
+      "name": "Abu Dhabi Branch",
+      "country": "UAE",
+      "status": "active"
+    }
+  },
+  {
+    "model": "work_structures.location",
+    "pk": 6,
+    "fields": {
+      "enterprise": 1,
+      "business_group": null,
+      "code": "HQ",
+      "name": "Global Headquarters",
+      "country": "UAE",
+      "status": "active"
+    }
+  },
+  {
+    "model": "work_structures.department",
+    "pk": 1,
+    "fields": {
+      "business_group": 1,
+      "code": "TECH",
+      "name": "Technology Department",
+      "location": 1,
+      "parent": null,
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.department",
+    "pk": 2,
+    "fields": {
+      "business_group": 1,
+      "code": "BE",
+      "name": "Technology - Backend",
+      "location": 1,
+      "parent": 1,
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.department",
+    "pk": 3,
+    "fields": {
+      "business_group": 1,
+      "code": "FE",
+      "name": "Technology - Frontend",
+      "location": 1,
+      "parent": 1,
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.department",
+    "pk": 4,
+    "fields": {
+      "business_group": 1,
+      "code": "HR",
+      "name": "Human Resources",
+      "location": 1,
+      "parent": null,
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.department",
+    "pk": 5,
+    "fields": {
+      "business_group": 1,
+      "code": "SALES",
+      "name": "Sales & Marketing",
+      "location": 1,
+      "parent": null,
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.department",
+    "pk": 6,
+    "fields": {
+      "business_group": 1,
+      "code": "SALES_DXB",
+      "name": "Sales Team Dubai",
+      "location": 1,
+      "parent": 5,
+      "effective_start_date": "2024-02-01"
+    }
+  },
+  {
+    "model": "work_structures.department",
+    "pk": 7,
+    "fields": {
+      "business_group": 1,
+      "code": "SALES_RUH",
+      "name": "Sales Team Riyadh",
+      "location": 2,
+      "parent": 5,
+      "effective_start_date": "2024-03-01"
+    }
+  },
+  {
+    "model": "work_structures.department",
+    "pk": 8,
+    "fields": {
+      "business_group": 1,
+      "code": "FIN",
+      "name": "Finance Department",
+      "location": 1,
+      "parent": null,
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.department",
+    "pk": 9,
+    "fields": {
+      "business_group": 2,
+      "code": "TECH_LEV",
+      "name": "Technology - Levant",
+      "location": 3,
+      "parent": null,
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.department",
+    "pk": 10,
+    "fields": {
+      "business_group": 3,
+      "code": "TECH_NAF",
+      "name": "Technology - North Africa",
+      "location": 4,
+      "parent": null,
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.grade",
+    "pk": 1,
+    "fields": {
+      "business_group": 1,
+      "code": "JR",
+      "name": "Junior",
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.grade",
+    "pk": 2,
+    "fields": {
+      "business_group": 1,
+      "code": "ML",
+      "name": "Mid-Level",
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.grade",
+    "pk": 3,
+    "fields": {
+      "business_group": 1,
+      "code": "SR",
+      "name": "Senior",
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.grade",
+    "pk": 4,
+    "fields": {
+      "business_group": 1,
+      "code": "LEAD",
+      "name": "Team Lead",
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.grade",
+    "pk": 5,
+    "fields": {
+      "business_group": 1,
+      "code": "MGR",
+      "name": "Manager",
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.grade",
+    "pk": 6,
+    "fields": {
+      "business_group": 2,
+      "code": "JR_LEV",
+      "name": "Junior - Levant",
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.grade",
+    "pk": 7,
+    "fields": {
+      "business_group": 2,
+      "code": "SR_LEV",
+      "name": "Senior - Levant",
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.graderate",
+    "pk": 1,
+    "fields": {
+      "grade": 1,
+      "rate_type": 1,
+      "currency": "AED",
+      "min_amount": "8000.00",
+      "max_amount": "12000.00",
+      "fixed_amount": null,
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.graderate",
+    "pk": 2,
+    "fields": {
+      "grade": 2,
+      "rate_type": 1,
+      "currency": "AED",
+      "min_amount": "12000.00",
+      "max_amount": "18000.00",
+      "fixed_amount": null,
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.graderate",
+    "pk": 3,
+    "fields": {
+      "grade": 3,
+      "rate_type": 1,
+      "currency": "AED",
+      "min_amount": "18000.00",
+      "max_amount": "26000.00",
+      "fixed_amount": null,
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.graderate",
+    "pk": 4,
+    "fields": {
+      "grade": 4,
+      "rate_type": 1,
+      "currency": "AED",
+      "min_amount": "22000.00",
+      "max_amount": "34000.00",
+      "fixed_amount": null,
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.graderate",
+    "pk": 5,
+    "fields": {
+      "grade": 5,
+      "rate_type": 1,
+      "currency": "AED",
+      "min_amount": "28000.00",
+      "max_amount": "42000.00",
+      "fixed_amount": null,
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.graderate",
+    "pk": 6,
+    "fields": {
+      "grade": 1,
+      "rate_type": 3,
+      "currency": "AED",
+      "min_amount": null,
+      "max_amount": null,
+      "fixed_amount": "2000.00",
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.graderate",
+    "pk": 7,
+    "fields": {
+      "grade": 2,
+      "rate_type": 3,
+      "currency": "AED",
+      "min_amount": null,
+      "max_amount": null,
+      "fixed_amount": "3000.00",
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.graderate",
+    "pk": 8,
+    "fields": {
+      "grade": 3,
+      "rate_type": 3,
+      "currency": "AED",
+      "min_amount": null,
+      "max_amount": null,
+      "fixed_amount": "4500.00",
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.graderate",
+    "pk": 9,
+    "fields": {
+      "grade": 1,
+      "rate_type": 2,
+      "currency": "AED",
+      "min_amount": null,
+      "max_amount": null,
+      "fixed_amount": "1500.00",
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.graderate",
+    "pk": 10,
+    "fields": {
+      "grade": 2,
+      "rate_type": 2,
+      "currency": "AED",
+      "min_amount": null,
+      "max_amount": null,
+      "fixed_amount": "2000.00",
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.graderate",
+    "pk": 11,
+    "fields": {
+      "grade": 6,
+      "rate_type": 1,
+      "currency": "JOD",
+      "min_amount": "640.00",
+      "max_amount": "960.00",
+      "fixed_amount": null,
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.graderate",
+    "pk": 12,
+    "fields": {
+      "grade": 7,
+      "rate_type": 1,
+      "currency": "JOD",
+      "min_amount": "1200.00",
+      "max_amount": "1800.00",
+      "fixed_amount": null,
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.position",
+    "pk": 1,
+    "fields": {
+      "code": "CTO",
+      "name": "Chief Technology Officer",
+      "department": 1,
+      "location": 1,
+      "grade": 5,
+      "reports_to": null,
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.position",
+    "pk": 2,
+    "fields": {
+      "code": "BE_MGR",
+      "name": "Backend Development Manager",
+      "department": 2,
+      "location": 1,
+      "grade": 5,
+      "reports_to": 1,
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.position",
+    "pk": 3,
+    "fields": {
+      "code": "FE_MGR",
+      "name": "Frontend Development Manager",
+      "department": 3,
+      "location": 1,
+      "grade": 5,
+      "reports_to": 1,
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.position",
+    "pk": 4,
+    "fields": {
+      "code": "SR_BE_DEV_01",
+      "name": "Senior Backend Developer",
+      "department": 2,
+      "location": 1,
+      "grade": 3,
+      "reports_to": 2,
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.position",
+    "pk": 5,
+    "fields": {
+      "code": "SR_BE_DEV_02",
+      "name": "Senior Backend Developer",
+      "department": 2,
+      "location": 1,
+      "grade": 3,
+      "reports_to": 2,
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.position",
+    "pk": 6,
+    "fields": {
+      "code": "ML_BE_DEV_01",
+      "name": "Mid-Level Backend Developer",
+      "department": 2,
+      "location": 1,
+      "grade": 2,
+      "reports_to": 2,
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.position",
+    "pk": 7,
+    "fields": {
+      "code": "JR_BE_DEV_01",
+      "name": "Junior Backend Developer",
+      "department": 2,
+      "location": 1,
+      "grade": 1,
+      "reports_to": 4,
+      "effective_start_date": "2024-01-15"
+    }
+  },
+  {
+    "model": "work_structures.position",
+    "pk": 8,
+    "fields": {
+      "code": "JR_BE_DEV_02",
+      "name": "Junior Backend Developer",
+      "department": 2,
+      "location": 1,
+      "grade": 1,
+      "reports_to": 5,
+      "effective_start_date": "2024-02-01"
+    }
+  },
+  {
+    "model": "work_structures.position",
+    "pk": 9,
+    "fields": {
+      "code": "SR_FE_DEV_01",
+      "name": "Senior Frontend Developer",
+      "department": 3,
+      "location": 1,
+      "grade": 3,
+      "reports_to": 3,
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.position",
+    "pk": 10,
+    "fields": {
+      "code": "ML_FE_DEV_01",
+      "name": "Mid-Level Frontend Developer",
+      "department": 3,
+      "location": 1,
+      "grade": 2,
+      "reports_to": 3,
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.position",
+    "pk": 11,
+    "fields": {
+      "code": "HR_DIR",
+      "name": "HR Director",
+      "department": 4,
+      "location": 1,
+      "grade": 5,
+      "reports_to": null,
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.position",
+    "pk": 12,
+    "fields": {
+      "code": "SALES_DIR",
+      "name": "Sales Director",
+      "department": 5,
+      "location": 1,
+      "grade": 5,
+      "reports_to": null,
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.position",
+    "pk": 13,
+    "fields": {
+      "code": "SALES_MGR_DXB",
+      "name": "Sales Manager - Dubai",
+      "department": 6,
+      "location": 1,
+      "grade": 4,
+      "reports_to": 12,
+      "effective_start_date": "2024-02-01"
+    }
+  },
+  {
+    "model": "work_structures.position",
+    "pk": 14,
+    "fields": {
+      "code": "SALES_MGR_RUH",
+      "name": "Sales Manager - Riyadh",
+      "department": 7,
+      "location": 2,
+      "grade": 4,
+      "reports_to": 12,
+      "effective_start_date": "2024-03-01"
+    }
+  },
+  {
+    "model": "work_structures.position",
+    "pk": 15,
+    "fields": {
+      "code": "FIN_MGR",
+      "name": "Finance Manager",
+      "department": 8,
+      "location": 1,
+      "grade": 5,
+      "reports_to": null,
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.position",
+    "pk": 16,
+    "fields": {
+      "code": "TECH_MGR_LEV",
+      "name": "Technology Manager - Levant",
+      "department": 9,
+      "location": 3,
+      "grade": 7,
+      "reports_to": null,
+      "effective_start_date": "2024-01-01"
+    }
+  },
+  {
+    "model": "work_structures.position",
+    "pk": 17,
+    "fields": {
+      "code": "DEV_LEV_01",
+      "name": "Software Developer - Levant",
+      "department": 9,
+      "location": 3,
+      "grade": 6,
+      "reports_to": 16,
+      "effective_start_date": "2024-01-15"
+    }
+  },
+  {
+    "model": "work_structures.position",
+    "pk": 18,
+    "fields": {
+      "code": "TECH_MGR_NAF",
+      "name": "Technology Manager - North Africa",
+      "department": 10,
+      "location": 4,
+      "grade": 5,
+      "reports_to": null,
+      "effective_start_date": "2024-01-01"
+    }
+  }
+]

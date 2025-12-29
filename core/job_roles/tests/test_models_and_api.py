@@ -21,7 +21,7 @@ from ..models import (
     JobRolePage,
     UserActionDenial,
 )
-from core.user_accounts.models import CustomUser, UserType
+from core.user_accounts.models import UserAccount, UserType
 
 
 # ============================================================================
@@ -39,8 +39,6 @@ class JobRoleModelTests(TestCase):
         )
         self.assertEqual(str(job_role), 'Accountant')
         self.assertEqual(job_role.name, 'Accountant')
-        self.assertIsNotNone(job_role.created_at)
-        self.assertIsNotNone(job_role.updated_at)
     
     def test_job_role_unique_name(self):
         """Test that job role names must be unique"""
@@ -58,7 +56,7 @@ class JobRoleModelTests(TestCase):
         job_role = JobRole.objects.create(name='Manager')
         
         # Create user with this job role
-        user = CustomUser.objects.create_user(
+        user = UserAccount.objects.create_user(
             email='test@example.com',
             name='Test User',
             phone_number='1234567890',
@@ -87,7 +85,6 @@ class PageModelTests(TestCase):
         )
         self.assertEqual(page.name, 'invoice_management')
         self.assertIn('Invoice Management', str(page))
-        self.assertIsNotNone(page.created_at)
     
     def test_page_unique_name(self):
         """Test that page names must be unique"""
@@ -123,7 +120,6 @@ class ActionModelTests(TestCase):
         )
         self.assertEqual(action.name, 'view')
         self.assertIn('View', str(action))
-        self.assertIsNotNone(action.created_at)
     
     def test_action_unique_name(self):
         """Test that action names must be unique"""
@@ -169,7 +165,6 @@ class PageActionModelTests(TestCase):
         )
         self.assertEqual(page_action.page, self.page)
         self.assertEqual(page_action.action, self.action)
-        self.assertIsNotNone(page_action.created_at)
     
     def test_unique_page_action(self):
         """Test that page-action combination is unique"""
@@ -194,7 +189,7 @@ class PageActionModelTests(TestCase):
         page_action = PageAction.objects.create(page=self.page, action=self.action)
         
         # Create user
-        user = CustomUser.objects.create_user(
+        user = UserAccount.objects.create_user(
             email='test@example.com',
             name='Test User',
             phone_number='1234567890',
@@ -246,7 +241,7 @@ class UserActionDenialModelTests(TestCase):
         self.user_type, _ = UserType.objects.get_or_create(type_name='user', defaults={'description': 'Regular user'})
         
         # Create user
-        self.user = CustomUser.objects.create_user(
+        self.user = UserAccount.objects.create_user(
             email='test@example.com',
             name='Test User',
             phone_number='1234567890',
@@ -267,7 +262,6 @@ class UserActionDenialModelTests(TestCase):
         )
         self.assertEqual(denial.user, self.user)
         self.assertEqual(denial.page_action, self.page_action)
-        self.assertIsNotNone(denial.created_at)
     
     def test_unique_user_page_action(self):
         """Test that user-page_action combination is unique"""
@@ -593,7 +587,7 @@ class UserActionDenialAPITests(APITestCase):
         JobRolePage.objects.create(job_role=self.job_role, page=self.page)
         
         # Create user with job role
-        self.user = CustomUser.objects.create_user(
+        self.user = UserAccount.objects.create_user(
             email='test@example.com',
             name='Test User',
             phone_number='1234567890',
@@ -643,7 +637,7 @@ class UserActionDenialAPITests(APITestCase):
     def test_user_action_denial_create_user_without_job_role(self):
         """POST /core/job_roles/user-action-denials/ - User without job role"""
         # Create user without job role
-        user2 = CustomUser.objects.create_user(
+        user2 = UserAccount.objects.create_user(
             email='test2@example.com',
             name='Test User 2',
             phone_number='0987654321',
@@ -813,7 +807,7 @@ class PermissionLogicIntegrationTests(TestCase):
         )
         
         # Create users
-        self.accountant_user = CustomUser.objects.create_user(
+        self.accountant_user = UserAccount.objects.create_user(
             email='accountant@example.com',
             name='Accountant User',
             phone_number='1111111111',
@@ -823,7 +817,7 @@ class PermissionLogicIntegrationTests(TestCase):
         self.accountant_user.job_role = self.accountant_role
         self.accountant_user.save()
         
-        self.manager_user = CustomUser.objects.create_user(
+        self.manager_user = UserAccount.objects.create_user(
             email='manager@example.com',
             name='Manager User',
             phone_number='2222222222',
@@ -875,7 +869,7 @@ class PermissionLogicIntegrationTests(TestCase):
     def test_multiple_users_different_denials_same_page(self):
         """Test different users can have different action denials on same page"""
         # Create another accountant
-        accountant2 = CustomUser.objects.create_user(
+        accountant2 = UserAccount.objects.create_user(
             email='accountant2@example.com',
             name='Accountant 2',
             phone_number='3333333333',
@@ -936,7 +930,7 @@ class PermissionLogicIntegrationTests(TestCase):
         self.assertTrue(Page.objects.filter(id=self.invoice_page.id).exists())
         
         # User should still exist but have no page access via this role
-        self.assertTrue(CustomUser.objects.filter(id=self.accountant_user.id).exists())
+        self.assertTrue(UserAccount.objects.filter(id=self.accountant_user.id).exists())
         remaining_access = JobRolePage.objects.filter(
             job_role=self.accountant_role,
             page=self.invoice_page

@@ -1,0 +1,52 @@
+[
+    {
+        "model": "work_structures.userdatascope",
+        "pk": 1,
+        "fields": {
+            "user_id": 1,
+            "is_global": true,
+            "business_group": null,
+            "department": null
+        }
+    },
+    {
+        "model": "work_structures.userdatascope",
+        "pk": 2,
+        "fields": {
+            "user_id": 2,
+            "is_global": false,
+            "business_group": 1,
+            "department": null
+        }
+    },
+    {
+        "model": "work_structures.userdatascope",
+        "pk": 3,
+        "fields": {
+            "user_id": 3,
+            "is_global": false,
+            "business_group": 2,
+            "department": null
+        }
+    },
+    {
+        "model": "work_structures.userdatascope",
+        "pk": 4,
+        "fields": {
+            "user_id": 4,
+            "is_global": false,
+            "business_group": 1,
+            "department": 1
+        }
+    },
+    {
+        "model": "work_structures.userdatascope",
+        "pk": 5,
+        "fields": {
+            "user_id": 5,
+            "is_global": false,
+            "business_group": 2,
+            "department": 3
+        }
+    }
+]

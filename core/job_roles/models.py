@@ -13,8 +13,6 @@ class JobRole(models.Model):
     """
     name = models.CharField(max_length=100, unique=True, db_index=True)
     description = models.TextField(blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
         db_table = 'job_roles'
@@ -56,8 +54,6 @@ class Page(models.Model):
         help_text="Human-readable name shown in UI"
     )
     description = models.TextField(blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
         db_table = 'pages'
@@ -100,8 +96,6 @@ class Action(models.Model):
         help_text="Human-readable name shown in UI"
     )
     description = models.TextField(blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
         db_table = 'actions'
@@ -143,8 +137,6 @@ class PageAction(models.Model):
         on_delete=models.CASCADE, 
         related_name='page_actions'
     )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
         db_table = 'page_actions'
@@ -190,7 +182,6 @@ class JobRolePage(models.Model):
         on_delete=models.CASCADE, 
         related_name='job_roles'
     )
-    created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
         db_table = 'job_role_pages'
@@ -220,7 +211,7 @@ class UserActionDenial(models.Model):
     to remove 'delete' permission specifically for that user.
     """
     user = models.ForeignKey(
-        'user_accounts.CustomUser', 
+        'user_accounts.UserAccount', 
         on_delete=models.CASCADE, 
         related_name='action_denials'
     )
@@ -230,8 +221,6 @@ class UserActionDenial(models.Model):
         related_name='user_denials'
     )
     denial_reason = models.TextField(blank=True, null=True, help_text="Optional reason for the denial")
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
         db_table = 'user_action_denials'

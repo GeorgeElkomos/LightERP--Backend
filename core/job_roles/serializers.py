@@ -11,7 +11,7 @@ from .models import (
     JobRolePage,
     UserActionDenial,
 )
-from core.user_accounts.models import CustomUser
+from core.user_accounts.models import UserAccount
 
 
 class ActionSerializer(serializers.ModelSerializer):
@@ -19,8 +19,8 @@ class ActionSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Action
-        fields = ['id', 'name', 'display_name', 'description', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        fields = ['id', 'name', 'display_name', 'description']
+        read_only_fields = ['id']
 
 
 class PageActionSerializer(serializers.ModelSerializer):
@@ -41,9 +41,9 @@ class PageActionSerializer(serializers.ModelSerializer):
         model = PageAction
         fields = [
             'id', 'page', 'page_name', 'page_display_name',
-            'action', 'action_id', 'action_name', 'created_at', 'updated_at'
+            'action', 'action_id', 'action_name'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id']
     
     def to_internal_value(self, data):
         """
@@ -99,9 +99,9 @@ class PageSerializer(serializers.ModelSerializer):
         model = Page
         fields = [
             'id', 'name', 'display_name', 'description',
-            'available_actions', 'created_at', 'updated_at'
+            'available_actions'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id']
 
 
 class PageListSerializer(serializers.ModelSerializer):
@@ -125,8 +125,8 @@ class JobRolePageSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = JobRolePage
-        fields = ['id', 'job_role', 'job_role_name', 'page', 'page_id', 'created_at']
-        read_only_fields = ['id', 'created_at']
+        fields = ['id', 'job_role', 'job_role_name', 'page', 'page_id']
+        read_only_fields = ['id']
 
 
 class JobRoleSerializer(serializers.ModelSerializer):
@@ -137,10 +137,9 @@ class JobRoleSerializer(serializers.ModelSerializer):
     class Meta:
         model = JobRole
         fields = [
-            'id', 'name', 'description', 'pages', 'page_count',
-            'created_at', 'updated_at'
+            'id', 'name', 'description', 'pages', 'page_count'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id']
 
 
 class JobRoleListSerializer(serializers.ModelSerializer):
@@ -163,16 +162,16 @@ class UserActionDenialSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'user', 'user_email', 'user_name',
             'page_action', 'page_action_details',
-            'denial_reason', 'created_at', 'updated_at'
+            'denial_reason'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id']
 
 
 class UserActionDenialCreateSerializer(serializers.Serializer):
     """Serializer for creating user action denials with flexible input options."""
     # Option 1: Use IDs directly
     user = serializers.PrimaryKeyRelatedField(
-        queryset=CustomUser.objects.all(), 
+        queryset=UserAccount.objects.all(), 
         required=False
     )
     page_action = serializers.PrimaryKeyRelatedField(
@@ -193,7 +192,7 @@ class UserActionDenialCreateSerializer(serializers.Serializer):
         Validate and resolve user_email, page_name, action_name to their model instances.
         Also validate that the user's job role has access to the page.
         """
-        from core.user_accounts.models import CustomUser
+        from core.user_accounts.models import UserAccount
         
         # Resolve user (either by user field or user_email)
         user_email = data.get('user_email')
@@ -201,9 +200,9 @@ class UserActionDenialCreateSerializer(serializers.Serializer):
         
         if not user and user_email:
             try:
-                user = CustomUser.objects.get(email=user_email)
+                user = UserAccount.objects.get(email=user_email)
                 data['user'] = user
-            except CustomUser.DoesNotExist:
+            except UserAccount.DoesNotExist:
                 raise serializers.ValidationError(
                     {'user_email': f"User with email '{user_email}' does not exist."}
                 )
@@ -294,8 +293,8 @@ class JobRoleWithPagesSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = JobRole
-        fields = ['id', 'name', 'description', 'page_ids', 'page_names', 'pages', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        fields = ['id', 'name', 'description', 'page_ids', 'page_names', 'pages']
+        read_only_fields = ['id']
     
     def validate(self, data):
         """

@@ -24,9 +24,9 @@ class UserType(models.Model):
         return self.type_name
 
 
-class CustomUserManager(BaseUserManager):
+class UserAccountManager(BaseUserManager):
     """
-    Custom user manager for CustomUser model.
+    Custom user manager for UserAccount model.
     Handles user creation with different user types and permissions.
     """
     
@@ -49,7 +49,7 @@ class CustomUserManager(BaseUserManager):
             **extra_fields: Additional fields to set on the user
             
         Returns:
-            CustomUser: The created user instance
+            UserAccount: The created user instance
         """
         if not email:
             raise ValueError('Email is required')
@@ -92,7 +92,7 @@ class CustomUserManager(BaseUserManager):
         )
 
 
-class CustomUser(AbstractBaseUser):
+class UserAccount(AbstractBaseUser):
     """Simplified custom user model with email authentication"""
     email = models.EmailField(unique=True, db_index=True)
     name = models.CharField(max_length=255)
@@ -115,14 +115,14 @@ class CustomUser(AbstractBaseUser):
     )
     
     # Manager
-    objects = CustomUserManager()
+    objects = UserAccountManager()
     
     # Django authentication settings
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['name', 'phone_number']
     
     class Meta:
-        db_table = 'custom_users'
+        db_table = 'user_account'
         verbose_name = 'User'
         verbose_name_plural = 'Users'
     
@@ -165,14 +165,14 @@ class CustomUser(AbstractBaseUser):
         """
         if self.pk:  # Only for existing users (updates)
             try:
-                old_user = CustomUser.objects.get(pk=self.pk)
+                old_user = UserAccount.objects.get(pk=self.pk)
                 
                 # Prevent changing user_type of super admin
                 if old_user.is_super_admin() and old_user.user_type_id != self.user_type_id:
                     raise PermissionDenied(
                         "Cannot change user type of super admin. Super admin type is protected."
                     )
-            except CustomUser.DoesNotExist:
+            except UserAccount.DoesNotExist:
                 pass
         
         return super().save(*args, **kwargs)
