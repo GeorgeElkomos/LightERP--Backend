@@ -21,4 +21,7 @@ urlpatterns = [
     
     # Payment URLs
     path('payments/', include('Finance.payments.urls')),
+    
+    # Default Combinations URLs
+    path('', include('Finance.default_combinations.urls')),
 ]

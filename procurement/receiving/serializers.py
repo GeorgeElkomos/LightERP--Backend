@@ -274,13 +274,14 @@ class GoodsReceiptListSerializer(serializers.ModelSerializer):
     supplier_name = serializers.CharField(source='supplier.name', read_only=True)
     line_count = serializers.SerializerMethodField()
     gift_count = serializers.SerializerMethodField()
+    has_invoice = serializers.SerializerMethodField()
     
     class Meta:
         model = GoodsReceipt
         fields = [
             'id', 'grn_number', 'receipt_date', 'po_header', 'po_number',
             'supplier', 'supplier_name', 'grn_type',
-            'total_amount', 'line_count', 'gift_count',
+            'total_amount', 'line_count', 'gift_count', 'has_invoice',
             'received_by', 'notes', 'created_at'
         ]
     
@@ -291,6 +292,10 @@ class GoodsReceiptListSerializer(serializers.ModelSerializer):
     def get_gift_count(self, obj):
         """Get count of gift items."""
         return obj.lines.filter(is_gift=True).count()
+    
+    def get_has_invoice(self, obj):
+        """Check if this receipt has been invoiced."""
+        return obj.has_ap_invoice()
 
 
 class GoodsReceiptDetailSerializer(serializers.ModelSerializer):
@@ -305,6 +310,8 @@ class GoodsReceiptDetailSerializer(serializers.ModelSerializer):
     lines = GoodsReceiptLineSerializer(many=True, read_only=True)
     receipt_summary = serializers.SerializerMethodField()
     po_completion_status = serializers.SerializerMethodField()
+    has_invoice = serializers.SerializerMethodField()
+    invoice_ids = serializers.SerializerMethodField()
     
     class Meta:
         model = GoodsReceipt
@@ -314,6 +321,7 @@ class GoodsReceiptDetailSerializer(serializers.ModelSerializer):
             'supplier', 'supplier_name', 'grn_type',
             'total_amount', 'received_by', 'received_by_name',
             'notes', 'lines', 'receipt_summary', 'po_completion_status',
+            'has_invoice', 'invoice_ids',
             'created_at', 'updated_at', 'created_by', 'created_by_name'
         ]
     
@@ -324,3 +332,11 @@ class GoodsReceiptDetailSerializer(serializers.ModelSerializer):
     def get_po_completion_status(self, obj):
         """Get PO completion status."""
         return obj.get_po_completion_status()
+    
+    def get_has_invoice(self, obj):
+        """Check if this receipt has been invoiced."""
+        return obj.has_ap_invoice()
+    
+    def get_invoice_ids(self, obj):
+        """Get IDs of associated invoices."""
+        return list(obj.get_ap_invoices().values_list('invoice_id', flat=True))

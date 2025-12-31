@@ -25,7 +25,8 @@ from Finance.Invoice.serializers import (
     APInvoiceCreateSerializer, 
     APInvoiceListSerializer, 
     APInvoiceDetailSerializer,
-    APInvoiceUpdateSerializer
+    APInvoiceUpdateSerializer,
+    APInvoiceFromReceiptSerializer
 )
 
 
@@ -261,6 +262,56 @@ def ap_invoice_submit_for_approval(request, pk):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
+
+@api_view(['POST'])
+def ap_invoice_create_from_receipt(request):
+    """
+    Create an AP Invoice from a Goods Receipt.
+    
+    POST /invoices/ap/create-from-receipt/
+    
+    Request body:
+    {
+        "goods_receipt_id": 1,
+        "currency_id": 1,
+        "country_id": 1,
+        "tax_amount": "100.00",
+        "journal_entry": {
+            "date": "2025-12-31",
+            "currency_id": 1,
+            "memo": "Invoice for received goods",
+            "lines": [...]
+        }
+    }
+    
+    This endpoint:
+    - Retrieves data from the specified Goods Receipt
+    - Creates invoice items based on received goods
+    - Links the invoice to the receipt
+    - Prevents duplicate invoicing
+    """
+    serializer = APInvoiceFromReceiptSerializer(data=request.data)
+    
+    if serializer.is_valid():
+        try:
+            ap_invoice = serializer.save()
+            response_serializer = APInvoiceDetailSerializer(ap_invoice)
+            return Response(
+                response_serializer.data,
+                status=status.HTTP_201_CREATED
+            )
+        except ValidationError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            return Response(
+                {'error': f'An error occurred: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
 @auto_paginate

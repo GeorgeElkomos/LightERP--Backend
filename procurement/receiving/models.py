@@ -159,6 +159,14 @@ class GoodsReceipt(models.Model):
             'completion_percentage': (fully_received / total_lines * 100) if total_lines > 0 else 0
         }
     
+    def has_ap_invoice(self):
+        """Check if this goods receipt already has an associated AP Invoice."""
+        return self.ap_invoices.exists()
+    
+    def get_ap_invoices(self):
+        """Get all AP Invoices associated with this goods receipt."""
+        return self.ap_invoices.all()
+    
     def save(self, *args, **kwargs):
         """Override save to auto-generate GRN number and validate."""
         # Generate GRN number if not set

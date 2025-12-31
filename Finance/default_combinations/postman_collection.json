@@ -1,0 +1,341 @@
+{
+	"info": {
+		"_postman_id": "default-combinations-collection",
+		"name": "Finance - Default Combinations API",
+		"description": "API endpoints for managing default segment combinations for AP/AR invoices",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{access_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "default_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "segment_combination_id",
+			"value": "1",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('access_token', jsonData.access);",
+									"    pm.collectionVariables.set('refresh_token', jsonData.refresh);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"test@example.com\",\n    \"password\": \"testpass123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/login/",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "login", ""]
+						},
+						"description": "Login to get access token. Update the access_token variable automatically."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "List Default Combinations",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/finance/default-combinations/",
+					"host": ["{{base_url}}"],
+					"path": ["finance", "default-combinations", ""],
+					"query": [
+						{
+							"key": "is_active",
+							"value": "true",
+							"disabled": true,
+							"description": "Filter by active status"
+						},
+						{
+							"key": "transaction_type",
+							"value": "AP_INVOICE",
+							"disabled": true,
+							"description": "Filter by transaction type (AP_INVOICE or AR_INVOICE)"
+						}
+					]
+				},
+				"description": "List all default segment combinations with optional filters"
+			},
+			"response": []
+		},
+		{
+			"name": "Create Default Combination",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"if (pm.response.code === 201) {",
+							"    var jsonData = pm.response.json();",
+							"    pm.collectionVariables.set('default_id', jsonData.id);",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"transaction_type\": \"AP_INVOICE\",\n    \"segments\": [\n        {\n            \"segment_type_id\": 1,\n            \"segment_code\": \"1000\"\n        },\n        {\n            \"segment_type_id\": 2,\n            \"segment_code\": \"CEO\"\n        }\n    ]\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/finance/default-combinations/",
+					"host": ["{{base_url}}"],
+					"path": ["finance", "default-combinations", ""]
+				},
+				"description": "Create a new default combination by specifying segments directly. The system will find or create the matching segment combination."
+			},
+			"response": []
+		},
+		{
+			"name": "Get Default Combination by ID",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/finance/default-combinations/{{default_id}}/",
+					"host": ["{{base_url}}"],
+					"path": ["finance", "default-combinations", "{{default_id}}", ""]
+				},
+				"description": "Retrieve a specific default combination by ID with full details"
+			},
+			"response": []
+		},
+		{
+			"name": "Update Default Combination",
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"segments\": [\n        {\n            \"segment_type_id\": 1,\n            \"segment_code\": \"2000\"\n        },\n        {\n            \"segment_type_id\": 2,\n            \"segment_code\": \"CFO\"\n        }\n    ]\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/finance/default-combinations/{{default_id}}/",
+					"host": ["{{base_url}}"],
+					"path": ["finance", "default-combinations", "{{default_id}}", ""]
+				},
+				"description": "Update an existing default combination by specifying new segments"
+			},
+			"response": []
+		},
+		{
+			"name": "Partial Update Default Combination",
+			"request": {
+				"method": "PATCH",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"segments\": [\n        {\n            \"segment_type_id\": 1,\n            \"segment_code\": \"3000\"\n        },\n        {\n            \"segment_type_id\": 2,\n            \"segment_code\": \"COO\"\n        }\n    ]\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/finance/default-combinations/{{default_id}}/",
+					"host": ["{{base_url}}"],
+					"path": ["finance", "default-combinations", "{{default_id}}", ""]
+				},
+				"description": "Partially update a default combination by specifying new segments"
+			},
+			"response": []
+		},
+		{
+			"name": "Delete Default Combination",
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/finance/default-combinations/{{default_id}}/",
+					"host": ["{{base_url}}"],
+					"path": ["finance", "default-combinations", "{{default_id}}", ""]
+				},
+				"description": "Delete a default combination"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Default by Transaction Type",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/finance/default-combinations/by_transaction_type/?transaction_type=AP_INVOICE",
+					"host": ["{{base_url}}"],
+					"path": ["finance", "default-combinations", "by_transaction_type", ""],
+					"query": [
+						{
+							"key": "transaction_type",
+							"value": "AP_INVOICE",
+							"description": "Transaction type: AP_INVOICE or AR_INVOICE"
+						}
+					]
+				},
+				"description": "Get the default combination for a specific transaction type"
+			},
+			"response": []
+		},
+		{
+			"name": "Get AP Invoice Default",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/finance/default-combinations/ap_invoice_default/",
+					"host": ["{{base_url}}"],
+					"path": ["finance", "default-combinations", "ap_invoice_default", ""]
+				},
+				"description": "Convenience endpoint to get the default combination for AP invoices"
+			},
+			"response": []
+		},
+		{
+			"name": "Get AR Invoice Default",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/finance/default-combinations/ar_invoice_default/",
+					"host": ["{{base_url}}"],
+					"path": ["finance", "default-combinations", "ar_invoice_default", ""]
+				},
+				"description": "Convenience endpoint to get the default combination for AR invoices"
+			},
+			"response": []
+		},
+		{
+			"name": "Validate Default Combination",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/finance/default-combinations/{{default_id}}/validate/",
+					"host": ["{{base_url}}"],
+					"path": ["finance", "default-combinations", "{{default_id}}", "validate", ""]
+				},
+				"description": "Validate if a default combination has all required segments"
+			},
+			"response": []
+		},
+		{
+			"name": "Check All Validity",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/finance/default-combinations/check_all_validity/",
+					"host": ["{{base_url}}"],
+					"path": ["finance", "default-combinations", "check_all_validity", ""]
+				},
+				"description": "Check the validity status of all default combinations"
+			},
+			"response": []
+		},
+		{
+			"name": "Activate Default Combination",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/finance/default-combinations/{{default_id}}/activate/",
+					"host": ["{{base_url}}"],
+					"path": ["finance", "default-combinations", "{{default_id}}", "activate", ""]
+				},
+				"description": "Activate a default combination (only if valid)"
+			},
+			"response": []
+		},
+		{
+			"name": "Deactivate Default Combination",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/finance/default-combinations/{{default_id}}/deactivate/",
+					"host": ["{{base_url}}"],
+					"path": ["finance", "default-combinations", "{{default_id}}", "deactivate", ""]
+				},
+				"description": "Deactivate a default combination"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Transaction Types",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/finance/default-combinations/transaction_types/",
+					"host": ["{{base_url}}"],
+					"path": ["finance", "default-combinations", "transaction_types", ""]
+				},
+				"description": "Get list of available transaction types"
+			},
+			"response": []
+		}
+	]
+}

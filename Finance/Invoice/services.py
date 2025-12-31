@@ -287,6 +287,100 @@ class InvoiceService:
         
         return one_time
     
+    @staticmethod
+    @transaction.atomic
+    def create_ap_invoice_from_receipt(
+        goods_receipt_id: int,
+        currency_id: int,
+        country_id: Optional[int],
+        tax_amount: Decimal,
+        journal_entry_dto: JournalEntryDTO
+    ) -> AP_Invoice:
+        """
+        Create an AP Invoice from a Goods Receipt.
+        
+        This method pulls data from the receiving record and creates an invoice
+        based on what was received, including:
+        - Invoice items from receipt lines
+        - Supplier from receipt
+        - Totals calculated from received quantities
+        
+        Args:
+            goods_receipt_id: ID of the GoodsReceipt to create invoice from
+            currency_id: Currency for the invoice
+            country_id: Optional country for tax purposes
+            tax_amount: Tax amount for the invoice
+            journal_entry_dto: GL distribution information
+            
+        Returns:
+            AP_Invoice instance
+            
+        Raises:
+            ValidationError: If receipt not found, already invoiced, or data invalid
+        """
+        # 1. Get and validate goods receipt
+        try:
+            from procurement.receiving.models import GoodsReceipt
+            goods_receipt = GoodsReceipt.objects.select_related('supplier', 'po_header').prefetch_related('lines__unit_of_measure').get(pk=goods_receipt_id)
+        except GoodsReceipt.DoesNotExist:
+            raise ValidationError(f"Goods Receipt with ID {goods_receipt_id} not found")
+        
+        # 2. Check if already invoiced
+        if AP_Invoice.objects.filter(goods_receipt=goods_receipt).exists():
+            raise ValidationError(
+                f"Goods Receipt {goods_receipt.grn_number} already has an associated AP Invoice. "
+                "Cannot create duplicate invoice."
+            )
+        
+        # 3. Validate currency and country
+        currency = InvoiceService._validate_currency(currency_id)
+        country = InvoiceService._validate_country(country_id) if country_id else None
+        
+        # 4. Build invoice items from receipt lines
+        items = []
+        for grn_line in goods_receipt.lines.all():
+            items.append(InvoiceItemDTO(
+                name=grn_line.item_name,
+                description=grn_line.item_description or f"Received: {grn_line.quantity_received} {grn_line.unit_of_measure.code}",
+                quantity=grn_line.quantity_received,
+                unit_price=grn_line.unit_price
+            ))
+        
+        if not items:
+            raise ValidationError("Goods Receipt has no line items. Cannot create invoice.")
+        
+        # 5. Calculate totals from receipt
+        subtotal = goods_receipt.total_amount
+        total = subtotal + tax_amount
+        
+        # 6. Create journal entry
+        journal_entry = InvoiceService._create_journal_entry(journal_entry_dto, currency)
+        
+        # 7. Validate journal balance
+        InvoiceService._validate_journal_balance(journal_entry, total)
+        
+        # 8. Create AP Invoice with goods_receipt link
+        ap_invoice = AP_Invoice.objects.create(
+            # Invoice fields
+            date=goods_receipt.receipt_date,
+            currency=currency,
+            country=country,
+            approval_status='DRAFT',
+            payment_status='UNPAID',
+            subtotal=subtotal,
+            tax_amount=tax_amount,
+            total=total,
+            gl_distributions=journal_entry,
+            # AP-specific fields
+            supplier=goods_receipt.supplier,
+            goods_receipt=goods_receipt
+        )
+        
+        # 9. Create invoice items from receipt
+        InvoiceService._create_invoice_items(ap_invoice.invoice, items)
+        
+        return ap_invoice
+    
     # ==================== HELPER METHODS ====================
     
     @staticmethod

@@ -64,6 +64,16 @@ class AP_Invoice(InvoiceChildModelMixin, models.Model):
         related_name="ap_invoices"
     )
     
+    # Optional link to Goods Receipt (for invoices created from receiving)
+    goods_receipt = models.ForeignKey(
+        'receiving.GoodsReceipt',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='ap_invoices',
+        help_text="Goods Receipt that this invoice was created from (if applicable)"
+    )
+    
     # Custom manager
     objects = AP_InvoiceManager()
     

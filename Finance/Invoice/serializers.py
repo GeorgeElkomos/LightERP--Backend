@@ -339,6 +339,9 @@ class APInvoiceDetailSerializer(serializers.ModelSerializer):
     approval_status = serializers.CharField()
     payment_status = serializers.CharField()
 
+    # Goods Receipt info (if invoice was created from receipt)
+    goods_receipt_info = serializers.SerializerMethodField()
+
     # Nested data
     items = serializers.SerializerMethodField()
     journal_entry = serializers.SerializerMethodField()
@@ -356,6 +359,7 @@ class APInvoiceDetailSerializer(serializers.ModelSerializer):
             "total",
             "approval_status",
             "payment_status",
+            "goods_receipt_info",
             "items",
             "journal_entry",
         ]
@@ -369,6 +373,18 @@ class APInvoiceDetailSerializer(serializers.ModelSerializer):
             "email": obj.supplier.email,
             "vat_number": obj.supplier.vat_number,
         }
+    
+    def get_goods_receipt_info(self, obj):
+        """Serialize goods receipt info if invoice was created from receipt"""
+        if obj.goods_receipt:
+            return {
+                "id": obj.goods_receipt.id,
+                "grn_number": obj.goods_receipt.grn_number,
+                "receipt_date": obj.goods_receipt.receipt_date,
+                "po_number": obj.goods_receipt.po_header.po_number,
+                "total_amount": str(obj.goods_receipt.total_amount)
+            }
+        return None
 
     def get_items(self, obj):
         """Serialize invoice items"""
@@ -416,6 +432,113 @@ class APInvoiceDetailSerializer(serializers.ModelSerializer):
             "posted": je.posted,
             "lines": journal_lines,
         }
+
+
+class APInvoiceFromReceiptSerializer(serializers.Serializer):
+    """
+    Serializer for creating AP Invoice from a Goods Receipt.
+    
+    This pulls data from the receiving record and creates an invoice.
+    
+    Example Request Body:
+    {
+        "goods_receipt_id": 1,
+        "currency_id": 1,
+        "country_id": 1,
+        "tax_amount": "100.00",
+        "journal_entry": {
+            "date": "2025-12-31",
+            "currency_id": 1,
+            "memo": "Invoice for received goods",
+            "lines": [
+                {
+                    "amount": "10100.00",
+                    "type": "DEBIT",
+                    "segments": [
+                        {"segment_type_id": 1, "segment_code": "100"},
+                        {"segment_type_id": 2, "segment_code": "5000"}
+                    ]
+                },
+                {
+                    "amount": "10100.00",
+                    "type": "CREDIT",
+                    "segments": [
+                        {"segment_type_id": 1, "segment_code": "100"},
+                        {"segment_type_id": 2, "segment_code": "2100"}
+                    ]
+                }
+            ]
+        }
+    }
+    """
+    
+    goods_receipt_id = serializers.IntegerField(
+        min_value=1,
+        help_text="ID of the Goods Receipt to create invoice from"
+    )
+    currency_id = serializers.IntegerField(
+        min_value=1,
+        help_text="Currency for the invoice"
+    )
+    country_id = serializers.IntegerField(
+        min_value=1,
+        required=False,
+        allow_null=True,
+        help_text="Country for tax purposes"
+    )
+    tax_amount = serializers.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text="Tax amount for the invoice"
+    )
+    journal_entry = JournalEntrySerializer(
+        help_text="GL distribution for the invoice"
+    )
+    
+    def validate_goods_receipt_id(self, value):
+        """Validate that the goods receipt exists and can be invoiced."""
+        try:
+            from procurement.receiving.models import GoodsReceipt
+            goods_receipt = GoodsReceipt.objects.get(pk=value)
+            
+            # Check if already invoiced
+            if goods_receipt.has_ap_invoice():
+                raise serializers.ValidationError(
+                    f"Goods Receipt {goods_receipt.grn_number} already has an associated AP Invoice"
+                )
+            
+            return value
+        except GoodsReceipt.DoesNotExist:
+            raise serializers.ValidationError(f"Goods Receipt with ID {value} not found")
+    
+    def create(self, validated_data):
+        """Create AP Invoice from Goods Receipt using service layer."""
+        # Convert journal entry to DTO
+        journal_data = validated_data["journal_entry"]
+        journal_lines = [
+            JournalLineDTO(
+                amount=line["amount"],
+                type=line["type"],
+                segments=[SegmentDTO(**seg) for seg in line["segments"]],
+            )
+            for line in journal_data["lines"]
+        ]
+        journal_entry_dto = JournalEntryDTO(
+            date=journal_data["date"],
+            currency_id=journal_data["currency_id"],
+            memo=journal_data.get("memo", ""),
+            lines=journal_lines,
+        )
+        
+        # Call service method
+        return InvoiceService.create_ap_invoice_from_receipt(
+            goods_receipt_id=validated_data["goods_receipt_id"],
+            currency_id=validated_data["currency_id"],
+            country_id=validated_data.get("country_id"),
+            tax_amount=validated_data["tax_amount"],
+            journal_entry_dto=journal_entry_dto
+        )
 
 
 # ==================== AR INVOICE SERIALIZERS ====================

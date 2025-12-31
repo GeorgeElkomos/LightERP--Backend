@@ -763,3 +763,347 @@ class APInvoicePostToGLTests(TestCase):
     
     # test_post_to_gl_no_journal removed - gl_distributions is NOT NULL field
     # All invoices must have a journal entry from creation
+
+
+class APInvoiceCreateFromReceiptTests(TestCase):
+    """Test AP Invoice creation from Goods Receipt endpoint"""
+    
+    def setUp(self):
+        """Set up test data"""
+        self.client = APIClient()
+        self.user = get_or_create_test_user()
+        
+        # Create currency
+        self.currency = Currency.objects.create(
+            code='USD',
+            name='US Dollar',
+            symbol='$',
+            is_base_currency=True,
+            exchange_rate_to_base_currency=Decimal('1.00')
+        )
+        
+        # Create country
+        self.country = Country.objects.create(
+            code='US',
+            name='United States'
+        )
+        
+        # Create supplier (automatically creates BusinessPartner)
+        self.supplier = Supplier.objects.create(
+            name='Test Supplier Inc',
+            email='supplier@test.com',
+            vat_number='VAT123456'
+        )
+        
+        # Create segment types
+        self.segment_type_1 = SegmentType.objects.create(
+            segment_name='Company',
+            description='Company code'
+        )
+        self.segment_type_2 = SegmentType.objects.create(
+            segment_name='Account',
+            description='Account number'
+        )
+        
+        # Create segments
+        self.segment_100 = XX_Segment.objects.create(
+            segment_type=self.segment_type_1,
+            code='100',
+            alias='Main Company',
+            node_type='detail'
+        )
+        self.segment_5000 = XX_Segment.objects.create(
+            segment_type=self.segment_type_2,
+            code='5000',
+            alias='Inventory',
+            node_type='detail'
+        )
+        self.segment_2100 = XX_Segment.objects.create(
+            segment_type=self.segment_type_2,
+            code='2100',
+            alias='Accounts Payable',
+            node_type='detail'
+        )
+        
+        # Import and create procurement-related objects
+        from procurement.po.models import POHeader, POLineItem
+        from procurement.receiving.models import GoodsReceipt, GoodsReceiptLine
+        from procurement.catalog.models import UnitOfMeasure
+        
+        # Create UOM
+        self.uom = UnitOfMeasure.objects.create(
+            code='EA',
+            name='Each',
+            description='Single unit'
+        )
+        
+        # Create PO
+        self.po = POHeader.objects.create(
+            po_number='PO-TEST-001',
+            po_date=date.today(),
+            po_type='Catalog',
+            status='APPROVED',
+            supplier_name=self.supplier.business_partner,
+            currency=self.currency,
+            total_amount=Decimal('10000.00'),
+            created_by=self.user,
+            approved_by=self.user
+        )
+        
+        # Create PO Line
+        self.po_line = POLineItem.objects.create(
+            po_header=self.po,
+            line_number=1,
+            line_type='Catalog',  # Must match PO type
+            item_name='Laptop Computer',
+            item_description='Dell XPS 15',
+            quantity=Decimal('10.000'),
+            unit_of_measure=self.uom,
+            unit_price=Decimal('1000.00'),
+            line_total=Decimal('10000.00')
+        )
+        
+        # Create Goods Receipt
+        self.grn = GoodsReceipt.objects.create(
+            grn_number='GRN-TEST-001',
+            po_header=self.po,
+            receipt_date=date.today(),
+            supplier=self.supplier,
+            grn_type='Catalog',
+            received_by=self.user,
+            created_by=self.user,
+            notes='Test goods receipt'
+        )
+        
+        # Create GRN Line
+        self.grn_line = GoodsReceiptLine.objects.create(
+            goods_receipt=self.grn,
+            line_number=1,
+            po_line_item=self.po_line,
+            item_name='Laptop Computer',
+            item_description='Dell XPS 15',
+            quantity_ordered=Decimal('10.000'),
+            quantity_received=Decimal('10.000'),
+            unit_of_measure=self.uom,
+            unit_price=Decimal('1000.00'),
+            line_total=Decimal('10000.00')
+        )
+        
+        # Calculate totals
+        self.grn.calculate_total()
+        self.grn.save()
+        
+        # Valid request data
+        self.valid_data = {
+            "goods_receipt_id": self.grn.id,
+            "currency_id": self.currency.id,
+            "country_id": self.country.id,
+            "tax_amount": "800.00",
+            "journal_entry": {
+                "date": str(date.today()),
+                "currency_id": self.currency.id,
+                "memo": f"Invoice for {self.grn.grn_number}",
+                "lines": [
+                    {
+                        "amount": "10800.00",
+                        "type": "DEBIT",
+                        "segments": [
+                            {"segment_type_id": self.segment_type_1.id, "segment_code": "100"},
+                            {"segment_type_id": self.segment_type_2.id, "segment_code": "5000"}
+                        ]
+                    },
+                    {
+                        "amount": "10800.00",
+                        "type": "CREDIT",
+                        "segments": [
+                            {"segment_type_id": self.segment_type_1.id, "segment_code": "100"},
+                            {"segment_type_id": self.segment_type_2.id, "segment_code": "2100"}
+                        ]
+                    }
+                ]
+            }
+        }
+    
+    def test_create_invoice_from_receipt_success(self):
+        """Test successful invoice creation from goods receipt"""
+        url = reverse('finance:invoice:ap-invoice-create-from-receipt')
+        response = self.client.post(url, self.valid_data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIn('invoice_id', response.data)
+        self.assertIn('goods_receipt_info', response.data)
+        
+        # Verify invoice was created
+        invoice_id = response.data['invoice_id']
+        ap_invoice = AP_Invoice.objects.get(invoice_id=invoice_id)
+        
+        # Verify invoice details
+        self.assertEqual(ap_invoice.supplier.id, self.supplier.id)
+        self.assertEqual(ap_invoice.goods_receipt.id, self.grn.id)
+        self.assertEqual(ap_invoice.subtotal, Decimal('10000.00'))
+        self.assertEqual(ap_invoice.tax_amount, Decimal('800.00'))
+        self.assertEqual(ap_invoice.total, Decimal('10800.00'))
+        
+        # Verify invoice items were created from receipt lines
+        items = ap_invoice.invoice.items.all()
+        self.assertEqual(items.count(), 1)
+        self.assertEqual(items[0].name, 'Laptop Computer')
+        self.assertEqual(items[0].quantity, Decimal('10.000'))
+        self.assertEqual(items[0].unit_price, Decimal('1000.00'))
+        
+        # Verify goods receipt info in response
+        self.assertEqual(response.data['goods_receipt_info']['grn_number'], 'GRN-TEST-001')
+        self.assertEqual(response.data['goods_receipt_info']['po_number'], 'PO-TEST-001')
+    
+    def test_create_invoice_from_receipt_duplicate_error(self):
+        """Test that duplicate invoice creation is prevented"""
+        url = reverse('finance:invoice:ap-invoice-create-from-receipt')
+        
+        # Create first invoice
+        response1 = self.client.post(url, self.valid_data, format='json')
+        self.assertEqual(response1.status_code, status.HTTP_201_CREATED)
+        
+        # Try to create second invoice from same receipt
+        response2 = self.client.post(url, self.valid_data, format='json')
+        self.assertEqual(response2.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('goods_receipt_id', response2.data)
+        self.assertIn('already has an associated', str(response2.data['goods_receipt_id']))
+    
+    def test_create_invoice_from_nonexistent_receipt(self):
+        """Test error when goods receipt doesn't exist"""
+        url = reverse('finance:invoice:ap-invoice-create-from-receipt')
+        invalid_data = self.valid_data.copy()
+        invalid_data['goods_receipt_id'] = 99999
+        
+        response = self.client.post(url, invalid_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('goods_receipt_id', response.data)
+    
+    def test_create_invoice_unbalanced_journal(self):
+        """Test error when journal entry is unbalanced"""
+        url = reverse('finance:invoice:ap-invoice-create-from-receipt')
+        invalid_data = self.valid_data.copy()
+        invalid_data['journal_entry']['lines'][1]['amount'] = "9000.00"  # Unbalanced
+        
+        response = self.client.post(url, invalid_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('journal_entry', response.data)
+    
+    def test_create_invoice_missing_journal_lines(self):
+        """Test error when journal entry has no lines"""
+        url = reverse('finance:invoice:ap-invoice-create-from-receipt')
+        invalid_data = self.valid_data.copy()
+        invalid_data['journal_entry']['lines'] = []
+        
+        response = self.client.post(url, invalid_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+    
+    def test_create_invoice_invalid_segment(self):
+        """Test error when segment doesn't exist"""
+        url = reverse('finance:invoice:ap-invoice-create-from-receipt')
+        invalid_data = self.valid_data.copy()
+        invalid_data['journal_entry']['lines'][0]['segments'][0]['segment_code'] = "999"
+        
+        response = self.client.post(url, invalid_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+    
+    def test_goods_receipt_has_invoice_flag(self):
+        """Test that goods receipt shows has_invoice flag after invoicing"""
+        from procurement.receiving.models import GoodsReceipt
+        
+        # Initially no invoice
+        self.assertFalse(self.grn.has_ap_invoice())
+        self.assertEqual(self.grn.get_ap_invoices().count(), 0)
+        
+        # Create invoice
+        url = reverse('finance:invoice:ap-invoice-create-from-receipt')
+        response = self.client.post(url, self.valid_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        # Refresh and check
+        self.grn.refresh_from_db()
+        self.assertTrue(self.grn.has_ap_invoice())
+        self.assertEqual(self.grn.get_ap_invoices().count(), 1)
+    
+    def test_create_invoice_with_multiple_lines(self):
+        """Test invoice creation from receipt with multiple lines"""
+        # Add second line to GRN
+        from procurement.receiving.models import GoodsReceiptLine
+        
+        grn_line2 = GoodsReceiptLine.objects.create(
+            goods_receipt=self.grn,
+            line_number=2,
+            item_name='Monitor',
+            item_description='27 inch 4K',
+            quantity_ordered=Decimal('5.000'),
+            quantity_received=Decimal('5.000'),
+            unit_of_measure=self.uom,
+            unit_price=Decimal('300.00'),
+            line_total=Decimal('1500.00')
+        )
+        
+        # Recalculate totals
+        self.grn.calculate_total()
+        self.grn.save()
+        
+        # Update journal entry amounts
+        new_total = Decimal('11500.00') + Decimal('800.00')  # subtotal + tax
+        self.valid_data['journal_entry']['lines'][0]['amount'] = str(new_total)
+        self.valid_data['journal_entry']['lines'][1]['amount'] = str(new_total)
+        
+        # Create invoice
+        url = reverse('finance:invoice:ap-invoice-create-from-receipt')
+        response = self.client.post(url, self.valid_data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        # Verify both items were created
+        invoice_id = response.data['invoice_id']
+        ap_invoice = AP_Invoice.objects.get(invoice_id=invoice_id)
+        items = ap_invoice.invoice.items.all()
+        
+        self.assertEqual(items.count(), 2)
+        item_names = [item.name for item in items]
+        self.assertIn('Laptop Computer', item_names)
+        self.assertIn('Monitor', item_names)
+    
+    def test_create_invoice_with_gift_items(self):
+        """Test invoice creation from receipt with gift items"""
+        from procurement.receiving.models import GoodsReceiptLine
+        
+        # Add gift line
+        gift_line = GoodsReceiptLine.objects.create(
+            goods_receipt=self.grn,
+            line_number=3,
+            item_name='Free Mouse',
+            item_description='Bonus item',
+            quantity_ordered=Decimal('0.000'),
+            quantity_received=Decimal('10.000'),
+            unit_of_measure=self.uom,
+            unit_price=Decimal('0.00'),
+            line_total=Decimal('0.00'),
+            is_gift=True
+        )
+        
+        # Recalculate totals
+        self.grn.calculate_total()
+        self.grn.save()
+        
+        # Create invoice
+        url = reverse('finance:invoice:ap-invoice-create-from-receipt')
+        response = self.client.post(url, self.valid_data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        # Verify gift item was included
+        invoice_id = response.data['invoice_id']
+        ap_invoice = AP_Invoice.objects.get(invoice_id=invoice_id)
+        items = ap_invoice.invoice.items.all()
+        
+        # Should have 2 items (regular + gift)
+        self.assertEqual(items.count(), 2)
+        
+        # Verify gift item
+        gift_item = items.filter(name='Free Mouse').first()
+        self.assertIsNotNone(gift_item)
+        self.assertEqual(gift_item.unit_price, Decimal('0.00'))

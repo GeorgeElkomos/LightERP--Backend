@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'Finance.Invoice',        # Accounts Payable
     'Finance.BusinessPartner',        # Accounts Receivable
     'Finance.payments',  # Payments
+    'Finance.default_combinations',  # Default Segment Combinations
     
     # Core Module
     'core',              # Main Core App
