@@ -1,0 +1,1213 @@
+{
+	"info": {
+		"name": "Finance Period Module API",
+		"description": "Complete API collection for Finance Period management with AR, AP, and GL modules",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{access_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "access_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "refresh_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "user_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "period_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "ar_period_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "ap_period_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "gl_period_id",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Register User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"testuser@example.com\",\n    \"name\": \"Test User\",\n    \"phone_number\": \"1234567890\",\n    \"password\": \"testpass123\",\n    \"password2\": \"testpass123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/register/",
+							"host": ["{{base_url}}"],
+							"path": ["api", "auth", "register", ""]
+						}
+					}
+				},
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"pm.collectionVariables.set(\"access_token\", jsonData.access);",
+									"pm.collectionVariables.set(\"refresh_token\", jsonData.refresh);",
+									"pm.collectionVariables.set(\"user_id\", jsonData.user_id);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"testuser@example.com\",\n    \"password\": \"testpass123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login/",
+							"host": ["{{base_url}}"],
+							"path": ["api", "auth", "login", ""]
+						}
+					}
+				},
+				{
+					"name": "Refresh Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"pm.collectionVariables.set(\"access_token\", jsonData.access);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"refresh\": \"{{refresh_token}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/token/refresh/",
+							"host": ["{{base_url}}"],
+							"path": ["api", "auth", "token", "refresh", ""]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Period Management",
+			"item": [
+				{
+					"name": "List All Periods",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/period/periods/?fiscal_year=2026&is_adjustment_period=false",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "periods", ""],
+							"query": [
+								{
+									"key": "fiscal_year",
+									"value": "2026",
+									"description": "Filter by fiscal year"
+								},
+								{
+									"key": "is_adjustment_period",
+									"value": "false",
+									"description": "Filter adjustment periods (true/false)",
+									"disabled": true
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Single Period (Manual)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.data && jsonData.data.id) {",
+									"    pm.collectionVariables.set(\"period_id\", jsonData.data.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"January 2026\",\n    \"start_date\": \"2026-01-01\",\n    \"end_date\": \"2026-01-31\",\n    \"fiscal_year\": 2026,\n    \"period_number\": 1,\n    \"is_adjustment_period\": false,\n    \"description\": \"Manually created first period of FY2026\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/period/periods/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "periods", ""]
+						},
+						"description": "Manually create a single period. Use this when you want full control over period creation."
+					}
+				},
+				{
+					"name": "Generate Period Preview",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"start_date\": \"2026-01-01\",\n    \"fiscal_year\": 2026,\n    \"num_periods\": 12,\n    \"num_adjustment_periods\": 1,\n    \"adjustment_period_days\": 1\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/period/periods/generate-preview/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "periods", "generate-preview", ""]
+						},
+						"description": "Generate a preview of periods for an entire fiscal year without saving to database. Returns a list of period objects that can be reviewed, edited, and then saved using the bulk-save endpoint."
+					}
+				},
+				{
+					"name": "Bulk Save Generated Periods",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"periods\": [\n        {\n            \"name\": \"January 2026\",\n            \"start_date\": \"2026-01-01\",\n            \"end_date\": \"2026-01-31\",\n            \"fiscal_year\": 2026,\n            \"period_number\": 1,\n            \"is_adjustment_period\": false,\n            \"description\": \"First period of FY2026\"\n        },\n        {\n            \"name\": \"February 2026\",\n            \"start_date\": \"2026-02-01\",\n            \"end_date\": \"2026-02-28\",\n            \"fiscal_year\": 2026,\n            \"period_number\": 2,\n            \"is_adjustment_period\": false,\n            \"description\": \"Second period of FY2026\"\n        },\n        {\n            \"name\": \"FY2026 Adjustment Period 1\",\n            \"start_date\": \"2026-12-31\",\n            \"end_date\": \"2026-12-31\",\n            \"fiscal_year\": 2026,\n            \"period_number\": 13,\n            \"is_adjustment_period\": true,\n            \"description\": \"Adjustment period 1 for fiscal year 2026\"\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/period/periods/bulk-save/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "periods", "bulk-save", ""]
+						},
+						"description": "Save multiple periods to the database at once. Use this after reviewing and editing the preview from generate-preview endpoint. All periods are saved in a single transaction."
+					}
+				},
+				{
+					"name": "Get Period Detail",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"if (jsonData.data && jsonData.data.id) {",
+									"    pm.collectionVariables.set(\"period_id\", jsonData.data.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/period/periods/{{period_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "periods", "{{period_id}}", ""]
+						}
+					}
+				},
+				{
+					"name": "Update Period (Full)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"January 2026 (Updated)\",\n    \"start_date\": \"2026-01-01\",\n    \"end_date\": \"2026-01-31\",\n    \"fiscal_year\": 2026,\n    \"period_number\": 1,\n    \"is_adjustment_period\": false,\n    \"description\": \"Updated description for first period\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/period/periods/{{period_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "periods", "{{period_id}}", ""]
+						}
+					}
+				},
+				{
+					"name": "Update Period (Partial)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"description\": \"Partially updated description\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/period/periods/{{period_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "periods", "{{period_id}}", ""]
+						}
+					}
+				},
+				{
+					"name": "Delete Period",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/period/periods/{{period_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "periods", "{{period_id}}", ""]
+						}
+					}
+				},
+				{
+					"name": "Get Current Period",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/period/periods/current/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "periods", "current", ""]
+						},
+						"description": "Get the period that contains today's date."
+					}
+				}
+			]
+		},
+		{
+			"name": "AR Period",
+			"item": [
+				{
+					"name": "List AR Periods",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/period/ar-periods/?page=1&page_size=10&state=open&fiscal_year=2026&ordering=-period__period_number",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "ar-periods", ""],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "page_size",
+									"value": "10"
+								},
+								{
+									"key": "state",
+									"value": "open",
+									"description": "Filter by state: open, hold, closed",
+									"disabled": true
+								},
+								{
+									"key": "fiscal_year",
+									"value": "2026",
+									"description": "Filter by fiscal year",
+									"disabled": true
+								},
+								{
+									"key": "ordering",
+									"value": "-period__period_number",
+									"description": "Order results: period__period_number, -period__period_number, period__start_date",
+									"disabled": true
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Create AR Period (New Parent)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"pm.collectionVariables.set(\"ar_period_id\", jsonData.period);",
+									"pm.collectionVariables.set(\"period_id\", jsonData.period);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"January 2026\",\n    \"start_date\": \"2026-01-01\",\n    \"end_date\": \"2026-01-31\",\n    \"fiscal_year\": 2026,\n    \"period_number\": 1,\n    \"is_adjustment_period\": false,\n    \"description\": \"First period of fiscal year 2026\",\n    \"state\": \"hold\",\n    \"state_changed_by\": {{user_id}}\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/period/ar-periods/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "ar-periods", ""]
+						},
+						"description": "Creates a new AR Period and automatically creates the parent Period."
+					}
+				},
+				{
+					"name": "Create AR Period (Existing Parent)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"period\": {{period_id}},\n    \"state\": \"hold\",\n    \"state_changed_by\": {{user_id}}\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/period/ar-periods/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "ar-periods", ""]
+						},
+						"description": "Links AR Period to an existing parent Period."
+					}
+				},
+				{
+					"name": "Get AR Period Detail",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/period/ar-periods/{{ar_period_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "ar-periods", "{{ar_period_id}}", ""]
+						}
+					}
+				},
+				{
+					"name": "Update AR Period (Full)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"period\": {{ar_period_id}},\n    \"state\": \"open\",\n    \"state_changed_by\": {{user_id}}\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/period/ar-periods/{{ar_period_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "ar-periods", "{{ar_period_id}}", ""]
+						}
+					}
+				},
+				{
+					"name": "Update AR Period (Partial)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"state\": \"hold\",\n    \"state_changed_by\": {{user_id}}\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/period/ar-periods/{{ar_period_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "ar-periods", "{{ar_period_id}}", ""]
+						}
+					}
+				},
+				{
+					"name": "Delete AR Period",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/period/ar-periods/{{ar_period_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "ar-periods", "{{ar_period_id}}", ""]
+						}
+					}
+				},
+				{
+					"name": "Open AR Period",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/period/ar-periods/{{ar_period_id}}/open/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "ar-periods", "{{ar_period_id}}", "open", ""]
+						},
+						"description": "Opens the AR period for transactions. Valid from: hold."
+					}
+				},
+				{
+					"name": "Hold AR Period",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/period/ar-periods/{{ar_period_id}}/hold/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "ar-periods", "{{ar_period_id}}", "hold", ""]
+						},
+						"description": "Puts the AR period on hold. Valid from: open."
+					}
+				},
+				{
+					"name": "Close AR Period",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/period/ar-periods/{{ar_period_id}}/close/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "ar-periods", "{{ar_period_id}}", "close", ""]
+						},
+						"description": "Closes the AR period permanently. Cannot be reopened after closing."
+					}
+				}
+			]
+		},
+		{
+			"name": "AP Period",
+			"item": [
+				{
+					"name": "List AP Periods",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/period/ap-periods/?page=1&page_size=10&state=open&fiscal_year=2026",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "ap-periods", ""],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "page_size",
+									"value": "10"
+								},
+								{
+									"key": "state",
+									"value": "open",
+									"description": "Filter by state: open, hold, closed",
+									"disabled": true
+								},
+								{
+									"key": "fiscal_year",
+									"value": "2026",
+									"description": "Filter by fiscal year",
+									"disabled": true
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Create AP Period",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"pm.collectionVariables.set(\"ap_period_id\", jsonData.period);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"period\": {{period_id}},\n    \"state\": \"hold\",\n    \"state_changed_by\": {{user_id}}\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/period/ap-periods/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "ap-periods", ""]
+						},
+						"description": "Creates an AP Period linked to an existing parent Period."
+					}
+				},
+				{
+					"name": "Get AP Period Detail",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/period/ap-periods/{{ap_period_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "ap-periods", "{{ap_period_id}}", ""]
+						}
+					}
+				},
+				{
+					"name": "Update AP Period (Full)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"period\": {{ap_period_id}},\n    \"state\": \"open\",\n    \"state_changed_by\": {{user_id}}\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/period/ap-periods/{{ap_period_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "ap-periods", "{{ap_period_id}}", ""]
+						}
+					}
+				},
+				{
+					"name": "Update AP Period (Partial)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"state\": \"hold\",\n    \"state_changed_by\": {{user_id}}\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/period/ap-periods/{{ap_period_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "ap-periods", "{{ap_period_id}}", ""]
+						}
+					}
+				},
+				{
+					"name": "Delete AP Period",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/period/ap-periods/{{ap_period_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "ap-periods", "{{ap_period_id}}", ""]
+						}
+					}
+				},
+				{
+					"name": "Open AP Period",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/period/ap-periods/{{ap_period_id}}/open/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "ap-periods", "{{ap_period_id}}", "open", ""]
+						},
+						"description": "Opens the AP period for transactions."
+					}
+				},
+				{
+					"name": "Hold AP Period",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/period/ap-periods/{{ap_period_id}}/hold/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "ap-periods", "{{ap_period_id}}", "hold", ""]
+						},
+						"description": "Puts the AP period on hold."
+					}
+				},
+				{
+					"name": "Close AP Period",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/period/ap-periods/{{ap_period_id}}/close/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "ap-periods", "{{ap_period_id}}", "close", ""]
+						},
+						"description": "Closes the AP period permanently."
+					}
+				}
+			]
+		},
+		{
+			"name": "GL Period",
+			"item": [
+				{
+					"name": "List GL Periods",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/period/gl-periods/?page=1&page_size=10&state=open&fiscal_year=2026",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "gl-periods", ""],
+							"query": [
+								{
+									"key": "page",
+									"value": "1"
+								},
+								{
+									"key": "page_size",
+									"value": "10"
+								},
+								{
+									"key": "state",
+									"value": "open",
+									"description": "Filter by state: open, hold, closed",
+									"disabled": true
+								},
+								{
+									"key": "fiscal_year",
+									"value": "2026",
+									"description": "Filter by fiscal year",
+									"disabled": true
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Create GL Period",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"pm.collectionVariables.set(\"gl_period_id\", jsonData.period);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"period\": {{period_id}},\n    \"state\": \"hold\",\n    \"state_changed_by\": {{user_id}}\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/period/gl-periods/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "gl-periods", ""]
+						},
+						"description": "Creates a GL Period linked to an existing parent Period."
+					}
+				},
+				{
+					"name": "Get GL Period Detail",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/period/gl-periods/{{gl_period_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "gl-periods", "{{gl_period_id}}", ""]
+						}
+					}
+				},
+				{
+					"name": "Update GL Period (Full)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"period\": {{gl_period_id}},\n    \"state\": \"open\",\n    \"state_changed_by\": {{user_id}}\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/period/gl-periods/{{gl_period_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "gl-periods", "{{gl_period_id}}", ""]
+						}
+					}
+				},
+				{
+					"name": "Update GL Period (Partial)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"state\": \"hold\",\n    \"state_changed_by\": {{user_id}}\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/period/gl-periods/{{gl_period_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "gl-periods", "{{gl_period_id}}", ""]
+						}
+					}
+				},
+				{
+					"name": "Delete GL Period",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/period/gl-periods/{{gl_period_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "gl-periods", "{{gl_period_id}}", ""]
+						}
+					}
+				},
+				{
+					"name": "Open GL Period",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/period/gl-periods/{{gl_period_id}}/open/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "gl-periods", "{{gl_period_id}}", "open", ""]
+						},
+						"description": "Opens the GL period for transactions."
+					}
+				},
+				{
+					"name": "Hold GL Period",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/period/gl-periods/{{gl_period_id}}/hold/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "gl-periods", "{{gl_period_id}}", "hold", ""]
+						},
+						"description": "Puts the GL period on hold."
+					}
+				},
+				{
+					"name": "Close GL Period",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/period/gl-periods/{{gl_period_id}}/close/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "gl-periods", "{{gl_period_id}}", "close", ""]
+						},
+						"description": "Closes the GL period permanently."
+					}
+				}
+			]
+		},
+		{
+			"name": "Complete Workflow",
+			"item": [
+				{
+					"name": "Step 1 - Create AR Period (Creates Parent)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"pm.collectionVariables.set(\"ar_period_id\", jsonData.period);",
+									"pm.collectionVariables.set(\"period_id\", jsonData.period);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"February 2026\",\n    \"start_date\": \"2026-02-01\",\n    \"end_date\": \"2026-02-28\",\n    \"fiscal_year\": 2026,\n    \"period_number\": 2,\n    \"is_adjustment_period\": false,\n    \"description\": \"Second period of fiscal year 2026\",\n    \"state\": \"hold\",\n    \"state_changed_by\": {{user_id}}\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/period/ar-periods/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "ar-periods", ""]
+						}
+					}
+				},
+				{
+					"name": "Step 2 - Create AP Period (Links to Parent)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"pm.collectionVariables.set(\"ap_period_id\", jsonData.period);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"period\": {{period_id}},\n    \"state\": \"hold\",\n    \"state_changed_by\": {{user_id}}\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/period/ap-periods/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "ap-periods", ""]
+						}
+					}
+				},
+				{
+					"name": "Step 3 - Create GL Period (Links to Parent)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = pm.response.json();",
+									"pm.collectionVariables.set(\"gl_period_id\", jsonData.period);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"period\": {{period_id}},\n    \"state\": \"hold\",\n    \"state_changed_by\": {{user_id}}\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/period/gl-periods/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "gl-periods", ""]
+						}
+					}
+				},
+				{
+					"name": "Step 4 - Open AR Period",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/period/ar-periods/{{ar_period_id}}/open/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "ar-periods", "{{ar_period_id}}", "open", ""]
+						}
+					}
+				},
+				{
+					"name": "Step 5 - Open AP Period",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/period/ap-periods/{{ap_period_id}}/open/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "ap-periods", "{{ap_period_id}}", "open", ""]
+						}
+					}
+				},
+				{
+					"name": "Step 6 - Open GL Period",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/period/gl-periods/{{gl_period_id}}/open/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "gl-periods", "{{gl_period_id}}", "open", ""]
+						}
+					}
+				},
+				{
+					"name": "Step 7 - Validate AR Transaction",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"date\": \"2026-02-15\",\n    \"module\": \"ar\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/period/periods/validate/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "periods", "validate", ""]
+						}
+					}
+				},
+				{
+					"name": "Step 8 - View Complete Period",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/period/periods/{{period_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "periods", "{{period_id}}", ""]
+						}
+					}
+				},
+				{
+					"name": "Step 9 - Close AR Period",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/period/ar-periods/{{ar_period_id}}/close/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "ar-periods", "{{ar_period_id}}", "close", ""]
+						}
+					}
+				},
+				{
+					"name": "Step 10 - Close AP Period",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/period/ap-periods/{{ap_period_id}}/close/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "ap-periods", "{{ap_period_id}}", "close", ""]
+						}
+					}
+				},
+				{
+					"name": "Step 11 - Close GL Period",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/period/gl-periods/{{gl_period_id}}/close/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "gl-periods", "{{gl_period_id}}", "close", ""]
+						}
+					}
+				}
+			],
+			"description": "A complete workflow demonstrating the period lifecycle:\n1. Create AR Period (automatically creates parent Period)\n2. Link AP Period to the same parent\n3. Link GL Period to the same parent\n4-6. Open all three modules\n7. Validate a transaction\n8. View the complete period with all module states\n9-11. Close all modules permanently"
+		}
+	]
+}
