@@ -387,9 +387,39 @@ class PaymentCreateSerializer(serializers.Serializer):
             )
 
         return value
+    
+    def validate_date(self, value):
+        """Validate that appropriate period is open for this payment date."""
+        # We can't fully validate the period type here because we need business_partner
+        # Will do full validation in validate() method
+        return value
 
     def validate(self, data):
         """Cross-field validation"""
+        # Validate period based on business partner type
+        from Finance.period.validators import PeriodValidator
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        from Finance.BusinessPartner.models import BusinessPartner
+        
+        business_partner = BusinessPartner.objects.get(id=data["business_partner_id"])
+        payment_date = data["date"]
+        
+        try:
+            # Determine which period to validate based on business partner type
+            if business_partner.type == 'customer':
+                # Customer payment (receipt) -> AR period
+                PeriodValidator.validate_ar_period_open(payment_date)
+            elif business_partner.type == 'supplier':
+                # Supplier payment -> AP period
+                PeriodValidator.validate_ap_period_open(payment_date)
+            else:
+                # For other types, validate GL period as fallback
+                PeriodValidator.validate_gl_period_open(payment_date)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError(
+                {"date": str(e)}
+            )
+        
         # If allocations provided, validate they match the payment's business partner
         if data.get("allocations"):
             business_partner_id = data["business_partner_id"]

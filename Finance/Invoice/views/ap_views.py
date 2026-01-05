@@ -199,6 +199,7 @@ def ap_invoice_post_to_gl(request, pk):
     POST /invoices/ap/{id}/post-to-gl/
     
     Once posted, the journal entry becomes immutable.
+    Validates that GL period is open for the journal entry date.
     """
     ap_invoice = get_object_or_404(AP_Invoice, invoice_id=pk)
     journal_entry = ap_invoice.gl_distributions
@@ -218,6 +219,18 @@ def ap_invoice_post_to_gl(request, pk):
     if ap_invoice.approval_status != 'APPROVED':
         return Response(
             {'error': 'Invoice must be approved before posting to GL'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Validate GL period is open for journal entry date
+    from Finance.period.validators import PeriodValidator
+    from django.core.exceptions import ValidationError
+    
+    try:
+        PeriodValidator.validate_gl_period_open(journal_entry.date)
+    except ValidationError as e:
+        return Response(
+            {'error': str(e)},
             status=status.HTTP_400_BAD_REQUEST
         )
     

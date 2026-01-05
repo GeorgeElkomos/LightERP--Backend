@@ -12,13 +12,16 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.db import transaction
 
-from .models import Period
+from .models import Period, ar_period, ap_period, gl_period
 from .serializers import (
     PeriodSerializer,
     PeriodListSerializer,
     PeriodGenerationInputSerializer,
     PeriodGenerationOutputSerializer,
-    PeriodBulkSaveSerializer
+    PeriodBulkSaveSerializer,
+    AR_PeriodSerializer,
+    AP_PeriodSerializer,
+    GL_PeriodSerializer
 )
 from erp_project.response_formatter import success_response, error_response
 
@@ -297,3 +300,332 @@ class PeriodViewSet(viewsets.ModelViewSet):
             data=serializer.data,
             message="Current period retrieved successfully"
         )
+
+
+# ============================================================================
+# Child Period ViewSets (AR, AP, GL)
+# ============================================================================
+
+class AR_PeriodViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet for AR Period child records.
+    
+    Provides:
+    - List all AR periods
+    - Retrieve single AR period
+    - Update AR period state
+    """
+    queryset = ar_period.objects.select_related('period').all()
+    serializer_class = AR_PeriodSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def list(self, request, *args, **kwargs):
+        """
+        List all AR periods with optional filtering.
+        
+        Query Parameters:
+        - state: Filter by state (open/closed)
+        - fiscal_year: Filter by fiscal year
+        """
+        queryset = self.get_queryset()
+        
+        # Apply filters
+        state = request.query_params.get('state')
+        if state:
+            queryset = queryset.filter(state=state)
+        
+        fiscal_year = request.query_params.get('fiscal_year')
+        if fiscal_year:
+            queryset = queryset.filter(period__fiscal_year=fiscal_year)
+        
+        serializer = self.get_serializer(queryset, many=True)
+        return success_response(
+            data=serializer.data,
+            message="AR periods retrieved successfully"
+        )
+    
+    def retrieve(self, request, *args, **kwargs):
+        """Get single AR period detail"""
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return success_response(
+            data=serializer.data,
+            message="AR period retrieved successfully"
+        )
+    
+    @action(detail=True, methods=['patch'])
+    def update_state(self, request, pk=None):
+        """
+        Update AR period state.
+        
+        Request Body:
+        {
+            "state": "open" or "closed"
+        }
+        """
+        instance = self.get_object()
+        new_state = request.data.get('state')
+        
+        if new_state not in ['open', 'closed']:
+            return error_response(
+                message="Invalid state. Must be 'open' or 'closed'",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        
+        instance.state = new_state
+        instance.save()
+        
+        serializer = self.get_serializer(instance)
+        return success_response(
+            data=serializer.data,
+            message=f"AR period state updated to {new_state}"
+        )
+    
+    @action(detail=True, methods=['post'])
+    def open(self, request, pk=None):
+        """
+        Open AR period (set state to 'open').
+        No request body required.
+        """
+        instance = self.get_object()
+        instance.state = 'open'
+        instance.save()
+        
+        serializer = self.get_serializer(instance)
+        return success_response(
+            data=serializer.data,
+            message="AR period opened successfully"
+        )
+    
+    @action(detail=True, methods=['post'])
+    def close(self, request, pk=None):
+        """
+        Close AR period (set state to 'closed').
+        No request body required.
+        """
+        instance = self.get_object()
+        instance.state = 'closed'
+        instance.save()
+        
+        serializer = self.get_serializer(instance)
+        return success_response(
+            data=serializer.data,
+            message="AR period closed successfully"
+        )
+
+
+class AP_PeriodViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet for AP Period child records.
+    
+    Provides:
+    - List all AP periods
+    - Retrieve single AP period
+    - Update AP period state
+    """
+    queryset = ap_period.objects.select_related('period').all()
+    serializer_class = AP_PeriodSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def list(self, request, *args, **kwargs):
+        """
+        List all AP periods with optional filtering.
+        
+        Query Parameters:
+        - state: Filter by state (open/closed)
+        - fiscal_year: Filter by fiscal year
+        """
+        queryset = self.get_queryset()
+        
+        # Apply filters
+        state = request.query_params.get('state')
+        if state:
+            queryset = queryset.filter(state=state)
+        
+        fiscal_year = request.query_params.get('fiscal_year')
+        if fiscal_year:
+            queryset = queryset.filter(period__fiscal_year=fiscal_year)
+        
+        serializer = self.get_serializer(queryset, many=True)
+        return success_response(
+            data=serializer.data,
+            message="AP periods retrieved successfully"
+        )
+    
+    def retrieve(self, request, *args, **kwargs):
+        """Get single AP period detail"""
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return success_response(
+            data=serializer.data,
+            message="AP period retrieved successfully"
+        )
+    
+    @action(detail=True, methods=['patch'])
+    def update_state(self, request, pk=None):
+        """
+        Update AP period state.
+        
+        Request Body:
+        {
+            "state": "open" or "closed"
+        }
+        """
+        instance = self.get_object()
+        new_state = request.data.get('state')
+        
+        if new_state not in ['open', 'closed']:
+            return error_response(
+                message="Invalid state. Must be 'open' or 'closed'",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        
+        instance.state = new_state
+        instance.save()
+        
+        serializer = self.get_serializer(instance)
+        return success_response(
+            data=serializer.data,
+            message=f"AP period state updated to {new_state}"
+        )
+    
+    @action(detail=True, methods=['post'])
+    def open(self, request, pk=None):
+        """
+        Open AP period (set state to 'open').
+        No request body required.
+        """
+        instance = self.get_object()
+        instance.state = 'open'
+        instance.save()
+        
+        serializer = self.get_serializer(instance)
+        return success_response(
+            data=serializer.data,
+            message="AP period opened successfully"
+        )
+    
+    @action(detail=True, methods=['post'])
+    def close(self, request, pk=None):
+        """
+        Close AP period (set state to 'closed').
+        No request body required.
+        """
+        instance = self.get_object()
+        instance.state = 'closed'
+        instance.save()
+        
+        serializer = self.get_serializer(instance)
+        return success_response(
+            data=serializer.data,
+            message="AP period closed successfully"
+        )
+
+
+class GL_PeriodViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet for GL Period child records.
+    
+    Provides:
+    - List all GL periods
+    - Retrieve single GL period
+    - Update GL period state
+    """
+    queryset = gl_period.objects.select_related('period').all()
+    serializer_class = GL_PeriodSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def list(self, request, *args, **kwargs):
+        """
+        List all GL periods with optional filtering.
+        
+        Query Parameters:
+        - state: Filter by state (open/closed)
+        - fiscal_year: Filter by fiscal year
+        """
+        queryset = self.get_queryset()
+        
+        # Apply filters
+        state = request.query_params.get('state')
+        if state:
+            queryset = queryset.filter(state=state)
+        
+        fiscal_year = request.query_params.get('fiscal_year')
+        if fiscal_year:
+            queryset = queryset.filter(period__fiscal_year=fiscal_year)
+        
+        serializer = self.get_serializer(queryset, many=True)
+        return success_response(
+            data=serializer.data,
+            message="GL periods retrieved successfully"
+        )
+    
+    def retrieve(self, request, *args, **kwargs):
+        """Get single GL period detail"""
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return success_response(
+            data=serializer.data,
+            message="GL period retrieved successfully"
+        )
+    
+    @action(detail=True, methods=['patch'])
+    def update_state(self, request, pk=None):
+        """
+        Update GL period state.
+        
+        Request Body:
+        {
+            "state": "open" or "closed"
+        }
+        """
+        instance = self.get_object()
+        new_state = request.data.get('state')
+        
+        if new_state not in ['open', 'closed']:
+            return error_response(
+                message="Invalid state. Must be 'open' or 'closed'",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        
+        instance.state = new_state
+        instance.save()
+        
+        serializer = self.get_serializer(instance)
+        return success_response(
+            data=serializer.data,
+            message=f"GL period state updated to {new_state}"
+        )
+    
+    @action(detail=True, methods=['post'])
+    def open(self, request, pk=None):
+        """
+        Open GL period (set state to 'open').
+        No request body required.
+        """
+        instance = self.get_object()
+        instance.state = 'open'
+        instance.save()
+        
+        serializer = self.get_serializer(instance)
+        return success_response(
+            data=serializer.data,
+            message="GL period opened successfully"
+        )
+    
+    @action(detail=True, methods=['post'])
+    def close(self, request, pk=None):
+        """
+        Close GL period (set state to 'closed').
+        No request body required.
+        """
+        instance = self.get_object()
+        instance.state = 'closed'
+        instance.save()
+        
+        serializer = self.get_serializer(instance)
+        return success_response(
+            data=serializer.data,
+            message="GL period closed successfully"
+        )
+

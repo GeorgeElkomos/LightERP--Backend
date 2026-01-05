@@ -1,0 +1,420 @@
+{
+	"info": {
+		"name": "Finance - Child Period Management (AR/AP/GL)",
+		"description": "API endpoints for managing AR, AP, and GL period child records. These child records are automatically created when a Period is created and track the open/closed state for each module separately.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{access_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.environment.set(\"access_token\", jsonData.data.access);",
+									"    pm.environment.set(\"refresh_token\", jsonData.data.refresh);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"your_username\",\n    \"password\": \"your_password\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/core/auth/login/",
+							"host": ["{{base_url}}"],
+							"path": ["core", "auth", "login", ""]
+						},
+						"description": "Login to get access token. The token is automatically saved to environment variable."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "AR Period (Accounts Receivable)",
+			"item": [
+				{
+					"name": "List AR Periods",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/period/ar-periods/?state=open&fiscal_year=2026",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "ar-periods", ""],
+							"query": [
+								{
+									"key": "state",
+									"value": "open",
+									"description": "Filter by state: 'open' or 'closed'",
+									"disabled": true
+								},
+								{
+									"key": "fiscal_year",
+									"value": "2026",
+									"description": "Filter by fiscal year",
+									"disabled": true
+								}
+							]
+						},
+						"description": "List all AR period child records. Each AR period is automatically created when a parent Period is created. Filters:\n- state: 'open' or 'closed'\n- fiscal_year: e.g., 2026"
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/finance/period/ar-periods/",
+									"host": ["{{base_url}}"],
+									"path": ["finance", "period", "ar-periods", ""]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [],
+							"cookie": [],
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"AR periods retrieved successfully\",\n    \"data\": {\n        \"count\": 2,\n        \"next\": null,\n        \"previous\": null,\n        \"results\": [\n            {\n                \"id\": 1,\n                \"period\": 1,\n                \"period_name\": \"January 2026\",\n                \"fiscal_year\": 2026,\n                \"period_number\": 1,\n                \"start_date\": \"2026-01-01\",\n                \"end_date\": \"2026-01-31\",\n                \"state\": \"open\"\n            },\n            {\n                \"id\": 2,\n                \"period\": 2,\n                \"period_name\": \"February 2026\",\n                \"fiscal_year\": 2026,\n                \"period_number\": 2,\n                \"start_date\": \"2026-02-01\",\n                \"end_date\": \"2026-02-28\",\n                \"state\": \"closed\"\n            }\n        ]\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Get AR Period Detail",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/period/ar-periods/{{ar_period_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "ar-periods", "{{ar_period_id}}", ""]
+						},
+						"description": "Retrieve detailed information about a specific AR period including its parent period details and current state."
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{base_url}}/finance/period/ar-periods/1/",
+									"host": ["{{base_url}}"],
+									"path": ["finance", "period", "ar-periods", "1", ""]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [],
+							"cookie": [],
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"AR period retrieved successfully\",\n    \"data\": {\n        \"id\": 1,\n        \"period\": 1,\n        \"period_name\": \"January 2026\",\n        \"fiscal_year\": 2026,\n        \"period_number\": 1,\n        \"start_date\": \"2026-01-01\",\n        \"end_date\": \"2026-01-31\",\n        \"state\": \"open\"\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Update AR Period State",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"state\": \"open\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/period/ar-periods/{{ar_period_id}}/update_state/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "ar-periods", "{{ar_period_id}}", "update_state", ""]
+						},
+						"description": "Update the state of an AR period. Valid values:\n- 'open': Period is open for transactions\n- 'closed': Period is closed for transactions\n\nNote: This endpoint only updates the state field. Other fields are read-only."
+					},
+					"response": [
+						{
+							"name": "Success Response",
+							"originalRequest": {
+								"method": "PATCH",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"state\": \"open\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/finance/period/ar-periods/1/update_state/",
+									"host": ["{{base_url}}"],
+									"path": ["finance", "period", "ar-periods", "1", "update_state", ""]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [],
+							"cookie": [],
+							"body": "{\n    \"status\": \"success\",\n    \"message\": \"AR period state updated successfully\",\n    \"data\": {\n        \"id\": 1,\n        \"period\": 1,\n        \"period_name\": \"January 2026\",\n        \"fiscal_year\": 2026,\n        \"period_number\": 1,\n        \"start_date\": \"2026-01-01\",\n        \"end_date\": \"2026-01-31\",\n        \"state\": \"open\"\n    }\n}"
+						},
+						{
+							"name": "Invalid State Error",
+							"originalRequest": {
+								"method": "PATCH",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"state\": \"invalid_value\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/finance/period/ar-periods/1/update_state/",
+									"host": ["{{base_url}}"],
+									"path": ["finance", "period", "ar-periods", "1", "update_state", ""]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [],
+							"cookie": [],
+							"body": "{\n    \"status\": \"error\",\n    \"message\": \"Invalid state\",\n    \"data\": {\n        \"state\": [\n            \"\\\"invalid_value\\\" is not a valid choice.\"\n        ]\n    }\n}"
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "AP Period (Accounts Payable)",
+			"item": [
+				{
+					"name": "List AP Periods",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/period/ap-periods/?state=closed&fiscal_year=2026",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "ap-periods", ""],
+							"query": [
+								{
+									"key": "state",
+									"value": "closed",
+									"description": "Filter by state: 'open' or 'closed'",
+									"disabled": true
+								},
+								{
+									"key": "fiscal_year",
+									"value": "2026",
+									"description": "Filter by fiscal year",
+									"disabled": true
+								}
+							]
+						},
+						"description": "List all AP period child records. Each AP period is automatically created when a parent Period is created. Filters:\n- state: 'open' or 'closed'\n- fiscal_year: e.g., 2026"
+					},
+					"response": []
+				},
+				{
+					"name": "Get AP Period Detail",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/period/ap-periods/{{ap_period_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "ap-periods", "{{ap_period_id}}", ""]
+						},
+						"description": "Retrieve detailed information about a specific AP period including its parent period details and current state."
+					},
+					"response": []
+				},
+				{
+					"name": "Update AP Period State",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"state\": \"open\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/period/ap-periods/{{ap_period_id}}/update_state/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "ap-periods", "{{ap_period_id}}", "update_state", ""]
+						},
+						"description": "Update the state of an AP period. Valid values:\n- 'open': Period is open for transactions\n- 'closed': Period is closed for transactions"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "GL Period (General Ledger)",
+			"item": [
+				{
+					"name": "List GL Periods",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/period/gl-periods/?state=open&fiscal_year=2026",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "gl-periods", ""],
+							"query": [
+								{
+									"key": "state",
+									"value": "open",
+									"description": "Filter by state: 'open' or 'closed'",
+									"disabled": true
+								},
+								{
+									"key": "fiscal_year",
+									"value": "2026",
+									"description": "Filter by fiscal year",
+									"disabled": true
+								}
+							]
+						},
+						"description": "List all GL period child records. Each GL period is automatically created when a parent Period is created. Filters:\n- state: 'open' or 'closed'\n- fiscal_year: e.g., 2026"
+					},
+					"response": []
+				},
+				{
+					"name": "Get GL Period Detail",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/period/gl-periods/{{gl_period_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "gl-periods", "{{gl_period_id}}", ""]
+						},
+						"description": "Retrieve detailed information about a specific GL period including its parent period details and current state."
+					},
+					"response": []
+				},
+				{
+					"name": "Update GL Period State",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"state\": \"closed\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/period/gl-periods/{{gl_period_id}}/update_state/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "period", "gl-periods", "{{gl_period_id}}", "update_state", ""]
+						},
+						"description": "Update the state of a GL period. Valid values:\n- 'open': Period is open for transactions\n- 'closed': Period is closed for transactions"
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://127.0.0.1:8000",
+			"type": "string"
+		},
+		{
+			"key": "access_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "refresh_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "ar_period_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "ap_period_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "gl_period_id",
+			"value": "1",
+			"type": "string"
+		}
+	]
+}

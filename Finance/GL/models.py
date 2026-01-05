@@ -901,9 +901,11 @@ class JournalEntry(models.Model):
         Post this journal entry to the General Ledger.
         
         This method:
-        1. Validates that the entry is balanced (debits = credits)
-        2. Sets the posted flag to True
-        3. Creates a GeneralLedger entry with today's date
+        1. Validates GL period is open for the entry date
+        2. Validates GL period is open for the posting date (today)
+        3. Validates that the entry is balanced (debits = credits)
+        4. Sets the posted flag to True
+        5. Creates a GeneralLedger entry with today's date
         
         Once posted, the journal entry becomes immutable.
         
@@ -911,7 +913,7 @@ class JournalEntry(models.Model):
             GeneralLedger: The created general ledger entry
         
         Raises:
-            ValidationError: If entry is already posted or not balanced
+            ValidationError: If entry is already posted, not balanced, or period is closed
         
         Example:
             entry = JournalEntry.objects.get(id=1)
@@ -926,6 +928,25 @@ class JournalEntry(models.Model):
             raise ValidationError(
                 f"Journal Entry #{self.pk} is already posted. "
                 "Cannot post the same entry twice."
+            )
+        
+        # Validate GL period is open for the journal entry transaction date
+        from Finance.period.validators import PeriodValidator
+        
+        try:
+            PeriodValidator.validate_gl_period_open(self.date, allow_adjustment=True)
+        except ValidationError as e:
+            raise ValidationError(
+                f"Cannot post Journal Entry #{self.pk}: {str(e)}"
+            )
+        
+        # Validate GL period is open for the posting date (today)
+        posting_date = timezone.now().date()
+        try:
+            PeriodValidator.validate_gl_period_open(posting_date, allow_adjustment=True)
+        except ValidationError as e:
+            raise ValidationError(
+                f"Cannot post Journal Entry #{self.pk} on {posting_date}: {str(e)}"
             )
         
         # Validate that entry is balanced
@@ -945,7 +966,7 @@ class JournalEntry(models.Model):
             
             # Create GeneralLedger entry with today's date
             gl_entry = GeneralLedger.objects.create(
-                submitted_date=timezone.now().date(),
+                submitted_date=posting_date,
                 JournalEntry=self
             )
         

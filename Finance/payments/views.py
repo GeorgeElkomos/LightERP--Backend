@@ -434,6 +434,7 @@ def payment_post_to_gl(request, pk):
     POST /payments/{id}/post-to-gl/
     
     Once posted, the journal entry becomes immutable.
+    Validates that GL period is open for the journal entry date.
     """
     payment = get_object_or_404(Payment, pk=pk)
     
@@ -452,6 +453,18 @@ def payment_post_to_gl(request, pk):
     if payment.approval_status != 'APPROVED':
         return Response(
             {'error': 'Payment must be approved before posting to GL'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Validate GL period is open for journal entry date
+    from Finance.period.validators import PeriodValidator
+    from django.core.exceptions import ValidationError as DjangoValidationError
+    
+    try:
+        PeriodValidator.validate_gl_period_open(payment.gl_entry.date)
+    except DjangoValidationError as e:
+        return Response(
+            {'error': str(e)},
             status=status.HTTP_400_BAD_REQUEST
         )
     

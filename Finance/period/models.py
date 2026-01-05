@@ -68,6 +68,56 @@ class Period(models.Model):
         """String representation"""
         return f"{self.name} (FY{self.fiscal_year}-P{self.period_number})"
     
+    def save(self, *args, **kwargs):
+        """
+        Save the period and automatically ensure child records (AR, AP, GL) exist.
+        
+        - On creation: Child records are created with default 'closed' state
+        - On update: Ensures children exist (creates if missing)
+        - Changes to parent Period are automatically reflected in children via OneToOne relationship
+        """
+        # Save the period first
+        super().save(*args, **kwargs)
+        
+        # Always ensure child records exist (create if missing, no-op if they exist)
+        # This handles both new records and existing records that might be missing children
+        ar_period.objects.get_or_create(
+            period=self,
+            defaults={'state': 'closed'}
+        )
+        
+        ap_period.objects.get_or_create(
+            period=self,
+            defaults={'state': 'closed'}
+        )
+        
+        gl_period.objects.get_or_create(
+            period=self,
+            defaults={'state': 'closed'}
+        )
+    
+    def ensure_children_exist(self):
+        """
+        Helper method to manually ensure all child records exist.
+        Useful for data migration or fixing missing children.
+        """
+        ar_period.objects.get_or_create(
+            period=self,
+            defaults={'state': 'closed'}
+        )
+        
+        ap_period.objects.get_or_create(
+            period=self,
+            defaults={'state': 'closed'}
+        )
+        
+        gl_period.objects.get_or_create(
+            period=self,
+            defaults={'state': 'closed'}
+        )
+        
+        return True
+    
     # ========================================================================
     # Class Method for Bulk Period Generation
     # ========================================================================

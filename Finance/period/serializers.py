@@ -182,11 +182,12 @@ class PeriodBulkSaveSerializer(serializers.Serializer):
         return value
     
     def create(self, validated_data):
-        """Bulk create periods"""
+        """Create periods individually to trigger automatic child creation"""
         periods_data = validated_data['periods']
         
-        # Create Period objects
-        periods_to_create = []
+        # Create Period objects individually (not bulk_create)
+        # This ensures the save() method is called and child records are created
+        created_periods = []
         for period_data in periods_data:
             # Convert date strings to date objects
             start_date = period_data['start_date']
@@ -197,7 +198,8 @@ class PeriodBulkSaveSerializer(serializers.Serializer):
             if isinstance(end_date, str):
                 end_date = date.fromisoformat(end_date)
             
-            period = Period(
+            # Create and save period (triggers automatic child creation)
+            period = Period.objects.create(
                 name=period_data['name'],
                 start_date=start_date,
                 end_date=end_date,
@@ -206,10 +208,7 @@ class PeriodBulkSaveSerializer(serializers.Serializer):
                 is_adjustment_period=period_data.get('is_adjustment_period', False),
                 description=period_data.get('description', '')
             )
-            periods_to_create.append(period)
-        
-        # Bulk create (saves to database)
-        created_periods = Period.objects.bulk_create(periods_to_create)
+            created_periods.append(period)
         
         return {
             'created_count': len(created_periods),
@@ -232,3 +231,95 @@ class PeriodListSerializer(serializers.ModelSerializer):
             'period_number',
             'is_adjustment_period'
         ]
+
+
+# ============================================================================
+# Child Period Serializers (AR, AP, GL)
+# ============================================================================
+
+class AR_PeriodSerializer(serializers.ModelSerializer):
+    """
+    Serializer for AR Period child records.
+    """
+    period_name = serializers.CharField(source='period.name', read_only=True)
+    fiscal_year = serializers.IntegerField(source='period.fiscal_year', read_only=True)
+    period_number = serializers.IntegerField(source='period.period_number', read_only=True)
+    start_date = serializers.DateField(source='period.start_date', read_only=True)
+    end_date = serializers.DateField(source='period.end_date', read_only=True)
+    
+    class Meta:
+        model = ar_period
+        fields = [
+            'id',
+            'period',
+            'period_name',
+            'fiscal_year',
+            'period_number',
+            'start_date',
+            'end_date',
+            'state'
+        ]
+        read_only_fields = ['id', 'period']
+    
+    def get_state_display(self, obj):
+        """Get human-readable state"""
+        return obj.get_state_display()
+
+
+class AP_PeriodSerializer(serializers.ModelSerializer):
+    """
+    Serializer for AP Period child records.
+    """
+    period_name = serializers.CharField(source='period.name', read_only=True)
+    fiscal_year = serializers.IntegerField(source='period.fiscal_year', read_only=True)
+    period_number = serializers.IntegerField(source='period.period_number', read_only=True)
+    start_date = serializers.DateField(source='period.start_date', read_only=True)
+    end_date = serializers.DateField(source='period.end_date', read_only=True)
+    
+    class Meta:
+        model = ap_period
+        fields = [
+            'id',
+            'period',
+            'period_name',
+            'fiscal_year',
+            'period_number',
+            'start_date',
+            'end_date',
+            'state'
+        ]
+        read_only_fields = ['id', 'period']
+    
+    def get_state_display(self, obj):
+        """Get human-readable state"""
+        return obj.get_state_display()
+
+
+class GL_PeriodSerializer(serializers.ModelSerializer):
+    """
+    Serializer for GL Period child records.
+    """
+    period_name = serializers.CharField(source='period.name', read_only=True)
+    fiscal_year = serializers.IntegerField(source='period.fiscal_year', read_only=True)
+    period_number = serializers.IntegerField(source='period.period_number', read_only=True)
+    start_date = serializers.DateField(source='period.start_date', read_only=True)
+    end_date = serializers.DateField(source='period.end_date', read_only=True)
+    
+    class Meta:
+        model = gl_period
+        fields = [
+            'id',
+            'period',
+            'period_name',
+            'fiscal_year',
+            'period_number',
+            'start_date',
+            'end_date',
+            'state'
+        ]
+        read_only_fields = ['id', 'period']
+    
+    def get_state_display(self, obj):
+        """Get human-readable state"""
+        return obj.get_state_display()
+

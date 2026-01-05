@@ -83,6 +83,21 @@ def journal_entry_create_update(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
+        # Validate GL period is open for the journal entry date
+        from Finance.period.validators import PeriodValidator
+        from django.core.exceptions import ValidationError
+        
+        try:
+            PeriodValidator.validate_gl_period_open(
+                request.data['date'],
+                allow_adjustment=True  # Allow manual journal entries in adjustment periods
+            )
+        except ValidationError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
         # Get currency
         try:
             currency = Currency.objects.get(id=request.data['currency_id'])

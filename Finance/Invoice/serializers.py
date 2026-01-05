@@ -248,6 +248,18 @@ class APInvoiceCreateSerializer(serializers.Serializer):
         if not value:
             raise serializers.ValidationError("At least one invoice item is required")
         return value
+    
+    def validate_date(self, value):
+        """Validate that AP period is open for this invoice date."""
+        from Finance.period.validators import PeriodValidator
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        
+        try:
+            PeriodValidator.validate_ap_period_open(value)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError(str(e))
+        
+        return value
 
     def create(self, validated_data):
         """Create AP Invoice using service layer"""
@@ -586,6 +598,18 @@ class ARInvoiceCreateSerializer(serializers.Serializer):
     def validate_items(self, value):
         if not value:
             raise serializers.ValidationError("At least one invoice item is required")
+        return value
+    
+    def validate_date(self, value):
+        """Validate that AR period is open for this invoice date."""
+        from Finance.period.validators import PeriodValidator
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        
+        try:
+            PeriodValidator.validate_ar_period_open(value)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError(str(e))
+        
         return value
 
     def create(self, validated_data):
