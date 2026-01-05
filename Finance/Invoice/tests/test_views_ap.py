@@ -32,6 +32,7 @@ from Finance.core.models import Currency, Country
 from Finance.GL.models import (
     JournalEntry, JournalLine, XX_SegmentType as SegmentType, XX_Segment, XX_Segment_combination
 )
+from Finance.period.models import Period
 from Finance.Invoice.tests.test_helpers import (
     create_simple_approval_template_for_invoice,
     get_or_create_test_user,
@@ -56,6 +57,19 @@ class APInvoiceCreateTests(TestCase):
             is_base_currency=True,
             exchange_rate_to_base_currency=Decimal('1.00')
         )
+        
+        # Create January 2026 period with AP and GL open
+        self.period = Period.objects.create(
+            name='January 2026',
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 31),
+            fiscal_year=2026,
+            period_number=1
+        )
+        self.period.ap_period.state = 'open'
+        self.period.ap_period.save()
+        self.period.gl_period.state = 'open'
+        self.period.gl_period.save()
         
         # Create country
         self.country = Country.objects.create(
@@ -648,6 +662,19 @@ class APInvoicePostToGLTests(TestCase):
         country = Country.objects.create(code='US', name='United States')
         supplier = Supplier.objects.create(name='Test Supplier')
         
+        # Create January 2026 period with AP and GL open
+        self.period = Period.objects.create(
+            name='January 2026',
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 31),
+            fiscal_year=2026,
+            period_number=1
+        )
+        self.period.ap_period.state = 'open'
+        self.period.ap_period.save()
+        self.period.gl_period.state = 'open'
+        self.period.gl_period.save()
+        
         # Create segment types and segments for balanced journal entries
         segment_type_1 = SegmentType.objects.create(segment_name='Company', description='Company')
         segment_type_2 = SegmentType.objects.create(segment_name='Account', description='Account')
@@ -670,7 +697,7 @@ class APInvoicePostToGLTests(TestCase):
         
         # Approved invoice with unposted journal
         self.journal1 = JournalEntry.objects.create(
-            date=date.today(),
+            date=date(2026, 1, 15),
             currency=currency,
             memo='Test Unposted',
             posted=False
@@ -681,7 +708,7 @@ class APInvoicePostToGLTests(TestCase):
                                    segment_combination=combination_cr, amount=Decimal('1000.00'))
         
         self.ap_approved = AP_Invoice.objects.create(
-            date=date.today(),
+            date=date(2026, 1, 15),
             currency=currency,
             country=country,
             subtotal=Decimal('1000.00'),
@@ -702,7 +729,7 @@ class APInvoicePostToGLTests(TestCase):
         
         # Draft invoice (not approved)
         self.journal2 = JournalEntry.objects.create(
-            date=date.today(),
+            date=date(2026, 1, 15),
             currency=currency,
             memo='Test Draft',
             posted=False
@@ -713,7 +740,7 @@ class APInvoicePostToGLTests(TestCase):
                                    segment_combination=combination_cr, amount=Decimal('2000.00'))
         
         self.ap_draft = AP_Invoice.objects.create(
-            date=date.today(),
+            date=date(2026, 1, 15),
             currency=currency,
             country=country,
             subtotal=Decimal('2000.00'),

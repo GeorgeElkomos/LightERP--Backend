@@ -29,6 +29,7 @@ from Finance.Invoice.models import AR_Invoice, Invoice, InvoiceItem
 from Finance.BusinessPartner.models import Customer
 from Finance.core.models import Currency, Country
 from Finance.GL.models import XX_SegmentType, XX_Segment, XX_Segment_combination, JournalEntry, JournalLine
+from Finance.period.models import Period
 
 
 class ARInvoiceCreateTests(TestCase):
@@ -46,6 +47,19 @@ class ARInvoiceCreateTests(TestCase):
             is_base_currency=True,
             exchange_rate_to_base_currency=Decimal('1.00')
         )
+        
+        # Create January 2026 period with AR and GL open
+        self.period = Period.objects.create(
+            name='January 2026',
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 31),
+            fiscal_year=2026,
+            period_number=1
+        )
+        self.period.ar_period.state = 'open'
+        self.period.ar_period.save()
+        self.period.gl_period.state = 'open'
+        self.period.gl_period.save()
         
         # Create country
         self.country = Country.objects.create(
@@ -557,6 +571,19 @@ class ARInvoicePostToGLTests(TestCase):
         country = Country.objects.create(code='US', name='United States')
         customer = Customer.objects.create(name='Test Customer')
         
+        # Create January 2026 period with AR and GL open
+        self.period = Period.objects.create(
+            name='January 2026',
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 31),
+            fiscal_year=2026,
+            period_number=1
+        )
+        self.period.ar_period.state = 'open'
+        self.period.ar_period.save()
+        self.period.gl_period.state = 'open'
+        self.period.gl_period.save()
+        
         # Create segment types and segments for balanced journal entries
         segment_type_1 = XX_SegmentType.objects.create(segment_name='Company', description='Company')
         segment_type_2 = XX_SegmentType.objects.create(segment_name='Account', description='Account')
@@ -579,7 +606,7 @@ class ARInvoicePostToGLTests(TestCase):
         
         # Approved invoice with unposted journal
         self.journal = JournalEntry.objects.create(
-            date=date.today(),
+            date=date(2026, 1, 15),
             currency=currency,
             memo='Test',
             posted=False
@@ -590,7 +617,7 @@ class ARInvoicePostToGLTests(TestCase):
                                    segment_combination=combination_cr, amount=Decimal('1000.00'))
         
         self.ar_approved = AR_Invoice.objects.create(
-            date=date.today(),
+            date=date(2026, 1, 15),
             currency=currency,
             country=country,
             subtotal=Decimal('1000.00'),
@@ -611,7 +638,7 @@ class ARInvoicePostToGLTests(TestCase):
         
         # Draft invoice (not approved)
         self.journal2 = JournalEntry.objects.create(
-            date=date.today(),
+            date=date(2026, 1, 15),
             currency=currency,
             memo='Test Draft',
             posted=False
@@ -622,7 +649,7 @@ class ARInvoicePostToGLTests(TestCase):
                                    segment_combination=combination_cr, amount=Decimal('2000.00'))
         
         self.ar_draft = AR_Invoice.objects.create(
-            date=date.today(),
+            date=date(2026, 1, 15),
             currency=currency,
             country=country,
             subtotal=Decimal('2000.00'),

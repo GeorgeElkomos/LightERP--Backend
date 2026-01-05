@@ -1,0 +1,734 @@
+{
+	"info": {
+		"_postman_id": "cash-management-api-collection",
+		"name": "Cash Management API",
+		"description": "API collection for Cash Management module - Bank, Bank Branch, and Bank Account management",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "bank_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "branch_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "account_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "country_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "currency_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "gl_combination_id",
+			"value": "1",
+			"type": "string"
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{token}}",
+				"type": "string"
+			}
+		]
+	},
+	"item": [
+		{
+			"name": "Bank",
+			"item": [
+				{
+					"name": "List Banks",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/banks/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "banks", ""]
+						},
+						"description": "Get list of all banks with pagination"
+					},
+					"response": []
+				},
+				{
+					"name": "List Banks - Filter by Country",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/banks/?country={{country_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "banks", ""],
+							"query": [
+								{
+									"key": "country",
+									"value": "{{country_id}}"
+								}
+							]
+						},
+						"description": "Filter banks by country ID"
+					},
+					"response": []
+				},
+				{
+					"name": "List Banks - Filter by Active Status",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/banks/?is_active=true",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "banks", ""],
+							"query": [
+								{
+									"key": "is_active",
+									"value": "true"
+								}
+							]
+						},
+						"description": "Filter banks by active status"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Bank",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('bank_id', jsonData.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"bank_name\": \"National Bank of Commerce\",\n    \"bank_code\": \"NBC001\",\n    \"country\": {{country_id}},\n    \"swift_code\": \"NBCXUS33XXX\",\n    \"routing_number\": \"123456789\",\n    \"contact_email\": \"info@nbc.com\",\n    \"contact_phone\": \"+1-555-1234\",\n    \"website\": \"https://www.nbc.com\",\n    \"is_active\": true,\n    \"notes\": \"Primary banking partner\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash/banks/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "banks", ""]
+						},
+						"description": "Create a new bank"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Bank Detail",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/banks/{{bank_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "banks", "{{bank_id}}", ""]
+						},
+						"description": "Get detailed information about a specific bank"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Bank",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"bank_name\": \"National Bank of Commerce - Updated\",\n    \"bank_code\": \"NBC001\",\n    \"country\": {{country_id}},\n    \"swift_code\": \"NBCXUS33XXX\",\n    \"routing_number\": \"123456789\",\n    \"contact_email\": \"contact@nbc.com\",\n    \"contact_phone\": \"+1-555-1234\",\n    \"website\": \"https://www.nbc.com\",\n    \"is_active\": true,\n    \"notes\": \"Updated banking partner information\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash/banks/{{bank_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "banks", "{{bank_id}}", ""]
+						},
+						"description": "Update bank information"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Bank Summary",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/banks/{{bank_id}}/summary/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "banks", "{{bank_id}}", "summary", ""]
+						},
+						"description": "Get summary statistics for a bank (branches count, accounts count, total balance)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Bank Branches",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/banks/{{bank_id}}/branches/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "banks", "{{bank_id}}", "branches", ""]
+						},
+						"description": "Get all branches for a specific bank"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Bank Accounts",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/banks/{{bank_id}}/accounts/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "banks", "{{bank_id}}", "accounts", ""]
+						},
+						"description": "Get all accounts across all branches for a specific bank"
+					},
+					"response": []
+				},
+				{
+					"name": "Activate Bank",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/banks/{{bank_id}}/activate/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "banks", "{{bank_id}}", "activate", ""]
+						},
+						"description": "Activate a bank"
+					},
+					"response": []
+				},
+				{
+					"name": "Deactivate Bank",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/banks/{{bank_id}}/deactivate/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "banks", "{{bank_id}}", "deactivate", ""]
+						},
+						"description": "Deactivate a bank"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Bank",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/banks/{{bank_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "banks", "{{bank_id}}", ""]
+						},
+						"description": "Delete a bank (soft delete if protected)"
+					},
+					"response": []
+				}
+			],
+			"description": "Bank management endpoints"
+		},
+		{
+			"name": "Bank Branch",
+			"item": [
+				{
+					"name": "List Bank Branches",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/branches/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "branches", ""]
+						},
+						"description": "Get list of all bank branches with pagination"
+					},
+					"response": []
+				},
+				{
+					"name": "List Branches - Filter by Bank",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/branches/?bank={{bank_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "branches", ""],
+							"query": [
+								{
+									"key": "bank",
+									"value": "{{bank_id}}"
+								}
+							]
+						},
+						"description": "Filter branches by bank ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Bank Branch",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('branch_id', jsonData.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"bank\": {{bank_id}},\n    \"branch_name\": \"Downtown Branch\",\n    \"branch_code\": \"DT001\",\n    \"address\": \"123 Main Street\",\n    \"city\": \"New York\",\n    \"state\": \"NY\",\n    \"postal_code\": \"10001\",\n    \"country\": {{country_id}},\n    \"contact_phone\": \"+1-555-5678\",\n    \"contact_email\": \"downtown@nbc.com\",\n    \"manager_name\": \"John Smith\",\n    \"swift_code\": \"NBCXUS33NYC\",\n    \"is_active\": true,\n    \"notes\": \"Main downtown branch\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash/branches/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "branches", ""]
+						},
+						"description": "Create a new bank branch"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Branch Detail",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/branches/{{branch_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "branches", "{{branch_id}}", ""]
+						},
+						"description": "Get detailed information about a specific branch"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Branch",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"bank\": {{bank_id}},\n    \"branch_name\": \"Downtown Branch - Updated\",\n    \"branch_code\": \"DT001\",\n    \"address\": \"123 Main Street, Suite 100\",\n    \"city\": \"New York\",\n    \"state\": \"NY\",\n    \"postal_code\": \"10001\",\n    \"country\": {{country_id}},\n    \"contact_phone\": \"+1-555-5678\",\n    \"contact_email\": \"downtown@nbc.com\",\n    \"manager_name\": \"Jane Doe\",\n    \"swift_code\": \"NBCXUS33NYC\",\n    \"is_active\": true,\n    \"notes\": \"Updated branch information\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash/branches/{{branch_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "branches", "{{branch_id}}", ""]
+						},
+						"description": "Update branch information"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Branch Accounts",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/branches/{{branch_id}}/accounts/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "branches", "{{branch_id}}", "accounts", ""]
+						},
+						"description": "Get all accounts for a specific branch"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Branch Total Balance",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/branches/{{branch_id}}/total_balance/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "branches", "{{branch_id}}", "total_balance", ""]
+						},
+						"description": "Get total balance across all accounts in a branch"
+					},
+					"response": []
+				},
+				{
+					"name": "Activate Branch",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/branches/{{branch_id}}/activate/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "branches", "{{branch_id}}", "activate", ""]
+						},
+						"description": "Activate a branch"
+					},
+					"response": []
+				},
+				{
+					"name": "Deactivate Branch",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/branches/{{branch_id}}/deactivate/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "branches", "{{branch_id}}", "deactivate", ""]
+						},
+						"description": "Deactivate a branch"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Branch",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/branches/{{branch_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "branches", "{{branch_id}}", ""]
+						},
+						"description": "Delete a branch (soft delete if protected)"
+					},
+					"response": []
+				}
+			],
+			"description": "Bank branch management endpoints"
+		},
+		{
+			"name": "Bank Account",
+			"item": [
+				{
+					"name": "List Bank Accounts",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/accounts/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "accounts", ""]
+						},
+						"description": "Get list of all bank accounts with pagination"
+					},
+					"response": []
+				},
+				{
+					"name": "List Accounts - Filter by Branch",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/accounts/?branch={{branch_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "accounts", ""],
+							"query": [
+								{
+									"key": "branch",
+									"value": "{{branch_id}}"
+								}
+							]
+						},
+						"description": "Filter accounts by branch ID"
+					},
+					"response": []
+				},
+				{
+					"name": "List Accounts - Filter by Account Type",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/accounts/?account_type=CHECKING",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "accounts", ""],
+							"query": [
+								{
+									"key": "account_type",
+									"value": "CHECKING"
+								}
+							]
+						},
+						"description": "Filter accounts by type (CHECKING, SAVINGS, MONEY_MARKET, etc.)"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Bank Account",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('account_id', jsonData.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"branch\": {{branch_id}},\n    \"account_number\": \"ACC-001-2024-001\",\n    \"account_name\": \"Operating Account\",\n    \"account_type\": \"CHECKING\",\n    \"currency\": {{currency_id}},\n    \"opening_balance\": \"50000.00\",\n    \"current_balance\": \"50000.00\",\n    \"cash_GL_combination\": {{gl_combination_id}},\n    \"cash_clearing_GL_combination\": {{gl_combination_id}},\n    \"is_active\": true,\n    \"is_frozen\": false,\n    \"description\": \"Main operating account for daily transactions\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash/accounts/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "accounts", ""]
+						},
+						"description": "Create a new bank account"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Account Detail",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/accounts/{{account_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "accounts", "{{account_id}}", ""]
+						},
+						"description": "Get detailed information about a specific account"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Account",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"branch\": {{branch_id}},\n    \"account_number\": \"ACC-001-2024-001\",\n    \"account_name\": \"Operating Account - Updated\",\n    \"account_type\": \"CHECKING\",\n    \"currency\": {{currency_id}},\n    \"opening_balance\": \"50000.00\",\n    \"current_balance\": \"50000.00\",\n    \"cash_GL_combination\": {{gl_combination_id}},\n    \"cash_clearing_GL_combination\": {{gl_combination_id}},\n    \"is_active\": true,\n    \"is_frozen\": false,\n    \"description\": \"Updated operating account description\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash/accounts/{{account_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "accounts", "{{account_id}}", ""]
+						},
+						"description": "Update account information"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Account Balance - Increase",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"amount\": \"5000.00\",\n    \"transaction_type\": \"INCREASE\",\n    \"description\": \"Deposit from customer payment\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash/accounts/{{account_id}}/update_balance/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "accounts", "{{account_id}}", "update_balance", ""]
+						},
+						"description": "Increase account balance"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Account Balance - Decrease",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"amount\": \"2000.00\",\n    \"transaction_type\": \"DECREASE\",\n    \"description\": \"Payment to supplier\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash/accounts/{{account_id}}/update_balance/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "accounts", "{{account_id}}", "update_balance", ""]
+						},
+						"description": "Decrease account balance"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Account Balance",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/accounts/{{account_id}}/balance/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "accounts", "{{account_id}}", "balance", ""]
+						},
+						"description": "Get current balance information for an account"
+					},
+					"response": []
+				},
+				{
+					"name": "Check Sufficient Balance",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/accounts/{{account_id}}/check_balance/?amount=1000",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "accounts", "{{account_id}}", "check_balance", ""],
+							"query": [
+								{
+									"key": "amount",
+									"value": "1000"
+								}
+							]
+						},
+						"description": "Check if account has sufficient balance for a transaction"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Account Hierarchy",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/accounts/{{account_id}}/hierarchy/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "accounts", "{{account_id}}", "hierarchy", ""]
+						},
+						"description": "Get full hierarchy (Bank → Branch → Account) information"
+					},
+					"response": []
+				},
+				{
+					"name": "Freeze Account",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/accounts/{{account_id}}/freeze/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "accounts", "{{account_id}}", "freeze", ""]
+						},
+						"description": "Freeze an account to prevent transactions"
+					},
+					"response": []
+				},
+				{
+					"name": "Unfreeze Account",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/accounts/{{account_id}}/unfreeze/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "accounts", "{{account_id}}", "unfreeze", ""]
+						},
+						"description": "Unfreeze an account to allow transactions"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Account",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/accounts/{{account_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "accounts", "{{account_id}}", ""]
+						},
+						"description": "Delete an account (soft delete if protected)"
+					},
+					"response": []
+				}
+			],
+			"description": "Bank account management endpoints"
+		}
+	]
+}

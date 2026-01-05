@@ -20,6 +20,8 @@ from Finance.GL.models import (
     GeneralLedger,
 )
 from Finance.core.models import Currency
+from Finance.period.models import Period
+from datetime import date
 
 
 class SegmentCombinationImmutabilityTest(TestCase):
@@ -133,6 +135,17 @@ class JournalEntryPostingTest(TestCase):
             symbol="$"
         )
         
+        # Create January 2026 period with GL open
+        self.period = Period.objects.create(
+            name='January 2026',
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 31),
+            fiscal_year=2026,
+            period_number=1
+        )
+        self.period.gl_period.state = 'open'
+        self.period.gl_period.save()
+        
         # Create segment types
         self.entity_type = XX_SegmentType.objects.create(
             segment_name="Entity",
@@ -167,7 +180,7 @@ class JournalEntryPostingTest(TestCase):
         """Test posting a balanced journal entry."""
         # Create journal entry
         entry = JournalEntry.objects.create(
-            date=timezone.now().date(),
+            date=date(2026, 1, 15),
             currency=self.currency,
             memo="Test entry"
         )
@@ -193,13 +206,14 @@ class JournalEntryPostingTest(TestCase):
         self.assertTrue(entry.posted)
         self.assertIsNotNone(gl_entry)
         self.assertEqual(gl_entry.JournalEntry, entry)
+        # Check that submitted_date is today's date (posting date)
         self.assertEqual(gl_entry.submitted_date, timezone.now().date())
     
     def test_post_unbalanced_entry_blocked(self):
         """Test that posting an unbalanced entry is blocked."""
         # Create journal entry
         entry = JournalEntry.objects.create(
-            date=timezone.now().date(),
+            date=date(2026, 1, 15),
             currency=self.currency,
             memo="Unbalanced entry"
         )
@@ -228,7 +242,7 @@ class JournalEntryPostingTest(TestCase):
         """Test that posting an already-posted entry is blocked."""
         # Create and post journal entry
         entry = JournalEntry.objects.create(
-            date=timezone.now().date(),
+            date=date(2026, 1, 15),
             currency=self.currency,
             memo="Test entry"
         )
@@ -259,7 +273,7 @@ class JournalEntryPostingTest(TestCase):
         """Test that posted entries cannot be modified."""
         # Create and post journal entry
         entry = JournalEntry.objects.create(
-            date=timezone.now().date(),
+            date=date(2026, 1, 15),
             currency=self.currency,
             memo="Test entry"
         )
@@ -291,7 +305,7 @@ class JournalEntryPostingTest(TestCase):
         """Test that posted entries cannot be deleted."""
         # Create and post journal entry
         entry = JournalEntry.objects.create(
-            date=timezone.now().date(),
+            date=date(2026, 1, 15),
             currency=self.currency,
             memo="Test entry"
         )
@@ -316,3 +330,4 @@ class JournalEntryPostingTest(TestCase):
             entry.delete()
         
         self.assertIn("posted", str(context.exception))
+

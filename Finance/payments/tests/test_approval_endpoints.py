@@ -42,6 +42,7 @@ from Finance.Invoice.models import Invoice, AP_Invoice
 from Finance.BusinessPartner.models import Supplier
 from Finance.core.models import Currency, Country
 from Finance.GL.models import JournalEntry, JournalLine, XX_SegmentType, XX_Segment, XX_Segment_combination
+from Finance.period.models import Period
 
 User = get_user_model()
 
@@ -96,6 +97,21 @@ class PaymentApprovalEndpointTest(TestCase):
             is_base_currency=True,
             exchange_rate_to_base_currency=Decimal('1.00')
         )
+        
+        # Create January 2026 period with AR, AP, and GL open
+        self.period = Period.objects.create(
+            name='January 2026',
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 31),
+            fiscal_year=2026,
+            period_number=1
+        )
+        self.period.ar_period.state = 'open'
+        self.period.ar_period.save()
+        self.period.ap_period.state = 'open'
+        self.period.ap_period.save()
+        self.period.gl_period.state = 'open'
+        self.period.gl_period.save()
         
         self.country = Country.objects.create(
             code='US',

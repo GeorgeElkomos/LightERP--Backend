@@ -17,6 +17,7 @@ from Finance.BusinessPartner.models import Customer, Supplier, BusinessPartner
 from Finance.core.models import Currency, Country
 from Finance.GL.models import JournalEntry
 from Finance.GL.models import JournalEntry
+from Finance.period.models import Period
 
 
 class PaymentAPITestCase(APITestCase):
@@ -31,6 +32,21 @@ class PaymentAPITestCase(APITestCase):
             symbol="$",
             is_base_currency=True
         )
+        
+        # Create January 2026 period with AR, AP, and GL open
+        self.period = Period.objects.create(
+            name='January 2026',
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 31),
+            fiscal_year=2026,
+            period_number=1
+        )
+        self.period.ar_period.state = 'open'
+        self.period.ar_period.save()
+        self.period.ap_period.state = 'open'
+        self.period.ap_period.save()
+        self.period.gl_period.state = 'open'
+        self.period.gl_period.save()
         
         # Create country
         self.country = Country.objects.create(
@@ -67,14 +83,14 @@ class PaymentListAPITestCase(PaymentAPITestCase):
         self.payment1 = Payment.objects.create(
             business_partner=self.supplier.business_partner,
             currency=self.usd,
-            date=date(2024, 1, 1),
+            date=date(2026, 1, 10),
             approval_status='APPROVED'
         )
         
         self.payment2 = Payment.objects.create(
             business_partner=self.customer.business_partner,
             currency=self.usd,
-            date=date(2024, 1, 2),
+            date=date(2026, 1, 12),
             approval_status='DRAFT'
         )
     
@@ -103,7 +119,7 @@ class PaymentListAPITestCase(PaymentAPITestCase):
         data = {
             'business_partner_id': self.supplier.business_partner.id,
             'currency_id': self.usd.id,
-            'date': '2024-01-15'
+            'date': '2026-01-15'
         }
         response = self.client.post(url, data)
         
@@ -128,7 +144,7 @@ class PaymentListAPITestCase(PaymentAPITestCase):
         data = {
             'business_partner_id': self.supplier.business_partner.id,
             'currency_id': self.usd.id,
-            'date': '2024-01-15',
+            'date': '2026-01-15',
             'allocations': [
                 {
                     'invoice_id': invoice.invoice.id,
@@ -157,7 +173,7 @@ class PaymentDetailAPITestCase(PaymentAPITestCase):
         self.payment = Payment.objects.create(
             business_partner=self.supplier.business_partner,
             currency=self.usd,
-            date=date(2024, 1, 1),
+            date=date(2026, 1, 10),
             approval_status='DRAFT'
         )
     

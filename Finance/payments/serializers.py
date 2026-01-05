@@ -406,10 +406,11 @@ class PaymentCreateSerializer(serializers.Serializer):
         
         try:
             # Determine which period to validate based on business partner type
-            if business_partner.type == 'customer':
+            # Check which child model exists (Customer or Supplier)
+            if hasattr(business_partner, 'customer') and business_partner.customer is not None:
                 # Customer payment (receipt) -> AR period
                 PeriodValidator.validate_ar_period_open(payment_date)
-            elif business_partner.type == 'supplier':
+            elif hasattr(business_partner, 'supplier') and business_partner.supplier is not None:
                 # Supplier payment -> AP period
                 PeriodValidator.validate_ap_period_open(payment_date)
             else:

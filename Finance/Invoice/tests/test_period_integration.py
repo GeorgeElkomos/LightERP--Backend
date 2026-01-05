@@ -11,8 +11,9 @@ from decimal import Decimal
 
 from Finance.Invoice.models import AR_Invoice, AP_Invoice, Invoice
 from Finance.period.models import Period
-from Finance.BusinessPartner.models import BusinessPartner, Country
+from Finance.BusinessPartner.models import Customer, Supplier, Country
 from Finance.core.models import Currency
+from Finance.GL.models import XX_SegmentType, XX_Segment
 
 User = get_user_model()
 
@@ -44,10 +45,38 @@ class ARInvoicePeriodIntegrationTest(APITestCase):
         )
         
         # Create customer
-        self.customer = BusinessPartner.objects.create(
-            name='Test Customer',
-            type='customer',
-            country=self.country
+        self.customer = Customer.objects.create(
+            name='Test Customer'
+        )
+        
+        # Create segment types
+        self.segment_type_company = XX_SegmentType.objects.create(
+            segment_name='Company',
+            description='Company code'
+        )
+        self.segment_type_account = XX_SegmentType.objects.create(
+            segment_name='Account',
+            description='Account number'
+        )
+        
+        # Create segments
+        self.segment_100 = XX_Segment.objects.create(
+            segment_type=self.segment_type_company,
+            code='100',
+            alias='Main Company',
+            node_type='detail'
+        )
+        self.segment_1100 = XX_Segment.objects.create(
+            segment_type=self.segment_type_account,
+            code='1100',
+            alias='Accounts Receivable',
+            node_type='detail'
+        )
+        self.segment_4000 = XX_Segment.objects.create(
+            segment_type=self.segment_type_account,
+            code='4000',
+            alias='Revenue',
+            node_type='detail'
         )
         
         # Create January 2026 period with AR open, GL open
@@ -84,7 +113,8 @@ class ARInvoicePeriodIntegrationTest(APITestCase):
             'total': '1100.00',
             'items': [
                 {
-                    'description': 'Test Item',
+                    'name': 'Test Item',
+                    'description': 'Test Item Description',
                     'quantity': 1,
                     'unit_price': '1000.00',
                     'line_total': '1000.00'
@@ -99,16 +129,16 @@ class ARInvoicePeriodIntegrationTest(APITestCase):
                         'amount': '1100.00',
                         'type': 'DEBIT',
                         'segments': [
-                            {'segment_type_id': 1, 'segment_code': '100'},
-                            {'segment_type_id': 2, 'segment_code': '1100'}
+                            {'segment_type_id': self.segment_type_company.id, 'segment_code': '100'},
+                            {'segment_type_id': self.segment_type_account.id, 'segment_code': '1100'}
                         ]
                     },
                     {
                         'amount': '1100.00',
                         'type': 'CREDIT',
                         'segments': [
-                            {'segment_type_id': 1, 'segment_code': '100'},
-                            {'segment_type_id': 2, 'segment_code': '4000'}
+                            {'segment_type_id': self.segment_type_company.id, 'segment_code': '100'},
+                            {'segment_type_id': self.segment_type_account.id, 'segment_code': '4000'}
                         ]
                     }
                 ]
@@ -116,6 +146,9 @@ class ARInvoicePeriodIntegrationTest(APITestCase):
         }
         
         response = self.client.post('/finance/invoice/ar/', data, format='json')
+        if response.status_code != status.HTTP_201_CREATED:
+            print(f"AR Invoice creation failed with status {response.status_code}")
+            print(f"Response data: {response.data}")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIn('invoice_id', response.data)
     
@@ -130,7 +163,8 @@ class ARInvoicePeriodIntegrationTest(APITestCase):
             'total': '1100.00',
             'items': [
                 {
-                    'description': 'Test Item',
+                    'name': 'Test Item',
+                    'description': 'Test Item Description',
                     'quantity': 1,
                     'unit_price': '1000.00',
                     'line_total': '1000.00'
@@ -176,7 +210,8 @@ class ARInvoicePeriodIntegrationTest(APITestCase):
             'total': '1100.00',
             'items': [
                 {
-                    'description': 'Test Item',
+                    'name': 'Test Item',
+                    'description': 'Test Item Description',
                     'quantity': 1,
                     'unit_price': '1000.00',
                     'line_total': '1000.00'
@@ -239,10 +274,38 @@ class APInvoicePeriodIntegrationTest(APITestCase):
         )
         
         # Create supplier
-        self.supplier = BusinessPartner.objects.create(
-            name='Test Supplier',
-            type='supplier',
-            country=self.country
+        self.supplier = Supplier.objects.create(
+            name='Test Supplier'
+        )
+        
+        # Create segment types
+        self.segment_type_company = XX_SegmentType.objects.create(
+            segment_name='Company',
+            description='Company code'
+        )
+        self.segment_type_account = XX_SegmentType.objects.create(
+            segment_name='Account',
+            description='Account number'
+        )
+        
+        # Create segments
+        self.segment_100 = XX_Segment.objects.create(
+            segment_type=self.segment_type_company,
+            code='100',
+            alias='Main Company',
+            node_type='detail'
+        )
+        self.segment_5000 = XX_Segment.objects.create(
+            segment_type=self.segment_type_account,
+            code='5000',
+            alias='Expenses',
+            node_type='detail'
+        )
+        self.segment_2100 = XX_Segment.objects.create(
+            segment_type=self.segment_type_account,
+            code='2100',
+            alias='Accounts Payable',
+            node_type='detail'
         )
         
         # Create January 2026 period with AP open, GL open
@@ -279,7 +342,8 @@ class APInvoicePeriodIntegrationTest(APITestCase):
             'total': '1100.00',
             'items': [
                 {
-                    'description': 'Test Item',
+                    'name': 'Test Item',
+                    'description': 'Test Item Description',
                     'quantity': 1,
                     'unit_price': '1000.00',
                     'line_total': '1000.00'
@@ -294,16 +358,16 @@ class APInvoicePeriodIntegrationTest(APITestCase):
                         'amount': '1100.00',
                         'type': 'DEBIT',
                         'segments': [
-                            {'segment_type_id': 1, 'segment_code': '100'},
-                            {'segment_type_id': 2, 'segment_code': '5000'}
+                            {'segment_type_id': self.segment_type_company.id, 'segment_code': '100'},
+                            {'segment_type_id': self.segment_type_account.id, 'segment_code': '5000'}
                         ]
                     },
                     {
                         'amount': '1100.00',
                         'type': 'CREDIT',
                         'segments': [
-                            {'segment_type_id': 1, 'segment_code': '100'},
-                            {'segment_type_id': 2, 'segment_code': '2100'}
+                            {'segment_type_id': self.segment_type_company.id, 'segment_code': '100'},
+                            {'segment_type_id': self.segment_type_account.id, 'segment_code': '2100'}
                         ]
                     }
                 ]
@@ -311,6 +375,9 @@ class APInvoicePeriodIntegrationTest(APITestCase):
         }
         
         response = self.client.post('/finance/invoice/ap/', data, format='json')
+        if response.status_code != status.HTTP_201_CREATED:
+            print(f"AP Invoice creation failed with status {response.status_code}")
+            print(f"Response data: {response.data}")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIn('invoice_id', response.data)
     
@@ -325,7 +392,8 @@ class APInvoicePeriodIntegrationTest(APITestCase):
             'total': '1100.00',
             'items': [
                 {
-                    'description': 'Test Item',
+                    'name': 'Test Item',
+                    'description': 'Test Item Description',
                     'quantity': 1,
                     'unit_price': '1000.00',
                     'line_total': '1000.00'

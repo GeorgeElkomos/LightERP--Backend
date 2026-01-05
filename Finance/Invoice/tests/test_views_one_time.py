@@ -29,6 +29,7 @@ from Finance.Invoice.models import OneTimeSupplier, Invoice, InvoiceItem
 from Finance.core.models import Currency, Country
 from Finance.BusinessPartner.models import OneTime
 from Finance.GL.models import JournalEntry, XX_SegmentType, XX_Segment, XX_Segment_combination, JournalLine
+from Finance.period.models import Period
 
 
 class OneTimeSupplierInvoiceCreateTests(TestCase):
@@ -46,6 +47,19 @@ class OneTimeSupplierInvoiceCreateTests(TestCase):
             is_base_currency=True,
             exchange_rate_to_base_currency=Decimal('1.00')
         )
+        
+        # Create January 2026 period with AP and GL open
+        self.period = Period.objects.create(
+            name='January 2026',
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 31),
+            fiscal_year=2026,
+            period_number=1
+        )
+        self.period.ap_period.state = 'open'
+        self.period.ap_period.save()
+        self.period.gl_period.state = 'open'
+        self.period.gl_period.save()
         
         # Create country
         self.country = Country.objects.create(
@@ -620,19 +634,32 @@ class OneTimeSupplierInvoicePostToGLTests(TestCase):
         currency = Currency.objects.create(code='USD', name='US Dollar', symbol='$', is_base_currency=True)
         country = Country.objects.create(code='US', name='United States')
         
+        # Create January 2026 period with AP and GL open
+        self.period = Period.objects.create(
+            name='January 2026',
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 31),
+            fiscal_year=2026,
+            period_number=1
+        )
+        self.period.ap_period.state = 'open'
+        self.period.ap_period.save()
+        self.period.gl_period.state = 'open'
+        self.period.gl_period.save()
+        
         # Create OneTime business partners
         test_partner = OneTime.objects.create(name='Test Vendor')
         draft_partner = OneTime.objects.create(name='Draft Vendor')
         
         # Approved invoice with unposted journal
         self.journal = JournalEntry.objects.create(
-            date=date.today(),
+            date=date(2026, 1, 15),
             currency=currency,
             memo='Test Unposted',
             posted=False
         )
         self.approved_invoice = OneTimeSupplier.objects.create(
-            date=date.today(),
+            date=date(2026, 1, 15),
             currency=currency,
             country=country,
             subtotal=Decimal('500.00'),
@@ -644,13 +671,13 @@ class OneTimeSupplierInvoicePostToGLTests(TestCase):
         
         # Draft invoice (not approved)
         journal2 = JournalEntry.objects.create(
-            date=date.today(),
+            date=date(2026, 1, 15),
             currency=currency,
             memo='Draft',
             posted=False
         )
         self.draft_invoice = OneTimeSupplier.objects.create(
-            date=date.today(),
+            date=date(2026, 1, 15),
             currency=currency,
             country=country,
             subtotal=Decimal('1000.00'),
