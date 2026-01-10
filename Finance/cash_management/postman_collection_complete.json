@@ -1,0 +1,958 @@
+{
+	"info": {
+		"_postman_id": "cash-management-complete-api",
+		"name": "Cash Management API - Complete",
+		"description": "Complete API collection for Cash Management module including Bank, Branch, Account, Transactions, Statements, and Reconciliation",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "bank_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "branch_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "account_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "transaction_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "statement_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "reconciliation_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "country_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "currency_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "gl_combination_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "payment_id",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{token}}",
+				"type": "string"
+			}
+		]
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('token', jsonData.access);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"admin\",\n    \"password\": \"admin123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login/",
+							"host": ["{{base_url}}"],
+							"path": ["api", "auth", "login", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Bank",
+			"item": [
+				{
+					"name": "List Banks",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/banks/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "banks", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Bank",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('bank_id', jsonData.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"bank_name\": \"Test Bank\",\n    \"bank_code\": \"TBANK001\",\n    \"country\": {{country_id}},\n    \"address\": \"123 Main Street\",\n    \"phone\": \"+1234567890\",\n    \"email\": \"info@testbank.com\",\n    \"website\": \"https://testbank.com\",\n    \"swift_code\": \"TBANKTST\",\n    \"routing_number\": \"123456789\",\n    \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash/banks/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "banks", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Bank Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/banks/{{bank_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "banks", "{{bank_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Bank",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"phone\": \"+1234567899\",\n    \"email\": \"contact@testbank.com\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash/banks/{{bank_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "banks", "{{bank_id}}", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Bank Branch",
+			"item": [
+				{
+					"name": "List Branches",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/branches/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "branches", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Branch",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('branch_id', jsonData.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"bank\": {{bank_id}},\n    \"branch_name\": \"Downtown Branch\",\n    \"branch_code\": \"DT001\",\n    \"address\": \"456 Downtown Ave\",\n    \"city\": \"New York\",\n    \"postal_code\": \"10001\",\n    \"country\": {{country_id}},\n    \"phone\": \"+1234567891\",\n    \"email\": \"downtown@testbank.com\",\n    \"manager_name\": \"John Manager\",\n    \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash/branches/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "branches", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Branch Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/branches/{{branch_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "branches", "{{branch_id}}", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Bank Account",
+			"item": [
+				{
+					"name": "List Accounts",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/accounts/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "accounts", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Account",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('account_id', jsonData.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"branch\": {{branch_id}},\n    \"account_number\": \"ACC123456789\",\n    \"account_name\": \"Company Operating Account\",\n    \"account_type\": \"CURRENT\",\n    \"currency\": {{currency_id}},\n    \"opening_balance\": \"10000.00\",\n    \"current_balance\": \"10000.00\",\n    \"iban\": \"US12345678901234567890\",\n    \"cash_GL_combination\": {{gl_combination_id}},\n    \"cash_clearing_GL_combination\": {{gl_combination_id}},\n    \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash/accounts/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "accounts", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Account Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/accounts/{{account_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "accounts", "{{account_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Account Balance",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/accounts/{{account_id}}/balance/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "accounts", "{{account_id}}", "balance", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Bank Transaction",
+			"item": [
+				{
+					"name": "List Transactions",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/transactions/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "transactions", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Transactions - By Account",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/transactions/?bank_account={{account_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "transactions", ""],
+							"query": [
+								{
+									"key": "bank_account",
+									"value": "{{account_id}}"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Transactions - Unreconciled",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/transactions/?reconciliation_status=UNRECONCILED",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "transactions", ""],
+							"query": [
+								{
+									"key": "reconciliation_status",
+									"value": "UNRECONCILED"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Transaction - Credit",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('transaction_id', jsonData.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"bank_account\": {{account_id}},\n    \"transaction_date\": \"2026-01-06\",\n    \"value_date\": \"2026-01-06\",\n    \"transaction_type\": \"CREDIT\",\n    \"amount\": \"5000.00\",\n    \"balance_after_transaction\": \"15000.00\",\n    \"reference_number\": \"REF-20260106-001\",\n    \"description\": \"Customer payment received\",\n    \"source\": \"PAYMENT\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash/transactions/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "transactions", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Transaction - Debit",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"bank_account\": {{account_id}},\n    \"transaction_date\": \"2026-01-06\",\n    \"value_date\": \"2026-01-06\",\n    \"transaction_type\": \"DEBIT\",\n    \"amount\": \"2000.00\",\n    \"balance_after_transaction\": \"13000.00\",\n    \"reference_number\": \"REF-20260106-002\",\n    \"description\": \"Supplier payment\",\n    \"source\": \"PAYMENT\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash/transactions/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "transactions", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Transaction Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/transactions/{{transaction_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "transactions", "{{transaction_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Mark Transaction as Reconciled",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"reconciliation_date\": \"2026-01-06\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash/transactions/{{transaction_id}}/reconcile/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "transactions", "{{transaction_id}}", "reconcile", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Mark Transaction as Unreconciled",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/transactions/{{transaction_id}}/unreconcile/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "transactions", "{{transaction_id}}", "unreconcile", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Void Transaction",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"reason\": \"Incorrect transaction posted\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash/transactions/{{transaction_id}}/void/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "transactions", "{{transaction_id}}", "void", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Bank Statement",
+			"item": [
+				{
+					"name": "List Statements",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/statements/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "statements", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Statements - By Account",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/statements/?bank_account={{account_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "statements", ""],
+							"query": [
+								{
+									"key": "bank_account",
+									"value": "{{account_id}}"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Statements - Pending",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/statements/?reconciliation_status=PENDING",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "statements", ""],
+							"query": [
+								{
+									"key": "reconciliation_status",
+									"value": "PENDING"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Statement",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('statement_id', jsonData.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"bank_account\": {{account_id}},\n    \"statement_number\": \"STMT-202601\",\n    \"statement_date\": \"2026-01-31\",\n    \"from_date\": \"2026-01-01\",\n    \"to_date\": \"2026-01-31\",\n    \"opening_balance\": \"10000.00\",\n    \"closing_balance\": \"13000.00\",\n    \"transaction_count\": 2,\n    \"total_debits\": \"2000.00\",\n    \"total_credits\": \"5000.00\",\n    \"reconciliation_status\": \"PENDING\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash/statements/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "statements", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Statement Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/statements/{{statement_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "statements", "{{statement_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Calculate Statement Totals",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/statements/{{statement_id}}/calculate_totals/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "statements", "{{statement_id}}", "calculate_totals", ""]
+						},
+						"description": "Automatically calculate totals from related transactions"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Unreconciled Transactions",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/statements/{{statement_id}}/unreconciled_transactions/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "statements", "{{statement_id}}", "unreconciled_transactions", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Reconciliation Percentage",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/statements/{{statement_id}}/reconciliation_percentage/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "statements", "{{statement_id}}", "reconciliation_percentage", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Mark Statement as Completed",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/statements/{{statement_id}}/mark_completed/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "statements", "{{statement_id}}", "mark_completed", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Mark Statement as Approved",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/statements/{{statement_id}}/mark_approved/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "statements", "{{statement_id}}", "mark_approved", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Bank Reconciliation",
+			"item": [
+				{
+					"name": "List Reconciliations",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/reconciliations/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "reconciliations", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Reconciliation",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('reconciliation_id', jsonData.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"bank_statement\": {{statement_id}},\n    \"reconciliation_date\": \"2026-01-06\",\n    \"status\": \"IN_PROGRESS\",\n    \"matched_count\": 0,\n    \"unmatched_bank_count\": 0,\n    \"unmatched_system_count\": 0,\n    \"discrepancy_amount\": \"0.00\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash/reconciliations/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "reconciliations", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Reconciliation Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/reconciliations/{{reconciliation_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "reconciliations", "{{reconciliation_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Calculate Reconciliation Statistics",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/reconciliations/{{reconciliation_id}}/calculate_statistics/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "reconciliations", "{{reconciliation_id}}", "calculate_statistics", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Complete Reconciliation",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/reconciliations/{{reconciliation_id}}/complete/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "reconciliations", "{{reconciliation_id}}", "complete", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Approve Reconciliation",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/reconciliations/{{reconciliation_id}}/approve/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "reconciliations", "{{reconciliation_id}}", "approve", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Reject Reconciliation",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"reason\": \"Discrepancies found that need investigation\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash/reconciliations/{{reconciliation_id}}/reject/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "reconciliations", "{{reconciliation_id}}", "reject", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Transaction Matching",
+			"item": [
+				{
+					"name": "List Transaction Matches",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/transaction-matches/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "transaction-matches", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Transaction Match",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"reconciliation\": {{reconciliation_id}},\n    \"bank_transaction\": {{transaction_id}},\n    \"payment\": {{payment_id}},\n    \"match_status\": \"MATCHED\",\n    \"match_type\": \"EXACT\",\n    \"confidence_score\": \"100.00\",\n    \"discrepancy_amount\": \"0.00\",\n    \"notes\": \"Exact match on amount, date, and reference\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash/transaction-matches/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "transaction-matches", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Manual Match",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"reconciliation\": {{reconciliation_id}},\n    \"bank_transaction\": {{transaction_id}},\n    \"payment\": {{payment_id}},\n    \"match_status\": \"MATCHED\",\n    \"match_type\": \"MANUAL\",\n    \"confidence_score\": \"80.00\",\n    \"discrepancy_amount\": \"0.00\",\n    \"notes\": \"Manually matched by reconciliation team\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash/transaction-matches/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "transaction-matches", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Reports & Analytics",
+			"item": [
+				{
+					"name": "Account Transaction Summary",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/accounts/{{account_id}}/transaction_summary/?from_date=2026-01-01&to_date=2026-01-31",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "accounts", "{{account_id}}", "transaction_summary", ""],
+							"query": [
+								{
+									"key": "from_date",
+									"value": "2026-01-01"
+								},
+								{
+									"key": "to_date",
+									"value": "2026-01-31"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Bank Summary Report",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/banks/{{bank_id}}/summary/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "banks", "{{bank_id}}", "summary", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Branch Summary Report",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash/branches/{{branch_id}}/summary/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash", "branches", "{{branch_id}}", "summary", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}

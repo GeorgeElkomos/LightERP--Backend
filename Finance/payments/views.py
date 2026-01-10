@@ -53,7 +53,11 @@ def payment_list(request):
     - Query params:
         - business_partner_id: Filter by business partner
         - currency_id: Filter by currency
+        - payment_type: Filter by payment type (PAYMENT/RECEIPT)
+        - payment_method_id: Filter by payment method
+        - bank_account_id: Filter by bank account
         - approval_status: Filter by status (DRAFT/APPROVED/REJECTED)
+        - reconciliation_status: Filter by reconciliation status (UNRECONCILED/RECONCILED)
         - date_from: Filter by date range start
         - date_to: Filter by date range end
         - has_allocations: Filter by allocation status (true/false)
@@ -66,7 +70,10 @@ def payment_list(request):
         payments = Payment.objects.select_related(
             'business_partner',
             'currency',
-            'gl_entry'
+            'payment_method',
+            'bank_account',
+            'gl_entry',
+            'reconciled_by'
         ).prefetch_related('allocations').all()
         
         # Apply filters
@@ -78,9 +85,25 @@ def payment_list(request):
         if currency_id:
             payments = payments.filter(currency_id=currency_id)
         
+        payment_type = request.query_params.get('payment_type')
+        if payment_type:
+            payments = payments.filter(payment_type=payment_type.upper())
+        
+        payment_method_id = request.query_params.get('payment_method_id')
+        if payment_method_id:
+            payments = payments.filter(payment_method_id=payment_method_id)
+        
+        bank_account_id = request.query_params.get('bank_account_id')
+        if bank_account_id:
+            payments = payments.filter(bank_account_id=bank_account_id)
+        
         approval_status = request.query_params.get('approval_status')
         if approval_status:
             payments = payments.filter(approval_status=approval_status.upper())
+        
+        reconciliation_status = request.query_params.get('reconciliation_status')
+        if reconciliation_status:
+            payments = payments.filter(reconciliation_status=reconciliation_status.upper())
         
         date_from = request.query_params.get('date_from')
         if date_from:
@@ -132,7 +155,7 @@ def payment_detail(request, pk):
     - Returns detailed payment information with allocations
     
     PUT/PATCH /payments/{id}/
-    - Update payment fields (date, exchange_rate, approval_status, rejection_reason)
+    - Update payment fields (payment_type, date, exchange_rate, payment_method, bank_account, approval_status, rejection_reason)
     - Cannot modify business_partner or currency after creation
     
     DELETE /payments/{id}/

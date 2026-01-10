@@ -1,0 +1,1618 @@
+{
+	"info": {
+		"_postman_id": "cash-mgmt-api-2026",
+		"name": "Cash Management API - Complete Collection",
+		"description": "Complete API collection for Cash Management module including Payment Types, Banks, Branches, Accounts, Statements, Statement Lines, and Matches",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{auth_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "payment_type_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "bank_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "branch_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "account_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "statement_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "statement_line_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "match_id",
+			"value": "1",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "Payment Types",
+			"item": [
+				{
+					"name": "List All Payment Types",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/payment-types/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "payment-types", ""]
+						},
+						"description": "Get list of all payment types/methods"
+					}
+				},
+				{
+					"name": "List Payment Types - Filtered",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/payment-types/?is_active=true&enable_reconcile=true&search=wire",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "payment-types", ""],
+							"query": [
+								{
+									"key": "is_active",
+									"value": "true",
+									"description": "Filter by active status"
+								},
+								{
+									"key": "enable_reconcile",
+									"value": "true",
+									"description": "Filter by reconcile enabled"
+								},
+								{
+									"key": "search",
+									"value": "wire",
+									"description": "Search by code or name"
+								}
+							]
+						},
+						"description": "Get filtered list of payment types"
+					}
+				},
+				{
+					"name": "Create Payment Type",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"payment_method_code\": \"WIRE\",\n    \"payment_method_name\": \"Wire Transfer\",\n    \"description\": \"Electronic wire transfer between banks\",\n    \"enable_reconcile\": true,\n    \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/payment-types/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "payment-types", ""]
+						},
+						"description": "Create a new payment type"
+					}
+				},
+				{
+					"name": "Get Payment Type Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/payment-types/{{payment_type_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "payment-types", "{{payment_type_id}}", ""]
+						},
+						"description": "Get details of a specific payment type"
+					}
+				},
+				{
+					"name": "Update Payment Type (PUT)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"payment_method_code\": \"WIRE\",\n    \"payment_method_name\": \"Wire Transfer - Updated\",\n    \"description\": \"Electronic wire transfer between banks - International\",\n    \"enable_reconcile\": true,\n    \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/payment-types/{{payment_type_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "payment-types", "{{payment_type_id}}", ""]
+						},
+						"description": "Full update of payment type"
+					}
+				},
+				{
+					"name": "Update Payment Type (PATCH)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"is_active\": false\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/payment-types/{{payment_type_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "payment-types", "{{payment_type_id}}", ""]
+						},
+						"description": "Partial update of payment type"
+					}
+				},
+				{
+					"name": "Delete Payment Type",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/payment-types/{{payment_type_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "payment-types", "{{payment_type_id}}", ""]
+						},
+						"description": "Delete a payment type"
+					}
+				}
+			]
+		},
+		{
+			"name": "Banks",
+			"item": [
+				{
+					"name": "List All Banks",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/banks/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "banks", ""]
+						},
+						"description": "Get list of all banks"
+					}
+				},
+				{
+					"name": "List Banks - Filtered",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/banks/?country=1&is_active=true&search=national",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "banks", ""],
+							"query": [
+								{
+									"key": "country",
+									"value": "1",
+									"description": "Filter by country ID"
+								},
+								{
+									"key": "is_active",
+									"value": "true",
+									"description": "Filter by active status"
+								},
+								{
+									"key": "search",
+									"value": "national",
+									"description": "Search by name, code, or SWIFT code"
+								}
+							]
+						},
+						"description": "Get filtered list of banks"
+					}
+				},
+				{
+					"name": "Create Bank",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"bank_name\": \"National Bank of Commerce\",\n    \"bank_code\": \"NBC001\",\n    \"country\": 1,\n    \"address\": \"123 Main Street, Downtown\",\n    \"phone\": \"+1-555-0100\",\n    \"email\": \"info@nationalbank.com\",\n    \"website\": \"https://www.nationalbank.com\",\n    \"swift_code\": \"NBCOUS33\",\n    \"routing_number\": \"021000021\",\n    \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/banks/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "banks", ""]
+						},
+						"description": "Create a new bank"
+					}
+				},
+				{
+					"name": "Get Bank Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/banks/{{bank_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "banks", "{{bank_id}}", ""]
+						},
+						"description": "Get details of a specific bank with summary"
+					}
+				},
+				{
+					"name": "Update Bank (PUT)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"bank_name\": \"National Bank of Commerce - Updated\",\n    \"bank_code\": \"NBC001\",\n    \"country\": 1,\n    \"address\": \"123 Main Street, Suite 500, Downtown\",\n    \"phone\": \"+1-555-0100\",\n    \"email\": \"contact@nationalbank.com\",\n    \"website\": \"https://www.nationalbank.com\",\n    \"swift_code\": \"NBCOUS33\",\n    \"routing_number\": \"021000021\",\n    \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/banks/{{bank_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "banks", "{{bank_id}}", ""]
+						},
+						"description": "Full update of bank"
+					}
+				},
+				{
+					"name": "Update Bank (PATCH)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"phone\": \"+1-555-0199\",\n    \"email\": \"support@nationalbank.com\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/banks/{{bank_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "banks", "{{bank_id}}", ""]
+						},
+						"description": "Partial update of bank"
+					}
+				},
+				{
+					"name": "Delete Bank",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/banks/{{bank_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "banks", "{{bank_id}}", ""]
+						},
+						"description": "Delete a bank"
+					}
+				},
+				{
+					"name": "Get Bank Summary",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/banks/{{bank_id}}/summary/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "banks", "{{bank_id}}", "summary", ""]
+						},
+						"description": "Get bank statistics and summary"
+					}
+				},
+				{
+					"name": "Activate Bank",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/banks/{{bank_id}}/activate/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "banks", "{{bank_id}}", "activate", ""]
+						},
+						"description": "Activate a bank"
+					}
+				},
+				{
+					"name": "Deactivate Bank",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/banks/{{bank_id}}/deactivate/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "banks", "{{bank_id}}", "deactivate", ""]
+						},
+						"description": "Deactivate a bank"
+					}
+				},
+				{
+					"name": "Get Bank Branches",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/banks/{{bank_id}}/branches/?active_only=true",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "banks", "{{bank_id}}", "branches", ""],
+							"query": [
+								{
+									"key": "active_only",
+									"value": "true",
+									"description": "Return only active branches"
+								}
+							]
+						},
+						"description": "Get all branches for this bank"
+					}
+				},
+				{
+					"name": "Get Bank Accounts",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/banks/{{bank_id}}/accounts/?active_only=true",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "banks", "{{bank_id}}", "accounts", ""],
+							"query": [
+								{
+									"key": "active_only",
+									"value": "true",
+									"description": "Return only active accounts"
+								}
+							]
+						},
+						"description": "Get all accounts across all branches for this bank"
+					}
+				}
+			]
+		},
+		{
+			"name": "Bank Branches",
+			"item": [
+				{
+					"name": "List All Branches",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/branches/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "branches", ""]
+						},
+						"description": "Get list of all bank branches"
+					}
+				},
+				{
+					"name": "List Branches - Filtered",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/branches/?bank=1&is_active=true&country=1&city=New York&search=downtown",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "branches", ""],
+							"query": [
+								{
+									"key": "bank",
+									"value": "1",
+									"description": "Filter by bank ID"
+								},
+								{
+									"key": "is_active",
+									"value": "true",
+									"description": "Filter by active status"
+								},
+								{
+									"key": "country",
+									"value": "1",
+									"description": "Filter by country ID"
+								},
+								{
+									"key": "city",
+									"value": "New York",
+									"description": "Filter by city"
+								},
+								{
+									"key": "search",
+									"value": "downtown",
+									"description": "Search by name, code, city, or SWIFT code"
+								}
+							]
+						},
+						"description": "Get filtered list of branches"
+					}
+				},
+				{
+					"name": "Create Branch",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"bank\": 1,\n    \"branch_name\": \"Downtown Branch\",\n    \"branch_code\": \"BR001\",\n    \"country\": 1,\n    \"city\": \"New York\",\n    \"address\": \"456 Wall Street\",\n    \"postal_code\": \"10005\",\n    \"phone\": \"+1-555-0200\",\n    \"email\": \"downtown@nationalbank.com\",\n    \"manager_name\": \"John Smith\",\n    \"manager_phone\": \"+1-555-0201\",\n    \"manager_email\": \"john.smith@nationalbank.com\",\n    \"swift_code\": \"NBCOUS33XXX\",\n    \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/branches/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "branches", ""]
+						},
+						"description": "Create a new bank branch"
+					}
+				},
+				{
+					"name": "Get Branch Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/branches/{{branch_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "branches", "{{branch_id}}", ""]
+						},
+						"description": "Get details of a specific branch"
+					}
+				},
+				{
+					"name": "Update Branch (PUT)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"bank\": 1,\n    \"branch_name\": \"Downtown Branch - Main\",\n    \"branch_code\": \"BR001\",\n    \"country\": 1,\n    \"city\": \"New York\",\n    \"address\": \"456 Wall Street, Floor 10\",\n    \"postal_code\": \"10005\",\n    \"phone\": \"+1-555-0200\",\n    \"email\": \"downtown@nationalbank.com\",\n    \"manager_name\": \"John Smith\",\n    \"manager_phone\": \"+1-555-0201\",\n    \"manager_email\": \"john.smith@nationalbank.com\",\n    \"swift_code\": \"NBCOUS33XXX\",\n    \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/branches/{{branch_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "branches", "{{branch_id}}", ""]
+						},
+						"description": "Full update of branch"
+					}
+				},
+				{
+					"name": "Update Branch (PATCH)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"manager_name\": \"Jane Doe\",\n    \"manager_email\": \"jane.doe@nationalbank.com\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/branches/{{branch_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "branches", "{{branch_id}}", ""]
+						},
+						"description": "Partial update of branch"
+					}
+				},
+				{
+					"name": "Delete Branch",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/branches/{{branch_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "branches", "{{branch_id}}", ""]
+						},
+						"description": "Delete a branch"
+					}
+				},
+				{
+					"name": "Get Branch Summary",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/branches/{{branch_id}}/summary/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "branches", "{{branch_id}}", "summary", ""]
+						},
+						"description": "Get branch statistics"
+					}
+				},
+				{
+					"name": "Activate Branch",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/branches/{{branch_id}}/activate/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "branches", "{{branch_id}}", "activate", ""]
+						},
+						"description": "Activate a branch"
+					}
+				},
+				{
+					"name": "Deactivate Branch",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/branches/{{branch_id}}/deactivate/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "branches", "{{branch_id}}", "deactivate", ""]
+						},
+						"description": "Deactivate a branch"
+					}
+				},
+				{
+					"name": "Get Branch Accounts",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/branches/{{branch_id}}/accounts/?active_only=true",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "branches", "{{branch_id}}", "accounts", ""],
+							"query": [
+								{
+									"key": "active_only",
+									"value": "true",
+									"description": "Return only active accounts"
+								}
+							]
+						},
+						"description": "Get all accounts for this branch"
+					}
+				},
+				{
+					"name": "Get Branch Total Balance",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/branches/{{branch_id}}/total_balance/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "branches", "{{branch_id}}", "total_balance", ""]
+						},
+						"description": "Get total balance across all accounts"
+					}
+				}
+			]
+		},
+		{
+			"name": "Bank Accounts",
+			"item": [
+				{
+					"name": "List All Accounts",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/accounts/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "accounts", ""]
+						},
+						"description": "Get list of all bank accounts"
+					}
+				},
+				{
+					"name": "List Accounts - Filtered",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/accounts/?branch=1&is_active=true&account_type=CURRENT&currency=1&search=operating",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "accounts", ""],
+							"query": [
+								{
+									"key": "branch",
+									"value": "1",
+									"description": "Filter by branch ID"
+								},
+								{
+									"key": "is_active",
+									"value": "true",
+									"description": "Filter by active status"
+								},
+								{
+									"key": "account_type",
+									"value": "CURRENT",
+									"description": "Filter by account type (CURRENT/SAVINGS/FIXED_DEPOSIT/LOAN/OVERDRAFT)"
+								},
+								{
+									"key": "currency",
+									"value": "1",
+									"description": "Filter by currency ID"
+								},
+								{
+									"key": "search",
+									"value": "operating",
+									"description": "Search by account name or number"
+								}
+							]
+						},
+						"description": "Get filtered list of accounts"
+					}
+				},
+				{
+					"name": "Create Bank Account",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"branch\": 1,\n    \"account_number\": \"ACC1234567890\",\n    \"account_name\": \"Main Operating Account\",\n    \"account_type\": \"CURRENT\",\n    \"transction_type\": \"bank transfer\",\n    \"currency\": 1,\n    \"opening_balance\": \"50000.00\",\n    \"iban\": \"US12NBCO0210000211234567890\",\n    \"opening_date\": \"2026-01-01\",\n    \"cash_GL_combination\": 1,\n    \"cash_clearing_GL_combination\": 2,\n    \"is_active\": true,\n    \"description\": \"Main company operating account for daily transactions\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/accounts/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "accounts", ""]
+						},
+						"description": "Create a new bank account"
+					}
+				},
+				{
+					"name": "Get Account Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/accounts/{{account_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "accounts", "{{account_id}}", ""]
+						},
+						"description": "Get details of a specific account"
+					}
+				},
+				{
+					"name": "Update Account (PUT)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"branch\": 1,\n    \"account_number\": \"ACC1234567890\",\n    \"account_name\": \"Main Operating Account - USD\",\n    \"account_type\": \"CURRENT\",\n    \"transction_type\": \"bank transfer\",\n    \"currency\": 1,\n    \"opening_balance\": \"50000.00\",\n    \"iban\": \"US12NBCO0210000211234567890\",\n    \"opening_date\": \"2026-01-01\",\n    \"cash_GL_combination\": 1,\n    \"cash_clearing_GL_combination\": 2,\n    \"is_active\": true,\n    \"description\": \"Main company operating account for daily USD transactions\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/accounts/{{account_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "accounts", "{{account_id}}", ""]
+						},
+						"description": "Full update of account"
+					}
+				},
+				{
+					"name": "Update Account (PATCH)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"description\": \"Primary operating account - updated\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/accounts/{{account_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "accounts", "{{account_id}}", ""]
+						},
+						"description": "Partial update of account"
+					}
+				},
+				{
+					"name": "Delete Account",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/accounts/{{account_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "accounts", "{{account_id}}", ""]
+						},
+						"description": "Delete an account"
+					}
+				},
+				{
+					"name": "Update Account Balance",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"new_balance\": \"75000.00\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/accounts/{{account_id}}/update_balance/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "accounts", "{{account_id}}", "update_balance", ""]
+						},
+						"description": "Update account balance"
+					}
+				},
+				{
+					"name": "Get Account Statements",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/accounts/{{account_id}}/statements/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "accounts", "{{account_id}}", "statements", ""]
+						},
+						"description": "Get all statements for this account"
+					}
+				}
+			]
+		},
+		{
+			"name": "Bank Statements",
+			"item": [
+				{
+					"name": "List All Statements",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/statements/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "statements", ""]
+						},
+						"description": "Get list of all bank statements"
+					}
+				},
+				{
+					"name": "List Statements - Filtered",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/statements/?bank_account=1&reconciliation_status=UNRECONCILED&date_from=2026-01-01&date_to=2026-01-31",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "statements", ""],
+							"query": [
+								{
+									"key": "bank_account",
+									"value": "1",
+									"description": "Filter by bank account ID"
+								},
+								{
+									"key": "reconciliation_status",
+									"value": "UNRECONCILED",
+									"description": "Filter by reconciliation status (UNRECONCILED/PARTIALLY_RECONCILED/RECONCILED)"
+								},
+								{
+									"key": "date_from",
+									"value": "2026-01-01",
+									"description": "Filter by statement date from"
+								},
+								{
+									"key": "date_to",
+									"value": "2026-01-31",
+									"description": "Filter by statement date to"
+								}
+							]
+						},
+						"description": "Get filtered list of statements"
+					}
+				},
+				{
+					"name": "Create Statement",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"bank_account\": 1,\n    \"statement_number\": \"STMT-2026-01\",\n    \"statement_date\": \"2026-01-31\",\n    \"from_date\": \"2026-01-01\",\n    \"to_date\": \"2026-01-31\",\n    \"opening_balance\": \"50000.00\",\n    \"closing_balance\": \"48500.00\",\n    \"transaction_count\": 15,\n    \"total_debits\": \"25000.00\",\n    \"total_credits\": \"23500.00\",\n    \"import_file_name\": \"statement_jan_2026.csv\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/statements/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "statements", ""]
+						},
+						"description": "Create a new bank statement"
+					}
+				},
+				{
+					"name": "Get Statement Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/statements/{{statement_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "statements", "{{statement_id}}", ""]
+						},
+						"description": "Get details of a specific statement with lines"
+					}
+				},
+				{
+					"name": "Update Statement (PUT)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"bank_account\": 1,\n    \"statement_number\": \"STMT-2026-01\",\n    \"statement_date\": \"2026-01-31\",\n    \"from_date\": \"2026-01-01\",\n    \"to_date\": \"2026-01-31\",\n    \"opening_balance\": \"50000.00\",\n    \"closing_balance\": \"48750.00\",\n    \"transaction_count\": 16,\n    \"total_debits\": \"25000.00\",\n    \"total_credits\": \"23750.00\",\n    \"import_file_name\": \"statement_jan_2026_corrected.csv\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/statements/{{statement_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "statements", "{{statement_id}}", ""]
+						},
+						"description": "Full update of statement"
+					}
+				},
+				{
+					"name": "Update Statement (PATCH)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"closing_balance\": \"48750.00\",\n    \"total_credits\": \"23750.00\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/statements/{{statement_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "statements", "{{statement_id}}", ""]
+						},
+						"description": "Partial update of statement"
+					}
+				},
+				{
+					"name": "Delete Statement",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/statements/{{statement_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "statements", "{{statement_id}}", ""]
+						},
+						"description": "Delete a statement"
+					}
+				}
+			]
+		},
+		{
+			"name": "Statement Lines",
+			"item": [
+				{
+					"name": "List All Statement Lines",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/statement-lines/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "statement-lines", ""]
+						},
+						"description": "Get list of all statement lines"
+					}
+				},
+				{
+					"name": "List Statement Lines - Filtered",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/statement-lines/?bank_statement=1&reconciliation_status=UNRECONCILED&has_match=false",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "statement-lines", ""],
+							"query": [
+								{
+									"key": "bank_statement",
+									"value": "1",
+									"description": "Filter by bank statement ID"
+								},
+								{
+									"key": "reconciliation_status",
+									"value": "UNRECONCILED",
+									"description": "Filter by reconciliation status (UNRECONCILED/RECONCILED)"
+								},
+								{
+									"key": "has_match",
+									"value": "false",
+									"description": "Filter by match status (true/false)"
+								}
+							]
+						},
+						"description": "Get filtered list of statement lines"
+					}
+				},
+				{
+					"name": "Create Statement Line - Using Transaction Type",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"bank_statement_id\": 1,\n    \"line_number\": 1,\n    \"transaction_date\": \"2026-01-15\",\n    \"value_date\": \"2026-01-15\",\n    \"transaction_type\": \"CREDIT\",\n    \"amount\": \"1500.00\",\n    \"balance_after_transaction\": \"51500.00\",\n    \"reference_number\": \"REF001\",\n    \"description\": \"Customer payment - Invoice #1001\",\n    \"payee_payer\": \"ABC Corporation\",\n    \"notes\": \"Received via wire transfer\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/statement-lines/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "statement-lines", ""]
+						},
+						"description": "Create a statement line using transaction_type and amount"
+					}
+				},
+				{
+					"name": "Create Statement Line - Using Debit/Credit",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"bank_statement_id\": 1,\n    \"line_number\": 2,\n    \"transaction_date\": \"2026-01-16\",\n    \"value_date\": \"2026-01-16\",\n    \"debit_amount\": \"500.00\",\n    \"credit_amount\": \"0.00\",\n    \"balance_after_transaction\": \"51000.00\",\n    \"reference_number\": \"REF002\",\n    \"description\": \"Vendor payment - Supplier XYZ\",\n    \"payee_payer\": \"XYZ Supplies Ltd\",\n    \"notes\": \"Payment for invoice #SUP-5001\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/statement-lines/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "statement-lines", ""]
+						},
+						"description": "Create a statement line using debit_amount and credit_amount"
+					}
+				},
+				{
+					"name": "Get Statement Line Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/statement-lines/{{statement_line_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "statement-lines", "{{statement_line_id}}", ""]
+						},
+						"description": "Get details of a specific statement line"
+					}
+				},
+				{
+					"name": "Update Statement Line (PATCH)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"description\": \"Customer payment - Invoice #1001 - Updated\",\n    \"notes\": \"Received via wire transfer - Confirmed\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/statement-lines/{{statement_line_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "statement-lines", "{{statement_line_id}}", ""]
+						},
+						"description": "Partial update of statement line"
+					}
+				},
+				{
+					"name": "Delete Statement Line",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/statement-lines/{{statement_line_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "statement-lines", "{{statement_line_id}}", ""]
+						},
+						"description": "Delete a statement line"
+					}
+				}
+			]
+		},
+		{
+			"name": "Statement Line Matches",
+			"item": [
+				{
+					"name": "List All Matches",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/matches/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "matches", ""]
+						},
+						"description": "Get list of all statement line matches"
+					}
+				},
+				{
+					"name": "List Matches - Filtered",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/matches/?statement_line=1&payment=1&match_status=MATCHED&match_type=MANUAL",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "matches", ""],
+							"query": [
+								{
+									"key": "statement_line",
+									"value": "1",
+									"description": "Filter by statement line ID"
+								},
+								{
+									"key": "payment",
+									"value": "1",
+									"description": "Filter by payment ID"
+								},
+								{
+									"key": "match_status",
+									"value": "MATCHED",
+									"description": "Filter by match status (MATCHED/PARTIAL/UNMATCHED/MANUAL)"
+								},
+								{
+									"key": "match_type",
+									"value": "MANUAL",
+									"description": "Filter by match type (EXACT/AMOUNT_DATE/REFERENCE/DESCRIPTION/MANUAL)"
+								}
+							]
+						},
+						"description": "Get filtered list of matches"
+					}
+				},
+				{
+					"name": "Create Match - Manual",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"statement_line\": 1,\n    \"payment\": 1,\n    \"match_status\": \"MATCHED\",\n    \"match_type\": \"MANUAL\",\n    \"confidence_score\": 1.0,\n    \"discrepancy_amount\": \"0.00\",\n    \"notes\": \"Manual match confirmed by finance team\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/matches/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "matches", ""]
+						},
+						"description": "Create a manual match between statement line and payment"
+					}
+				},
+				{
+					"name": "Create Match - Exact",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"statement_line\": 2,\n    \"payment\": 2,\n    \"match_status\": \"MATCHED\",\n    \"match_type\": \"EXACT\",\n    \"confidence_score\": 1.0,\n    \"discrepancy_amount\": \"0.00\",\n    \"notes\": \"Automatic exact match - amount and reference matched\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/matches/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "matches", ""]
+						},
+						"description": "Create an exact match"
+					}
+				},
+				{
+					"name": "Create Match - Partial",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"statement_line\": 3,\n    \"payment\": 3,\n    \"match_status\": \"PARTIAL\",\n    \"match_type\": \"AMOUNT_DATE\",\n    \"confidence_score\": 0.85,\n    \"discrepancy_amount\": \"50.00\",\n    \"notes\": \"Partial match - small discrepancy in amount\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/matches/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "matches", ""]
+						},
+						"description": "Create a partial match with discrepancy"
+					}
+				},
+				{
+					"name": "Get Match Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/matches/{{match_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "matches", "{{match_id}}", ""]
+						},
+						"description": "Get details of a specific match"
+					}
+				},
+				{
+					"name": "Update Match (PATCH)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"match_status\": \"MATCHED\",\n    \"notes\": \"Discrepancy resolved - match confirmed\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/matches/{{match_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "matches", "{{match_id}}", ""]
+						},
+						"description": "Update match status or details"
+					}
+				},
+				{
+					"name": "Delete Match (Unmatch)",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/matches/{{match_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "matches", "{{match_id}}", ""]
+						},
+						"description": "Delete a match (unmatch the payment from statement line)"
+					}
+				}
+			]
+		},
+		{
+			"name": "Statement Import",
+			"description": "Excel/CSV import functionality for bank statements",
+			"item": [
+				{
+					"name": "Download Import Template",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/statements/download_template/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "statements", "download_template", ""]
+						},
+						"description": "Download Excel template for bank statement import. Template includes:\n- Instructions sheet with import guidelines\n- Statement Data sheet with required columns\n- Sample data showing correct format\n\nUse this template to format your bank statement data before importing."
+					},
+					"response": []
+				},
+				{
+					"name": "Preview Import (Validate Only)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": "/path/to/your/statement.csv",
+									"description": "CSV or Excel file (.csv, .xlsx, .xls). Max size: 10MB"
+								},
+								{
+									"key": "bank_account_id",
+									"value": "{{account_id}}",
+									"type": "text",
+									"description": "ID of the bank account for this statement"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/statements/import_preview/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "statements", "import_preview", ""]
+						},
+						"description": "Preview and validate bank statement file before importing.\n\nThis endpoint:\n- Validates file format and column structure\n- Parses all transactions\n- Shows first 10 lines as preview\n- Calculates totals\n- Reports any errors or warnings\n- DOES NOT save to database\n\nUse this to check your file is correct before doing the actual import.\n\nRequired columns (flexible names accepted):\n- Transaction Date (or Date, Trans Date, etc.)\n- Description (or Particulars, Details, etc.)\n- Either: Debit & Credit columns, OR Transaction Type & Amount\n\nOptional columns:\n- Reference Number\n- Balance\n- Value Date\n- Any other bank-specific columns\n\nResponse includes:\n- preview_data: First 10 transactions\n- summary: Total debits, credits, transaction count\n- errors: List of validation errors if any\n- warnings: List of warnings (e.g. missing references)"
+					},
+					"response": [
+						{
+							"name": "Preview Success Example",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "formdata",
+									"formdata": [
+										{
+											"key": "file",
+											"type": "file",
+											"src": "statement.csv"
+										},
+										{
+											"key": "bank_account_id",
+											"value": "1",
+											"type": "text"
+										}
+									]
+								},
+								"url": {
+									"raw": "{{base_url}}/finance/cash-management/statements/import_preview/",
+									"host": ["{{base_url}}"],
+									"path": ["finance", "cash-management", "statements", "import_preview", ""]
+								}
+							},
+							"status": "OK",
+							"code": 200,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"success\": true,\n    \"message\": \"Preview generated successfully. Found 25 transactions.\",\n    \"data\": {\n        \"preview_data\": [\n            {\n                \"line_number\": 1,\n                \"transaction_date\": \"2024-01-02\",\n                \"description\": \"Customer Payment - Invoice #1234\",\n                \"reference_number\": \"REF001\",\n                \"transaction_type\": \"CREDIT\",\n                \"amount\": \"1500.00\",\n                \"running_balance\": \"1500.00\"\n            },\n            {\n                \"line_number\": 2,\n                \"transaction_date\": \"2024-01-03\",\n                \"description\": \"Supplier Payment - PO #5678\",\n                \"reference_number\": \"REF002\",\n                \"transaction_type\": \"DEBIT\",\n                \"amount\": \"750.00\",\n                \"running_balance\": \"750.00\"\n            }\n        ],\n        \"summary\": {\n            \"total_transactions\": 25,\n            \"total_debits\": \"15000.00\",\n            \"total_credits\": \"20000.00\",\n            \"net_change\": \"5000.00\",\n            \"opening_balance\": \"0.00\",\n            \"calculated_closing_balance\": \"5000.00\"\n        },\n        \"errors\": [],\n        \"warnings\": [\n            \"Line 15: Missing reference number\"\n        ]\n    }\n}"
+						},
+						{
+							"name": "Preview Error Example",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "formdata",
+									"formdata": [
+										{
+											"key": "file",
+											"type": "file",
+											"src": "invalid_statement.csv"
+										},
+										{
+											"key": "bank_account_id",
+											"value": "1",
+											"type": "text"
+										}
+									]
+								},
+								"url": {
+									"raw": "{{base_url}}/finance/cash-management/statements/import_preview/",
+									"host": ["{{base_url}}"],
+									"path": ["finance", "cash-management", "statements", "import_preview", ""]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"success\": false,\n    \"message\": \"Validation failed. Please fix errors and try again.\",\n    \"data\": {\n        \"errors\": [\n            \"Required column 'Transaction Date' not found in file\",\n            \"Required column 'Description' not found in file\",\n            \"Line 5: Invalid date format 'invalid-date'\",\n            \"Line 12: Missing amount value\"\n        ]\n    }\n}"
+						}
+					]
+				},
+				{
+					"name": "Import Statement (Full Import)",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": "/path/to/your/statement.csv",
+									"description": "CSV or Excel file (.csv, .xlsx, .xls). Max size: 10MB"
+								},
+								{
+									"key": "bank_account_id",
+									"value": "{{account_id}}",
+									"type": "text",
+									"description": "ID of the bank account (required)"
+								},
+								{
+									"key": "statement_number",
+									"value": "STMT-2024-001",
+									"type": "text",
+									"description": "Unique statement number (required)"
+								},
+								{
+									"key": "statement_date",
+									"value": "2024-01-31",
+									"type": "text",
+									"description": "Statement date in YYYY-MM-DD format (required)"
+								},
+								{
+									"key": "opening_balance",
+									"value": "0.00",
+									"type": "text",
+									"description": "Opening balance (optional)"
+								},
+								{
+									"key": "closing_balance",
+									"value": "5000.00",
+									"type": "text",
+									"description": "Closing balance (optional, will be compared with calculated)"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/cash-management/statements/import_statement/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "cash-management", "statements", "import_statement", ""]
+						},
+						"description": "Import bank statement from Excel or CSV file.\n\n**HOW IT WORKS:**\n\n1. **Upload File**: Send CSV or Excel file with statement transactions\n2. **Parse Data**: System reads file using pandas, handles multiple formats\n3. **Column Mapping**: Flexible mapping handles different bank export formats\n   - Transaction Date: Accepts 'Date', 'Trans Date', 'Value Date', etc.\n   - Description: Accepts 'Particulars', 'Details', 'Narrative', etc.\n   - Amounts: Handles Debit/Credit columns OR Type+Amount column\n4. **Validate**: Each row validated for:\n   - Valid dates (8 different format patterns supported)\n   - Valid amounts (handles currency symbols, commas, negatives)\n   - Required fields present\n   - Transaction types correct\n5. **Database Transaction**: Uses atomic transaction - if ANY error, nothing saves\n6. **Create Records**: Creates BankStatement + all BankStatementLines\n7. **Return Summary**: Success message with created statement and summary\n\n**File Format Requirements:**\n\nRequired Columns (flexible names):\n- **Transaction Date**: Date of transaction\n- **Description**: Transaction details/particulars\n- **Amount Info**: EITHER:\n  - Debit + Credit columns (separate columns for debits/credits)\n  - OR Transaction Type + Amount (single amount column with type)\n\nOptional Columns:\n- Reference Number\n- Balance (running balance)\n- Value Date\n- Cheque Number\n- Any additional bank-specific columns\n\n**Supported File Formats:**\n- CSV (.csv)\n- Excel 2007+ (.xlsx)\n- Excel 97-2003 (.xls)\n- Max file size: 10MB\n\n**Column Name Variations Supported:**\n- Date: transaction_date, trans_date, date, value_date, posting_date\n- Description: description, particulars, details, narrative, remarks\n- Debit: debit, dr, withdrawal, debit_amount\n- Credit: credit, cr, deposit, credit_amount\n- Reference: reference, ref_no, reference_number, transaction_ref\n\n**Date Format Support:**\n- ISO: 2024-01-15, 2024.01.15\n- US: 01/15/2024, 01-15-2024\n- UK/European: 15/01/2024, 15-01-2024, 15.01.2024\n\n**Response Structure:**\n```json\n{\n    \"success\": true,\n    \"message\": \"Statement imported successfully\",\n    \"data\": {\n        \"statement\": { /* Statement object */ },\n        \"lines_created\": 25,\n        \"summary\": {\n            \"total_debits\": \"15000.00\",\n            \"total_credits\": \"20000.00\",\n            \"net_change\": \"5000.00\",\n            \"errors\": [],\n            \"warnings\": []\n        }\n    }\n}\n```\n\n**Error Handling:**\n- File format errors: 400 Bad Request\n- Validation errors: 400 with detailed error list\n- Duplicate statement number: 400\n- Missing required fields: 400\n- Server errors: 500 with error message"
+					},
+					"response": [
+						{
+							"name": "Import Success Example",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "formdata",
+									"formdata": [
+										{
+											"key": "file",
+											"type": "file",
+											"src": "statement.csv"
+										},
+										{
+											"key": "bank_account_id",
+											"value": "1",
+											"type": "text"
+										},
+										{
+											"key": "statement_number",
+											"value": "STMT-2024-001",
+											"type": "text"
+										},
+										{
+											"key": "statement_date",
+											"value": "2024-01-31",
+											"type": "text"
+										},
+										{
+											"key": "opening_balance",
+											"value": "0.00",
+											"type": "text"
+										},
+										{
+											"key": "closing_balance",
+											"value": "5000.00",
+											"type": "text"
+										}
+									]
+								},
+								"url": {
+									"raw": "{{base_url}}/finance/cash-management/statements/import_statement/",
+									"host": ["{{base_url}}"],
+									"path": ["finance", "cash-management", "statements", "import_statement", ""]
+								}
+							},
+							"status": "Created",
+							"code": 201,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"success\": true,\n    \"message\": \"Statement imported successfully. Created 25 statement lines.\",\n    \"data\": {\n        \"statement\": {\n            \"id\": 1,\n            \"statement_number\": \"STMT-2024-001\",\n            \"bank_account\": {\n                \"id\": 1,\n                \"account_number\": \"1234567890\",\n                \"account_name\": \"Main Operating Account\"\n            },\n            \"statement_date\": \"2024-01-31\",\n            \"opening_balance\": \"0.00\",\n            \"closing_balance\": \"5000.00\",\n            \"status\": \"PENDING\",\n            \"is_reconciled\": false,\n            \"import_file_name\": \"statement.csv\",\n            \"import_date\": \"2024-01-31T10:30:45.123456Z\",\n            \"imported_by\": {\n                \"id\": 1,\n                \"username\": \"admin\"\n            },\n            \"created_at\": \"2024-01-31T10:30:45.123456Z\"\n        },\n        \"lines_created\": 25,\n        \"summary\": {\n            \"total_debits\": \"15000.00\",\n            \"total_credits\": \"20000.00\",\n            \"net_change\": \"5000.00\",\n            \"opening_balance\": \"0.00\",\n            \"calculated_closing_balance\": \"5000.00\",\n            \"errors\": [],\n            \"warnings\": []\n        }\n    }\n}"
+						},
+						{
+							"name": "Import Error - Duplicate Statement",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "formdata",
+									"formdata": [
+										{
+											"key": "file",
+											"type": "file",
+											"src": "statement.csv"
+										},
+										{
+											"key": "bank_account_id",
+											"value": "1",
+											"type": "text"
+										},
+										{
+											"key": "statement_number",
+											"value": "STMT-2024-001",
+											"type": "text"
+										},
+										{
+											"key": "statement_date",
+											"value": "2024-01-31",
+											"type": "text"
+										}
+									]
+								},
+								"url": {
+									"raw": "{{base_url}}/finance/cash-management/statements/import_statement/",
+									"host": ["{{base_url}}"],
+									"path": ["finance", "cash-management", "statements", "import_statement", ""]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"success\": false,\n    \"message\": \"Validation failed\",\n    \"data\": {\n        \"statement_number\": [\n            \"A statement with this number already exists for this bank account.\"\n        ]\n    }\n}"
+						},
+						{
+							"name": "Import Error - Invalid File",
+							"originalRequest": {
+								"method": "POST",
+								"header": [],
+								"body": {
+									"mode": "formdata",
+									"formdata": [
+										{
+											"key": "file",
+											"type": "file",
+											"src": "invalid_data.csv"
+										},
+										{
+											"key": "bank_account_id",
+											"value": "1",
+											"type": "text"
+										},
+										{
+											"key": "statement_number",
+											"value": "STMT-2024-002",
+											"type": "text"
+										},
+										{
+											"key": "statement_date",
+											"value": "2024-01-31",
+											"type": "text"
+										}
+									]
+								},
+								"url": {
+									"raw": "{{base_url}}/finance/cash-management/statements/import_statement/",
+									"host": ["{{base_url}}"],
+									"path": ["finance", "cash-management", "statements", "import_statement", ""]
+								}
+							},
+							"status": "Bad Request",
+							"code": 400,
+							"_postman_previewlanguage": "json",
+							"header": [
+								{
+									"key": "Content-Type",
+									"value": "application/json"
+								}
+							],
+							"cookie": [],
+							"body": "{\n    \"success\": false,\n    \"message\": \"Import validation failed. Please fix the errors and try again.\",\n    \"data\": {\n        \"errors\": [\n            \"Line 3: Invalid date format 'not-a-date'\",\n            \"Line 5: Missing description\",\n            \"Line 8: Invalid amount value\",\n            \"Line 12: Missing transaction type or debit/credit columns\"\n        ]\n    }\n}"
+						}
+					]
+				}
+			]
+		}
+	]
+}

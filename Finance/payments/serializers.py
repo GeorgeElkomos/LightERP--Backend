@@ -191,6 +191,18 @@ class PaymentListSerializer(serializers.ModelSerializer):
         source="business_partner.name", read_only=True
     )
     currency_code = serializers.CharField(source="currency.code", read_only=True)
+    payment_method_id = serializers.IntegerField(
+        source="payment_method.id", read_only=True, allow_null=True
+    )
+    payment_method_name = serializers.CharField(
+        source="payment_method.name", read_only=True, allow_null=True
+    )
+    bank_account_id = serializers.IntegerField(
+        source="bank_account.id", read_only=True, allow_null=True
+    )
+    bank_account_name = serializers.CharField(
+        source="bank_account.account_name", read_only=True, allow_null=True
+    )
     allocation_count = serializers.SerializerMethodField()
     total_allocated = serializers.SerializerMethodField()
     has_gl_entry = serializers.SerializerMethodField()
@@ -200,12 +212,18 @@ class PaymentListSerializer(serializers.ModelSerializer):
         model = Payment
         fields = [
             "id",
+            "payment_type",
             "date",
             "business_partner_id",
             "business_partner_name",
             "currency_code",
             "exchange_rate",
+            "payment_method_id",
+            "payment_method_name",
+            "bank_account_id",
+            "bank_account_name",
             "approval_status",
+            "reconciliation_status",
             "allocation_count",
             "total_allocated",
             "has_gl_entry",
@@ -245,6 +263,27 @@ class PaymentDetailSerializer(serializers.ModelSerializer):
     currency_id = serializers.IntegerField(source="currency.id", read_only=True)
     currency_code = serializers.CharField(source="currency.code", read_only=True)
     currency_symbol = serializers.CharField(source="currency.symbol", read_only=True)
+    payment_method_id = serializers.IntegerField(
+        source="payment_method.id", read_only=True, allow_null=True
+    )
+    payment_method_name = serializers.CharField(
+        source="payment_method.name", read_only=True, allow_null=True
+    )
+    payment_method_enable_reconcile = serializers.BooleanField(
+        source="payment_method.enable_reconcile", read_only=True, allow_null=True
+    )
+    bank_account_id = serializers.IntegerField(
+        source="bank_account.id", read_only=True, allow_null=True
+    )
+    bank_account_name = serializers.CharField(
+        source="bank_account.account_name", read_only=True, allow_null=True
+    )
+    bank_account_number = serializers.CharField(
+        source="bank_account.account_number", read_only=True, allow_null=True
+    )
+    reconciled_by_name = serializers.CharField(
+        source="reconciled_by.email", read_only=True, allow_null=True
+    )
     allocations = PaymentAllocationDetailSerializer(many=True, read_only=True)
     total_allocated = serializers.SerializerMethodField()
     allocated_invoice_count = serializers.SerializerMethodField()
@@ -254,6 +293,7 @@ class PaymentDetailSerializer(serializers.ModelSerializer):
         model = Payment
         fields = [
             "id",
+            "payment_type",
             "date",
             "business_partner_id",
             "business_partner_name",
@@ -261,11 +301,21 @@ class PaymentDetailSerializer(serializers.ModelSerializer):
             "currency_code",
             "currency_symbol",
             "exchange_rate",
+            "payment_method_id",
+            "payment_method_name",
+            "payment_method_enable_reconcile",
+            "bank_account_id",
+            "bank_account_name",
+            "bank_account_number",
             "approval_status",
             "submitted_for_approval_at",
             "approved_at",
             "rejected_at",
             "rejection_reason",
+            "reconciliation_status",
+            "reconciled_date",
+            "reconciled_by",
+            "reconciled_by_name",
             "gl_entry",
             "gl_entry_details",
             "allocations",
@@ -345,6 +395,11 @@ class PaymentDetailSerializer(serializers.ModelSerializer):
 class PaymentCreateSerializer(serializers.Serializer):
     """Serializer for creating a new payment"""
 
+    payment_type = serializers.ChoiceField(
+        choices=['PAYMENT', 'RECEIPT'],
+        default='PAYMENT',
+        help_text="Payment direction: PAYMENT (outgoing) or RECEIPT (incoming)"
+    )
     date = serializers.DateField()
     business_partner_id = serializers.IntegerField(min_value=Decimal("1"))
  
@@ -352,6 +407,18 @@ class PaymentCreateSerializer(serializers.Serializer):
  
     exchange_rate = serializers.DecimalField(
         max_digits=10, decimal_places=4, required=False, allow_null=True
+    )
+    payment_method_id = serializers.IntegerField(
+        min_value=Decimal("1"), required=False, allow_null=True,
+        help_text="Payment method (Cash, Check, Wire Transfer, etc.)"
+    )
+    bank_account = serializers.IntegerField(
+        min_value=Decimal("1"), required=False, allow_null=True, write_only=True,
+        help_text="Bank account for this payment (alias for bank_account_id)"
+    )
+    bank_account_id = serializers.IntegerField(
+        min_value=Decimal("1"), required=False, allow_null=True,
+        help_text="Bank account for this payment (for reconciliation)"
     )
     allocations = PaymentAllocationInputSerializer(
         many=True, required=False, default=list
@@ -372,6 +439,26 @@ class PaymentCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 f"Currency with ID {value} does not exist"
             )
+        return value
+    
+    def validate_payment_method_id(self, value):
+        """Validate payment method exists"""
+        if value is not None:
+            from Finance.cash_management.models import PaymentType
+            if not PaymentType.objects.filter(id=value).exists():
+                raise serializers.ValidationError(
+                    f"Payment method with ID {value} does not exist"
+                )
+        return value
+    
+    def validate_bank_account_id(self, value):
+        """Validate bank account exists"""
+        if value is not None:
+            from Finance.cash_management.models import BankAccount
+            if not BankAccount.objects.filter(id=value).exists():
+                raise serializers.ValidationError(
+                    f"Bank account with ID {value} does not exist"
+                )
         return value
 
     def validate_allocations(self, value):
@@ -396,6 +483,12 @@ class PaymentCreateSerializer(serializers.Serializer):
 
     def validate(self, data):
         """Cross-field validation"""
+        # Handle bank_account alias
+        if 'bank_account' in data and 'bank_account_id' not in data:
+            data['bank_account_id'] = data.pop('bank_account')
+        elif 'bank_account' in data:
+            data.pop('bank_account')  # Remove duplicate if both provided
+        
         # Validate period based on business partner type
         from Finance.period.validators import PeriodValidator
         from django.core.exceptions import ValidationError as DjangoValidationError
@@ -467,10 +560,13 @@ class PaymentCreateSerializer(serializers.Serializer):
 
             # Create payment
             payment = Payment.objects.create(
+                payment_type=validated_data.get("payment_type", "PAYMENT"),
                 date=validated_data["date"],
                 business_partner_id=validated_data["business_partner_id"],
                 currency_id=validated_data["currency_id"],
                 exchange_rate=validated_data.get("exchange_rate"),
+                payment_method_id=validated_data.get("payment_method_id"),
+                bank_account_id=validated_data.get("bank_account_id"),
                 gl_entry=gl_entry,
             )
 
@@ -523,9 +619,18 @@ class PaymentCreateSerializer(serializers.Serializer):
 class PaymentUpdateSerializer(serializers.Serializer):
     """Serializer for updating a payment"""
 
+    payment_type = serializers.ChoiceField(
+        choices=['PAYMENT', 'RECEIPT'], required=False
+    )
     date = serializers.DateField(required=False)
     exchange_rate = serializers.DecimalField(
         max_digits=10, decimal_places=4, required=False, allow_null=True
+    )
+    payment_method_id = serializers.IntegerField(
+        min_value=Decimal("1"), required=False, allow_null=True
+    )
+    bank_account_id = serializers.IntegerField(
+        min_value=Decimal("1"), required=False, allow_null=True
     )
     approval_status = serializers.ChoiceField(
         choices=["DRAFT", "PENDING_APPROVAL", "APPROVED", "REJECTED"], required=False
@@ -536,9 +641,16 @@ class PaymentUpdateSerializer(serializers.Serializer):
 
     def update(self, instance, validated_data):
         """Update payment fields"""
+        instance.payment_type = validated_data.get("payment_type", instance.payment_type)
         instance.date = validated_data.get("date", instance.date)
         instance.exchange_rate = validated_data.get(
             "exchange_rate", instance.exchange_rate
+        )
+        instance.payment_method_id = validated_data.get(
+            "payment_method_id", instance.payment_method_id
+        )
+        instance.bank_account_id = validated_data.get(
+            "bank_account_id", instance.bank_account_id
         )
         instance.approval_status = validated_data.get(
             "approval_status", instance.approval_status
@@ -1117,3 +1229,4 @@ class OverdueInstallmentSerializer(serializers.ModelSerializer):
     def get_remaining_balance(self, obj):
         """Get remaining balance"""
         return str(obj.get_remaining_balance())
+

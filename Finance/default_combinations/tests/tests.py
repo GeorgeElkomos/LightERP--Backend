@@ -10,8 +10,8 @@ from django.urls import reverse
 from decimal import Decimal
 
 from Finance.GL.models import XX_SegmentType, XX_Segment, XX_Segment_combination, segment_combination_detials
-from .models import set_default_combinations
-from .serializers import (
+from ..models import set_default_combinations
+from ..serializers import (
     DefaultCombinationsListSerializer,
     DefaultCombinationsDetailSerializer,
     DefaultCombinationsCreateSerializer,

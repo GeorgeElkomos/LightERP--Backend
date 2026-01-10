@@ -1,0 +1,865 @@
+{
+	"info": {
+		"_postman_id": "payments-api-2026",
+		"name": "Payments API - Complete Collection",
+		"description": "Complete API collection for Payments module including Payments, Allocations, Payment Plans, Installments, Approval Workflow, and GL Posting",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{auth_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "payment_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "allocation_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "invoice_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "business_partner_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "payment_plan_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "installment_id",
+			"value": "1",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "Payments",
+			"item": [
+				{
+					"name": "List All Payments",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", ""]
+						},
+						"description": "Get list of all payments"
+					}
+				},
+				{
+					"name": "List Payments - Filtered",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/?business_partner_id=1&currency_id=1&payment_type=PAYMENT&payment_method_id=1&bank_account_id=1&approval_status=APPROVED&reconciliation_status=UNRECONCILED&date_from=2026-01-01&date_to=2026-01-31&has_allocations=true",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", ""],
+							"query": [
+								{
+									"key": "business_partner_id",
+									"value": "1",
+									"description": "Filter by business partner ID"
+								},
+								{
+									"key": "currency_id",
+									"value": "1",
+									"description": "Filter by currency ID"
+								},
+								{
+									"key": "payment_type",
+									"value": "PAYMENT",
+									"description": "Filter by type: PAYMENT (outgoing) or RECEIPT (incoming)"
+								},
+								{
+									"key": "payment_method_id",
+									"value": "1",
+									"description": "Filter by payment method ID"
+								},
+								{
+									"key": "bank_account_id",
+									"value": "1",
+									"description": "Filter by bank account ID"
+								},
+								{
+									"key": "approval_status",
+									"value": "APPROVED",
+									"description": "Filter by approval status: DRAFT/PENDING_APPROVAL/APPROVED/REJECTED"
+								},
+								{
+									"key": "reconciliation_status",
+									"value": "UNRECONCILED",
+									"description": "Filter by reconciliation status: UNRECONCILED/RECONCILED"
+								},
+								{
+									"key": "date_from",
+									"value": "2026-01-01",
+									"description": "Filter by date from"
+								},
+								{
+									"key": "date_to",
+									"value": "2026-01-31",
+									"description": "Filter by date to"
+								},
+								{
+									"key": "has_allocations",
+									"value": "true",
+									"description": "Filter by allocation status: true/false"
+								}
+							]
+						},
+						"description": "Get filtered list of payments"
+					}
+				},
+				{
+					"name": "Create Payment - Simple",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"payment_type\": \"PAYMENT\",\n    \"date\": \"2026-01-15\",\n    \"business_partner_id\": 1,\n    \"currency_id\": 1,\n    \"exchange_rate\": 1.0000,\n    \"payment_method_id\": 1,\n    \"bank_account_id\": 1\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", ""]
+						},
+						"description": "Create a simple payment without allocations or GL entry"
+					}
+				},
+				{
+					"name": "Create Payment - With Allocations",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"payment_type\": \"PAYMENT\",\n    \"date\": \"2026-01-15\",\n    \"business_partner_id\": 1,\n    \"currency_id\": 1,\n    \"exchange_rate\": 1.0000,\n    \"payment_method_id\": 1,\n    \"bank_account_id\": 1,\n    \"allocations\": [\n        {\n            \"invoice_id\": 1,\n            \"amount_allocated\": \"1500.00\"\n        },\n        {\n            \"invoice_id\": 2,\n            \"amount_allocated\": \"2500.00\"\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", ""]
+						},
+						"description": "Create a payment with invoice allocations"
+					}
+				},
+				{
+					"name": "Create Payment - With GL Entry",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"payment_type\": \"PAYMENT\",\n    \"date\": \"2026-01-15\",\n    \"business_partner_id\": 1,\n    \"currency_id\": 1,\n    \"exchange_rate\": 1.0000,\n    \"payment_method_id\": 1,\n    \"bank_account_id\": 1,\n    \"gl_entry\": {\n        \"date\": \"2026-01-15\",\n        \"currency_id\": 1,\n        \"memo\": \"Payment to supplier XYZ\",\n        \"lines\": [\n            {\n                \"amount\": \"1500.00\",\n                \"type\": \"DEBIT\",\n                \"segment_combination_id\": 1\n            },\n            {\n                \"amount\": \"1500.00\",\n                \"type\": \"CREDIT\",\n                \"segment_combination_id\": 2\n            }\n        ]\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", ""]
+						},
+						"description": "Create a payment with GL journal entry"
+					}
+				},
+				{
+					"name": "Create Receipt - Incoming Payment",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"payment_type\": \"RECEIPT\",\n    \"date\": \"2026-01-16\",\n    \"business_partner_id\": 2,\n    \"currency_id\": 1,\n    \"exchange_rate\": 1.0000,\n    \"payment_method_id\": 1,\n    \"bank_account_id\": 1,\n    \"allocations\": [\n        {\n            \"invoice_id\": 3,\n            \"amount_allocated\": \"5000.00\"\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", ""]
+						},
+						"description": "Create a receipt (incoming payment from customer)"
+					}
+				},
+				{
+					"name": "Get Payment Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", ""]
+						},
+						"description": "Get detailed payment information with allocations and GL entry"
+					}
+				},
+				{
+					"name": "Update Payment (PUT)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"payment_type\": \"PAYMENT\",\n    \"date\": \"2026-01-16\",\n    \"exchange_rate\": 1.0000,\n    \"payment_method_id\": 2,\n    \"bank_account_id\": 1,\n    \"approval_status\": \"DRAFT\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", ""]
+						},
+						"description": "Full update of payment (cannot modify business_partner or currency)"
+					}
+				},
+				{
+					"name": "Update Payment (PATCH)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"payment_method_id\": 2\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", ""]
+						},
+						"description": "Partial update of payment"
+					}
+				},
+				{
+					"name": "Delete Payment",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", ""]
+						},
+						"description": "Delete payment and all its allocations"
+					}
+				}
+			]
+		},
+		{
+			"name": "Payment Allocations",
+			"item": [
+				{
+					"name": "List Payment Allocations",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/allocations/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "allocations", ""]
+						},
+						"description": "Get all allocations for a payment"
+					}
+				},
+				{
+					"name": "Create Allocation",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"invoice_id\": 1,\n    \"amount_allocated\": \"1500.00\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/allocations/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "allocations", ""]
+						},
+						"description": "Add new allocation to a payment"
+					}
+				},
+				{
+					"name": "Get Allocation Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/allocations/{{allocation_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "allocations", "{{allocation_id}}", ""]
+						},
+						"description": "Get details of a specific allocation"
+					}
+				},
+				{
+					"name": "Update Allocation (PUT)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"amount_allocated\": \"2000.00\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/allocations/{{allocation_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "allocations", "{{allocation_id}}", ""]
+						},
+						"description": "Update allocation amount"
+					}
+				},
+				{
+					"name": "Update Allocation (PATCH)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"amount_allocated\": \"1800.00\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/allocations/{{allocation_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "allocations", "{{allocation_id}}", ""]
+						},
+						"description": "Partial update of allocation"
+					}
+				},
+				{
+					"name": "Delete Allocation",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/allocations/{{allocation_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "allocations", "{{allocation_id}}", ""]
+						},
+						"description": "Remove allocation (decreases invoice paid_amount)"
+					}
+				}
+			]
+		},
+		{
+			"name": "Approval Workflow",
+			"item": [
+				{
+					"name": "Submit Payment for Approval",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/submit-for-approval/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "submit-for-approval", ""]
+						},
+						"description": "Start the approval workflow for a payment"
+					}
+				},
+				{
+					"name": "List Pending Approvals",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/pending-approvals/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "pending-approvals", ""]
+						},
+						"description": "Get payments pending approval for current user"
+					}
+				},
+				{
+					"name": "Approve Payment Step",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"assignment_id\": 1,\n    \"comments\": \"Approved - Looks good\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/approve-step/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "approve-step", ""]
+						},
+						"description": "Approve a payment at current approval stage"
+					}
+				},
+				{
+					"name": "Reject Payment Step",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"assignment_id\": 1,\n    \"comments\": \"Rejected - Insufficient documentation\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/reject-step/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "reject-step", ""]
+						},
+						"description": "Reject a payment at current approval stage"
+					}
+				}
+			]
+		},
+		{
+			"name": "GL Posting",
+			"item": [
+				{
+					"name": "Post Payment to GL",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/post-to-gl/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "post-to-gl", ""]
+						},
+						"description": "Post the payment's journal entry to GL (mark as posted). Payment must be APPROVED."
+					}
+				},
+				{
+					"name": "Process Payment (Create GL Entry)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"date\": \"2026-01-15\",\n    \"currency_id\": 1,\n    \"memo\": \"Payment processing for vendor invoice\",\n    \"lines\": [\n        {\n            \"amount\": \"1500.00\",\n            \"type\": \"DEBIT\",\n            \"segment_combination_id\": 1\n        },\n        {\n            \"amount\": \"1500.00\",\n            \"type\": \"CREDIT\",\n            \"segment_combination_id\": 2\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/process-payment/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "process-payment", ""]
+						},
+						"description": "Create and associate GL journal entry with payment"
+					}
+				}
+			]
+		},
+		{
+			"name": "Invoice Payment Information",
+			"item": [
+				{
+					"name": "Get Invoice Payment Info",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/invoices/{{invoice_id}}/payments/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "invoices", "{{invoice_id}}", "payments", ""]
+						},
+						"description": "Get all payment allocations for an invoice with status and remaining amount"
+					}
+				},
+				{
+					"name": "Recalculate Invoice Payments",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/invoices/{{invoice_id}}/recalculate-payments/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "invoices", "{{invoice_id}}", "recalculate-payments", ""]
+						},
+						"description": "Recalculate invoice paid_amount from allocations (fixes inconsistencies)"
+					}
+				}
+			]
+		},
+		{
+			"name": "Utility Endpoints",
+			"item": [
+				{
+					"name": "Get Available Invoices for Payment",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/available-invoices/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "available-invoices", ""]
+						},
+						"description": "Get list of invoices that can be allocated to this payment (same business partner, currency, not fully paid)"
+					}
+				},
+				{
+					"name": "Get Business Partner Payment Summary",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/business-partners/{{business_partner_id}}/payment-summary/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "business-partners", "{{business_partner_id}}", "payment-summary", ""]
+						},
+						"description": "Get payment summary for a business partner (totals, paid, unpaid)"
+					}
+				}
+			]
+		},
+		{
+			"name": "Payment Plans",
+			"item": [
+				{
+					"name": "List All Payment Plans",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/payment-plans/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payment-plans", ""]
+						},
+						"description": "Get list of all payment plans"
+					}
+				},
+				{
+					"name": "List Payment Plans - Filtered",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/payment-plans/?business_partner_id=1&is_active=true&status=ACTIVE",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payment-plans", ""],
+							"query": [
+								{
+									"key": "business_partner_id",
+									"value": "1",
+									"description": "Filter by business partner ID"
+								},
+								{
+									"key": "is_active",
+									"value": "true",
+									"description": "Filter by active status"
+								},
+								{
+									"key": "status",
+									"value": "ACTIVE",
+									"description": "Filter by status (ACTIVE/COMPLETED/CANCELLED)"
+								}
+							]
+						},
+						"description": "Get filtered list of payment plans"
+					}
+				},
+				{
+					"name": "Create Payment Plan",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"business_partner_id\": 1,\n    \"plan_name\": \"Monthly Payment Plan - Q1 2026\",\n    \"total_amount\": \"15000.00\",\n    \"start_date\": \"2026-01-01\",\n    \"end_date\": \"2026-03-31\",\n    \"frequency\": \"MONTHLY\",\n    \"number_of_installments\": 3,\n    \"currency_id\": 1,\n    \"description\": \"Quarterly payment plan for supplier invoices\",\n    \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payment-plans/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payment-plans", ""]
+						},
+						"description": "Create a new payment plan"
+					}
+				},
+				{
+					"name": "Get Payment Plan Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/payment-plans/{{payment_plan_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payment-plans", "{{payment_plan_id}}", ""]
+						},
+						"description": "Get details of a payment plan with installments"
+					}
+				},
+				{
+					"name": "Update Payment Plan (PUT)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"business_partner_id\": 1,\n    \"plan_name\": \"Monthly Payment Plan - Q1 2026 Updated\",\n    \"total_amount\": \"15000.00\",\n    \"start_date\": \"2026-01-01\",\n    \"end_date\": \"2026-03-31\",\n    \"frequency\": \"MONTHLY\",\n    \"number_of_installments\": 3,\n    \"currency_id\": 1,\n    \"description\": \"Quarterly payment plan for supplier invoices - Updated\",\n    \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payment-plans/{{payment_plan_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payment-plans", "{{payment_plan_id}}", ""]
+						},
+						"description": "Full update of payment plan"
+					}
+				},
+				{
+					"name": "Update Payment Plan (PATCH)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"is_active\": false\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payment-plans/{{payment_plan_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payment-plans", "{{payment_plan_id}}", ""]
+						},
+						"description": "Partial update of payment plan"
+					}
+				},
+				{
+					"name": "Delete Payment Plan",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/payment-plans/{{payment_plan_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payment-plans", "{{payment_plan_id}}", ""]
+						},
+						"description": "Delete a payment plan"
+					}
+				}
+			]
+		},
+		{
+			"name": "Installments",
+			"item": [
+				{
+					"name": "List All Installments",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/installments/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "installments", ""]
+						},
+						"description": "Get list of all installments"
+					}
+				},
+				{
+					"name": "List Installments - Filtered",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/installments/?payment_plan_id=1&status=PENDING&is_overdue=true",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "installments", ""],
+							"query": [
+								{
+									"key": "payment_plan_id",
+									"value": "1",
+									"description": "Filter by payment plan ID"
+								},
+								{
+									"key": "status",
+									"value": "PENDING",
+									"description": "Filter by status (PENDING/PAID/PARTIALLY_PAID/CANCELLED)"
+								},
+								{
+									"key": "is_overdue",
+									"value": "true",
+									"description": "Filter by overdue status"
+								}
+							]
+						},
+						"description": "Get filtered list of installments"
+					}
+				},
+				{
+					"name": "Create Installment",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"payment_plan_id\": 1,\n    \"installment_number\": 1,\n    \"due_date\": \"2026-01-31\",\n    \"amount\": \"5000.00\",\n    \"description\": \"First installment for Q1 2026\",\n    \"status\": \"PENDING\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/installments/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "installments", ""]
+						},
+						"description": "Create a new installment"
+					}
+				},
+				{
+					"name": "Get Installment Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/installments/{{installment_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "installments", "{{installment_id}}", ""]
+						},
+						"description": "Get details of a specific installment"
+					}
+				},
+				{
+					"name": "Update Installment (PUT)",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"payment_plan_id\": 1,\n    \"installment_number\": 1,\n    \"due_date\": \"2026-01-31\",\n    \"amount\": \"5000.00\",\n    \"paid_amount\": \"5000.00\",\n    \"description\": \"First installment for Q1 2026 - PAID\",\n    \"status\": \"PAID\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/installments/{{installment_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "installments", "{{installment_id}}", ""]
+						},
+						"description": "Full update of installment"
+					}
+				},
+				{
+					"name": "Update Installment (PATCH)",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"paid_amount\": \"2500.00\",\n    \"status\": \"PARTIALLY_PAID\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/installments/{{installment_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "installments", "{{installment_id}}", ""]
+						},
+						"description": "Partial update of installment"
+					}
+				},
+				{
+					"name": "Delete Installment",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/finance/installments/{{installment_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "installments", "{{installment_id}}", ""]
+						},
+						"description": "Delete an installment"
+					}
+				}
+			]
+		}
+	]
+}

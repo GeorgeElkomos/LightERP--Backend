@@ -1,13 +1,36 @@
 """
 Cash Management Serializers
-Handles serialization/deserialization for Bank, BankBranch, and BankAccount models.
+Handles serialization/deserialization for PaymentType, Bank, BankBranch, BankAccount,
+BankStatement, BankStatementLine, and BankStatementLineMatch models.
 """
 from rest_framework import serializers
 from decimal import Decimal
+from django.utils import timezone
 
-from .models import Bank, BankBranch, BankAccount
+from .models import (
+    PaymentType, Bank, BankBranch, BankAccount,
+    BankStatement, BankStatementLine, BankStatementLineMatch
+)
 from Finance.core.models import Country, Currency
 from Finance.GL.models import XX_Segment_combination
+
+
+# ==================== PAYMENT TYPE SERIALIZERS ====================
+
+class PaymentTypeListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for listing payment types/methods."""
+    class Meta:
+        model = PaymentType
+        fields = ['id', 'payment_method_code', 'payment_method_name', 'enable_reconcile', 'is_active']
+        read_only_fields = ['id']
+
+
+class PaymentTypeDetailSerializer(serializers.ModelSerializer):
+    """Full serializer for PaymentType with all details."""
+    class Meta:
+        model = PaymentType
+        fields = ['id', 'payment_method_code', 'payment_method_name', 'description', 'enable_reconcile', 'is_active', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 
 # ==================== BANK SERIALIZERS ====================
@@ -52,8 +75,8 @@ class BankDetailSerializer(serializers.ModelSerializer):
     """
     country_name = serializers.CharField(source='country.name', read_only=True)
     country_code = serializers.CharField(source='country.code', read_only=True)
-    created_by_name = serializers.CharField(source='created_by.username', read_only=True)
-    updated_by_name = serializers.CharField(source='updated_by.username', read_only=True)
+    created_by_name = serializers.CharField(source='created_by.email', read_only=True)
+    updated_by_name = serializers.CharField(source='updated_by.email', read_only=True)
     summary = serializers.SerializerMethodField()
     
     country = serializers.PrimaryKeyRelatedField(
@@ -162,8 +185,8 @@ class BankBranchDetailSerializer(serializers.ModelSerializer):
     bank_code = serializers.CharField(source='bank.bank_code', read_only=True)
     country_name = serializers.CharField(source='country.name', read_only=True)
     country_code = serializers.CharField(source='country.code', read_only=True)
-    created_by_name = serializers.CharField(source='created_by.username', read_only=True)
-    updated_by_name = serializers.CharField(source='updated_by.username', read_only=True)
+    created_by_name = serializers.CharField(source='created_by.email', read_only=True)
+    updated_by_name = serializers.CharField(source='updated_by.email', read_only=True)
     full_address = serializers.SerializerMethodField()
     summary = serializers.SerializerMethodField()
     
@@ -299,8 +322,8 @@ class BankAccountDetailSerializer(serializers.ModelSerializer):
     currency_code = serializers.CharField(source='currency.code', read_only=True)
     currency_name = serializers.CharField(source='currency.name', read_only=True)
     account_type_display = serializers.CharField(source='get_account_type_display', read_only=True)
-    created_by_name = serializers.CharField(source='created_by.username', read_only=True)
-    updated_by_name = serializers.CharField(source='updated_by.username', read_only=True)
+    created_by_name = serializers.CharField(source='created_by.email', read_only=True)
+    updated_by_name = serializers.CharField(source='updated_by.email', read_only=True)
     
     balance_summary = serializers.SerializerMethodField()
     full_hierarchy = serializers.SerializerMethodField()
@@ -443,3 +466,396 @@ class BankAccountBalanceUpdateSerializer(serializers.Serializer):
         if value <= 0:
             raise serializers.ValidationError("Amount must be positive")
         return value
+
+
+# ==================== BANK STATEMENT LINE SERIALIZERS ====================
+
+class BankStatementLineListSerializer(serializers.ModelSerializer):
+    """Serializer for listing bank statement lines."""
+    bank_statement_number = serializers.CharField(source='bank_statement.statement_number', read_only=True)
+    matched_payment_id = serializers.IntegerField(source='matched_payment.id', read_only=True)
+    reconciled_by_name = serializers.CharField(source='reconciled_by.email', read_only=True)
+    transaction_type = serializers.SerializerMethodField()
+    amount = serializers.SerializerMethodField()
+    display_amount = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = BankStatementLine
+        fields = ['id', 'bank_statement', 'bank_statement_number', 'line_number', 'transaction_date', 'value_date', 'transaction_type', 'amount', 'display_amount', 'reference_number', 'description', 'reconciliation_status', 'matched_payment', 'matched_payment_id', 'reconciled_date', 'reconciled_by_name']
+        read_only_fields = ['id', 'bank_statement_number', 'matched_payment_id', 'reconciled_by_name', 'display_amount', 'transaction_type', 'amount']
+    
+    def get_transaction_type(self, obj):
+        return 'DEBIT' if obj.debit_amount > 0 else 'CREDIT'
+    
+    def get_amount(self, obj):
+        return float(obj.debit_amount if obj.debit_amount > 0 else obj.credit_amount)
+    
+    def get_display_amount(self, obj):
+        # Return formatted amount with sign
+        if obj.debit_amount > 0:
+            return f'-{float(obj.debit_amount)}'
+        else:
+            return f'+{float(obj.credit_amount)}'
+
+
+class BankStatementLineDetailSerializer(serializers.ModelSerializer):
+    """Detailed serializer for bank statement lines."""
+    bank_statement_details = serializers.SerializerMethodField()
+    matched_payment_details = serializers.SerializerMethodField()
+    reconciled_by_name = serializers.CharField(source='reconciled_by.email', read_only=True)
+    transaction_type = serializers.SerializerMethodField()
+    amount = serializers.SerializerMethodField()
+    balance_after_transaction = serializers.DecimalField(source='balance', max_digits=14, decimal_places=2, read_only=True)
+    payee_payer = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    display_amount = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = BankStatementLine
+        fields = ['id', 'bank_statement', 'bank_statement_details', 'line_number', 'transaction_date', 'value_date', 'transaction_type', 'amount', 'display_amount', 'balance_after_transaction', 'reference_number', 'description', 'payee_payer', 'reconciliation_status', 'matched_payment', 'matched_payment_details', 'reconciled_date', 'reconciled_by', 'reconciled_by_name', 'notes', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'bank_statement_details', 'matched_payment_details', 'reconciled_by_name', 'display_amount', 'transaction_type', 'amount', 'balance_after_transaction', 'created_at', 'updated_at']
+    
+    def get_transaction_type(self, obj):
+        return 'DEBIT' if obj.debit_amount > 0 else 'CREDIT'
+    
+    def get_amount(self, obj):
+        return float(obj.debit_amount if obj.debit_amount > 0 else obj.credit_amount)
+    
+    def get_display_amount(self, obj):
+        # Return formatted amount with sign
+        if obj.debit_amount > 0:
+            return f'-{float(obj.debit_amount)}'
+        else:
+            return f'+{float(obj.credit_amount)}'
+    
+    def get_bank_statement_details(self, obj):
+        return {
+            'id': obj.bank_statement.id,
+            'statement_number': obj.bank_statement.statement_number,
+            'statement_date': obj.bank_statement.statement_date,
+            'bank_account': obj.bank_statement.bank_account.account_number,
+        }
+    
+    def get_matched_payment_details(self, obj):
+        if not obj.matched_payment:
+            return None
+        return {
+            'id': obj.matched_payment.id,
+            'date': obj.matched_payment.date,
+            'payment_type': obj.matched_payment.payment_type,
+            'business_partner': str(obj.matched_payment.business_partner),
+            'currency': str(obj.matched_payment.currency),
+            'approval_status': obj.matched_payment.approval_status,
+        }
+
+
+class BankStatementLineCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating bank statement lines."""
+    transaction_type = serializers.ChoiceField(choices=['DEBIT', 'CREDIT'], write_only=True, required=False)
+    amount = serializers.DecimalField(max_digits=14, decimal_places=2, write_only=True, required=False)
+    balance_after_transaction = serializers.DecimalField(max_digits=14, decimal_places=2, source='balance', required=False)
+    payee_payer = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    bank_statement_id = serializers.PrimaryKeyRelatedField(
+        queryset=BankStatement.objects.all(),
+        source='bank_statement',
+        write_only=True,
+        required=False
+    )
+    
+    class Meta:
+        model = BankStatementLine
+        fields = ['id', 'bank_statement_id', 'line_number', 'transaction_date', 'value_date', 'transaction_type', 'amount', 'debit_amount', 'credit_amount', 'balance_after_transaction', 'reference_number', 'description', 'payee_payer', 'reconciliation_status', 'notes']
+        read_only_fields = ['id', 'reconciliation_status']
+        extra_kwargs = {
+            'line_number': {'required': False, 'allow_null': True},
+            'debit_amount': {'required': False},
+            'credit_amount': {'required': False}
+        }
+    
+    def validate(self, data):
+        # Transaction_type and amount handling
+        if 'transaction_type' in data and 'amount' in data:
+            transaction_type = data.pop('transaction_type')
+            amount = data.pop('amount')
+            if transaction_type == 'DEBIT':
+                data['debit_amount'] = amount
+                data['credit_amount'] = Decimal('0.00')
+            else:  # CREDIT
+                data['credit_amount'] = amount
+                data['debit_amount'] = Decimal('0.00')
+        
+        # Auto-generate line_number if not provided
+        if 'line_number' not in data and 'bank_statement' in data:
+            last_line = BankStatementLine.objects.filter(
+                bank_statement=data['bank_statement']
+            ).order_by('-line_number').first()
+            data['line_number'] = (last_line.line_number + 1) if last_line else 1
+        
+        # Set audit fields
+        data['created_by'] = self.context['request'].user
+        data['updated_by'] = self.context['request'].user
+        
+        return data
+
+
+# ==================== BANK STATEMENT SERIALIZERS ====================
+
+class BankStatementListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for listing bank statements."""
+    bank_account_number = serializers.CharField(source='bank_account.account_number', read_only=True)
+    bank_name = serializers.CharField(source='bank_account.branch.bank.bank_name', read_only=True)
+    reconciliation_percentage = serializers.SerializerMethodField()
+    unreconciled_count = serializers.SerializerMethodField()
+    line_count = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = BankStatement
+        fields = ['id', 'bank_account', 'bank_account_number', 'bank_name', 'statement_number', 'statement_date', 'from_date', 'to_date', 'opening_balance', 'closing_balance', 'line_count', 'total_debits', 'total_credits', 'reconciliation_status', 'reconciliation_percentage', 'unreconciled_count', 'created_at']
+        read_only_fields = ['id', 'bank_account_number', 'bank_name', 'line_count', 'reconciliation_percentage', 'unreconciled_count', 'created_at']
+    
+    def get_reconciliation_percentage(self, obj):
+        return obj.get_reconciliation_percentage()
+    
+    def get_unreconciled_count(self, obj):
+        return obj.get_unreconciled_lines().count()
+    
+    def get_line_count(self, obj):
+        return obj.statement_lines.count()
+
+
+class BankStatementDetailSerializer(serializers.ModelSerializer):
+    """Detailed serializer for bank statements with nested lines."""
+    bank_account_details = BankAccountListSerializer(source='bank_account', read_only=True)
+    statement_lines = BankStatementLineListSerializer(many=True, read_only=True)
+    imported_by_name = serializers.CharField(source='imported_by.email', read_only=True)
+    created_by_name = serializers.CharField(source='created_by.email', read_only=True)
+    updated_by_name = serializers.CharField(source='updated_by.email', read_only=True)
+    line_count = serializers.SerializerMethodField()
+    reconciliation_percentage = serializers.SerializerMethodField()
+    unreconciled_amount = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = BankStatement
+        fields = ['id', 'bank_account', 'bank_account_details', 'statement_number', 'statement_date', 'from_date', 'to_date', 'opening_balance', 'closing_balance', 'line_count', 'total_debits', 'total_credits', 'reconciliation_status', 'reconciliation_percentage', 'unreconciled_amount', 'import_file_name', 'import_date', 'imported_by', 'imported_by_name', 'statement_lines', 'created_by', 'created_by_name', 'updated_by', 'updated_by_name', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'bank_account_details', 'statement_lines', 'imported_by_name', 'created_by_name', 'updated_by_name', 'reconciliation_percentage', 'unreconciled_amount', 'created_at', 'updated_at']
+    
+    def get_reconciliation_percentage(self, obj):
+        return obj.get_reconciliation_percentage()
+    
+    def get_unreconciled_amount(self, obj):
+        return float(obj.unreconciled_amount)
+    
+    def get_line_count(self, obj):
+        return obj.statement_lines.count()
+
+
+class BankStatementCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating bank statements."""
+    class Meta:
+        model = BankStatement
+        fields = ['id', 'bank_account', 'statement_number', 'statement_date', 'from_date', 'to_date', 'opening_balance', 'closing_balance', 'transaction_count', 'total_debits', 'total_credits', 'import_file_name']
+        read_only_fields = ['id']
+    
+    def create(self, validated_data):
+        user = self.context['request'].user
+        validated_data['created_by'] = user
+        validated_data['updated_by'] = user
+        validated_data['imported_by'] = user
+        validated_data['import_date'] = timezone.now()
+        return super().create(validated_data)
+
+
+# ==================== BANK STATEMENT LINE MATCH SERIALIZERS ====================
+
+class BankStatementLineMatchListSerializer(serializers.ModelSerializer):
+    """Serializer for listing statement line matches."""
+    statement_line_ref = serializers.CharField(source='statement_line.reference_number', read_only=True)
+    statement_line_number = serializers.IntegerField(source='statement_line.line_number', read_only=True)
+    payment_id = serializers.IntegerField(source='payment.id', read_only=True)
+    matched_by_name = serializers.CharField(source='matched_by.email', read_only=True)
+    
+    class Meta:
+        model = BankStatementLineMatch
+        fields = ['id', 'statement_line', 'statement_line_number', 'statement_line_ref', 'payment', 'payment_id', 'match_status', 'match_type', 'confidence_score', 'discrepancy_amount', 'matched_by', 'matched_by_name', 'matched_at', 'notes']
+        read_only_fields = ['id', 'statement_line_number', 'statement_line_ref', 'payment_id', 'matched_by_name', 'matched_at']
+
+
+class BankStatementLineMatchDetailSerializer(serializers.ModelSerializer):
+    """Detailed serializer for statement line matches."""
+    statement_line_details = BankStatementLineListSerializer(source='statement_line', read_only=True)
+    payment_details = serializers.SerializerMethodField()
+    matched_by_name = serializers.CharField(source='matched_by.email', read_only=True)
+    
+    class Meta:
+        model = BankStatementLineMatch
+        fields = ['id', 'statement_line', 'statement_line_details', 'payment', 'payment_details', 'match_status', 'match_type', 'confidence_score', 'discrepancy_amount', 'matched_by', 'matched_by_name', 'matched_at', 'notes']
+        read_only_fields = ['id', 'statement_line_details', 'payment_details', 'matched_by_name', 'matched_at']
+    
+    def get_payment_details(self, obj):
+        if not obj.payment:
+            return None
+        return {
+            'id': obj.payment.id,
+            'date': obj.payment.date,
+            'payment_type': obj.payment.payment_type,
+            'business_partner': str(obj.payment.business_partner),
+            'currency': str(obj.payment.currency),
+            'approval_status': obj.payment.approval_status,
+            'reconciliation_status': obj.payment.reconciliation_status,
+        }
+
+
+class BankStatementLineMatchCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating statement line matches."""
+    class Meta:
+        model = BankStatementLineMatch
+        fields = ['id', 'statement_line', 'payment', 'match_status', 'match_type', 'confidence_score', 'discrepancy_amount', 'notes']
+        read_only_fields = ['id']
+    
+    def create(self, validated_data):
+        user = self.context['request'].user
+        validated_data['matched_by'] = user
+        return super().create(validated_data)
+
+
+# ==================== BANK STATEMENT IMPORT SERIALIZERS ====================
+
+class BankStatementImportSerializer(serializers.Serializer):
+    """
+    Serializer for importing bank statements from Excel/CSV files.
+    
+    HOW TO USE:
+    ===========
+    
+    1. UPLOAD FILE:
+       POST /api/cash-management/statements/import_statement/
+       
+       Body (multipart/form-data):
+       - file: Excel/CSV file
+       - bank_account_id: ID of bank account
+       - statement_number: Statement reference number
+       - statement_date: Statement date (YYYY-MM-DD)
+       - opening_balance: Starting balance (optional)
+       - closing_balance: Ending balance (optional)
+       
+    2. FILE FORMAT:
+       Excel/CSV must have columns (flexible naming):
+       - Transaction Date (required)
+       - Description (required)
+       - Debit/Credit or Amount (required)
+       - Reference Number (optional)
+       - Balance (optional)
+       
+    3. PREVIEW FIRST:
+       POST /api/cash-management/statements/import_preview/
+       Same body as import, but doesn't save - just validates
+    """
+    
+    file = serializers.FileField(
+        required=True,
+        help_text="Excel (.xlsx, .xls) or CSV (.csv) file containing bank statement transactions"
+    )
+    bank_account_id = serializers.IntegerField(
+        required=True,
+        help_text="ID of the bank account this statement belongs to"
+    )
+    statement_number = serializers.CharField(
+        max_length=100,
+        required=True,
+        help_text="Unique statement reference number (e.g., STMT-2026-01)"
+    )
+    statement_date = serializers.DateField(
+        required=True,
+        help_text="Date of the statement (YYYY-MM-DD)"
+    )
+    opening_balance = serializers.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        required=False,
+        default=Decimal('0'),
+        help_text="Opening balance at start of statement period"
+    )
+    closing_balance = serializers.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        required=False,
+        default=Decimal('0'),
+        help_text="Closing balance at end of statement period"
+    )
+    
+    def validate_file(self, value):
+        """Validate file type and size"""
+        # Check file extension
+        file_name = value.name.lower()
+        if not (file_name.endswith('.csv') or file_name.endswith('.xlsx') or file_name.endswith('.xls')):
+            raise serializers.ValidationError(
+                'Invalid file format. Please upload .csv, .xlsx, or .xls file'
+            )
+        
+        # Check file size (max 10MB)
+        if value.size > 10 * 1024 * 1024:
+            raise serializers.ValidationError(
+                'File size too large. Maximum size is 10MB'
+            )
+        
+        return value
+    
+    def validate_bank_account_id(self, value):
+        """Validate bank account exists"""
+        if not BankAccount.objects.filter(id=value).exists():
+            raise serializers.ValidationError(
+                f'Bank account with ID {value} does not exist'
+            )
+        return value
+    
+    def validate_statement_number(self, value):
+        """Validate statement number is unique for this account"""
+        bank_account_id = self.initial_data.get('bank_account_id')
+        if bank_account_id:
+            if BankStatement.objects.filter(
+                bank_account_id=bank_account_id,
+                statement_number=value
+            ).exists():
+                raise serializers.ValidationError(
+                    f'Statement number "{value}" already exists for this bank account'
+                )
+        return value
+
+
+class BankStatementImportPreviewSerializer(serializers.Serializer):
+    """
+    Serializer for previewing bank statement import without saving.
+    Same fields as import, but only validates and returns preview data.
+    """
+    
+    file = serializers.FileField(
+        required=True,
+        help_text="Excel/CSV file to preview"
+    )
+    bank_account_id = serializers.IntegerField(
+        required=True,
+        help_text="ID of the bank account"
+    )
+    
+    def validate_file(self, value):
+        """Validate file type and size"""
+        file_name = value.name.lower()
+        if not (file_name.endswith('.csv') or file_name.endswith('.xlsx') or file_name.endswith('.xls')):
+            raise serializers.ValidationError(
+                'Invalid file format. Please upload .csv, .xlsx, or .xls file'
+            )
+        
+        if value.size > 10 * 1024 * 1024:
+            raise serializers.ValidationError(
+                'File size too large. Maximum size is 10MB'
+            )
+        
+        return value
+    
+    def validate_bank_account_id(self, value):
+        """Validate bank account exists"""
+        if not BankAccount.objects.filter(id=value).exists():
+            raise serializers.ValidationError(
+                f'Bank account with ID {value} does not exist'
+            )
+        return value
+

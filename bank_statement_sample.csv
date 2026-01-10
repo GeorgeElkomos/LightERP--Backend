@@ -1,0 +1,9 @@
+Line Number,Transaction Date,Value Date,Transaction Type,Debit Amount,Credit Amount,Balance,Reference Number,Description,Payee/Payer
+1,2026-01-15,2026-01-15,CREDIT,,5000.00,25000.00,SAL-2026-01,Salary Deposit,Employer Inc
+2,2026-01-16,2026-01-16,DEBIT,1200.00,,23800.00,CHQ-001,Rent Payment,ABC Properties
+3,2026-01-18,2026-01-18,CREDIT,,350.00,24150.00,TRF-456,Refund from Vendor,XYZ Supplies
+4,2026-01-20,2026-01-20,DEBIT,75.50,,24074.50,ATM-789,ATM Withdrawal,
+5,2026-01-22,2026-01-22,DEBIT,450.00,,23624.50,INV-1001,Office Supplies Purchase,Office Depot
+6,2026-01-25,2026-01-25,CREDIT,,2500.00,26124.50,DEP-123,Customer Payment,Acme Corp
+7,2026-01-28,2026-01-28,DEBIT,1500.00,,24624.50,CHQ-002,Utility Bill Payment,Power Company
+8,2026-01-30,2026-01-30,CREDIT,,800.00,25424.50,TRF-789,Interest Credit,ABC Bank

@@ -25,11 +25,11 @@ class DefaultCombinationsListSerializer(serializers.ModelSerializer):
         allow_null=True
     )
     created_by_username = serializers.CharField(
-        source='created_by.username',
+        source='created_by.email',
         read_only=True
     )
     updated_by_username = serializers.CharField(
-        source='updated_by.username',
+        source='updated_by.email',
         read_only=True,
         allow_null=True
     )
@@ -71,7 +71,7 @@ class DefaultCombinationsDetailSerializer(serializers.ModelSerializer):
     )
     segment_details = serializers.SerializerMethodField()
     created_by_username = serializers.CharField(
-        source='created_by.username',
+        source='created_by.email',
         read_only=True
     )
     created_by_id = serializers.IntegerField(
@@ -79,7 +79,7 @@ class DefaultCombinationsDetailSerializer(serializers.ModelSerializer):
         read_only=True
     )
     updated_by_username = serializers.CharField(
-        source='updated_by.username',
+        source='updated_by.email',
         read_only=True,
         allow_null=True
     )

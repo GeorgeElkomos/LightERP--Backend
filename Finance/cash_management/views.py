@@ -1,18 +1,26 @@
 """
 Cash Management Views - API Endpoints
-Provides REST API endpoints for Bank, BankBranch, and BankAccount operations.
+Provides REST API endpoints for PaymentType, Bank, BankBranch, BankAccount,
+BankStatement, BankStatementLine, and BankStatementLineMatch operations.
 """
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ValidationError
 from django.db.models import Q, Sum
+from django.http import HttpResponse
 from decimal import Decimal
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment
+from datetime import date
 
-from .models import Bank, BankBranch, BankAccount
+from .models import PaymentType, Bank, BankBranch, BankAccount, BankStatement, BankStatementLine, BankStatementLineMatch
 from .serializers import (
+    PaymentTypeListSerializer,
+    PaymentTypeDetailSerializer,
     BankListSerializer,
     BankDetailSerializer,
     BankBranchListSerializer,
@@ -20,7 +28,72 @@ from .serializers import (
     BankAccountListSerializer,
     BankAccountDetailSerializer,
     BankAccountBalanceUpdateSerializer,
+    BankStatementListSerializer,
+    BankStatementDetailSerializer,
+    BankStatementCreateSerializer,
+    BankStatementLineListSerializer,
+    BankStatementLineDetailSerializer,
+    BankStatementLineCreateSerializer,
+    BankStatementLineMatchListSerializer,
+    BankStatementLineMatchDetailSerializer,
+    BankStatementLineMatchCreateSerializer,
+    BankStatementImportSerializer,
+    BankStatementImportPreviewSerializer,
 )
+from .services import BankStatementImporter
+
+
+# ==================== PAYMENT TYPE VIEWSET ====================
+
+class PaymentTypeViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for PaymentType CRUD operations.
+    
+    Endpoints:
+    - GET /payment-types/ - List all payment types
+    - POST /payment-types/ - Create new payment type
+    - GET /payment-types/{id}/ - Get payment type details
+    - PUT/PATCH /payment-types/{id}/ - Update payment type
+    - DELETE /payment-types/{id}/ - Delete payment type
+    """
+    queryset = PaymentType.objects.all()
+    permission_classes = [IsAuthenticated]
+    
+    def get_serializer_class(self):
+        """Return appropriate serializer based on action"""
+        if self.action == 'list':
+            return PaymentTypeListSerializer
+        return PaymentTypeDetailSerializer
+    
+    def get_queryset(self):
+        """Filter queryset based on query parameters."""
+        queryset = super().get_queryset()
+        
+        # Filter by active status
+        is_active = self.request.query_params.get('is_active')
+        if is_active is not None:
+            is_active_bool = is_active.lower() == 'true'
+            queryset = queryset.filter(is_active=is_active_bool)
+        
+        # Filter by enable_reconcile
+        enable_reconcile = self.request.query_params.get('enable_reconcile')
+        if enable_reconcile is not None:
+            enable_reconcile_bool = enable_reconcile.lower() == 'true'
+            queryset = queryset.filter(enable_reconcile=enable_reconcile_bool)
+        
+        # Search by name or code
+        search = self.request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(payment_method_code__icontains=search) |
+                Q(payment_method_name__icontains=search)
+            )
+        
+        return queryset
+    
+    def perform_create(self, serializer):
+        """Automatically set created_by to the current user"""
+        serializer.save(created_by=self.request.user)
 
 
 # ==================== BANK VIEWSET ====================
@@ -530,3 +603,456 @@ class BankAccountViewSet(viewsets.ModelViewSet):
         account = self.get_object()
         hierarchy = account.get_full_hierarchy()
         return Response(hierarchy, status=status.HTTP_200_OK)
+
+
+# ==================== BANK STATEMENT VIEWSET ====================
+
+class BankStatementViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for BankStatement CRUD operations.
+    
+    Endpoints:
+    - GET /statements/ - List all statements
+    - POST /statements/ - Create new statement
+    - GET /statements/{id}/ - Get statement details with lines
+    - PUT/PATCH /statements/{id}/ - Update statement
+    - DELETE /statements/{id}/ - Delete statement
+    
+    IMPORT Endpoints:
+    - POST /statements/import_statement/ - Import bank statement from Excel/CSV
+    - POST /statements/import_preview/ - Preview import without saving
+    - GET /statements/download_template/ - Download Excel template
+    """
+    queryset = BankStatement.objects.select_related('bank_account', 'bank_account__branch', 'bank_account__branch__bank').all()
+    permission_classes = [IsAuthenticated]
+    
+    def get_serializer_class(self):
+        """Return appropriate serializer based on action"""
+        if self.action == 'list':
+            return BankStatementListSerializer
+        elif self.action == 'create':
+            return BankStatementCreateSerializer
+        elif self.action == 'import_statement':
+            return BankStatementImportSerializer
+        elif self.action == 'import_preview':
+            return BankStatementImportPreviewSerializer
+        return BankStatementDetailSerializer
+    
+    def get_queryset(self):
+        """Filter queryset based on query parameters."""
+        queryset = super().get_queryset()
+        
+        # Filter by bank account
+        bank_account_id = self.request.query_params.get('bank_account')
+        if bank_account_id:
+            queryset = queryset.filter(bank_account_id=bank_account_id)
+        
+        # Filter by reconciliation status
+        reconciliation_status = self.request.query_params.get('reconciliation_status')
+        if reconciliation_status:
+            queryset = queryset.filter(reconciliation_status=reconciliation_status.upper())
+        
+        # Filter by date range
+        date_from = self.request.query_params.get('date_from')
+        if date_from:
+            queryset = queryset.filter(statement_date__gte=date_from)
+        
+        date_to = self.request.query_params.get('date_to')
+        if date_to:
+            queryset = queryset.filter(statement_date__lte=date_to)
+        
+        return queryset
+    
+    @action(detail=False, methods=['post'], parser_classes=[MultiPartParser, FormParser])
+    def import_statement(self, request):
+        """
+        Import bank statement from Excel/CSV file.
+        
+        POST /statements/import_statement/
+        
+        Content-Type: multipart/form-data
+        
+        Fields:
+        - file: Excel (.xlsx, .xls) or CSV (.csv) file
+        - bank_account_id: ID of bank account
+        - statement_number: Statement reference number
+        - statement_date: Statement date (YYYY-MM-DD)
+        - opening_balance: Opening balance (optional)
+        - closing_balance: Closing balance (optional)
+        
+        HOW IT WORKS:
+        1. Validates file format and size
+        2. Parses Excel/CSV using pandas
+        3. Maps columns flexibly (handles different bank formats)
+        4. Validates all transaction data
+        5. Creates BankStatement + all BankStatementLines
+        6. Uses database transaction (all-or-nothing)
+        7. Returns created statement with summary
+        
+        Returns:
+        {
+            "success": true,
+            "message": "Statement imported successfully",
+            "statement": { ... statement details ... },
+            "lines_created": 25,
+            "summary": {
+                "total_rows": 25,
+                "valid_rows": 25,
+                "error_rows": 0,
+                "total_debits": "5000.00",
+                "total_credits": "7500.00"
+            }
+        }
+        """
+        serializer = self.get_serializer(data=request.data)
+        
+        if not serializer.is_valid():
+            return Response(
+                {
+                    'success': False,
+                    'errors': serializer.errors
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            # Initialize importer
+            importer = BankStatementImporter(
+                file_obj=serializer.validated_data['file'],
+                bank_account_id=serializer.validated_data['bank_account_id'],
+                user=request.user
+            )
+            
+            # Import statement
+            result = importer.import_statement({
+                'statement_number': serializer.validated_data['statement_number'],
+                'statement_date': serializer.validated_data['statement_date'],
+                'opening_balance': serializer.validated_data.get('opening_balance', Decimal('0')),
+                'closing_balance': serializer.validated_data.get('closing_balance', Decimal('0')),
+            })
+            
+            # Serialize statement for response
+            statement_serializer = BankStatementDetailSerializer(result['statement'])
+            
+            return Response({
+                'success': True,
+                'message': f'Statement imported successfully with {result["lines_created"]} transactions',
+                'statement': statement_serializer.data,
+                'lines_created': result['lines_created'],
+                'summary': {
+                    'total_rows': result['summary']['total_lines'],
+                    'valid_rows': result['summary']['valid_lines'],
+                    'error_rows': result['summary']['error_lines'],
+                    'total_debits': str(result['summary']['total_debits']),
+                    'total_credits': str(result['summary']['total_credits']),
+                }
+            }, status=status.HTTP_201_CREATED)
+            
+        except ValidationError as e:
+            # Collect all errors from importer
+            errors = importer.errors if hasattr(importer, 'errors') and importer.errors else [{'error': str(e)}]
+            
+            return Response({
+                'success': False,
+                'message': str(e),
+                'errors': errors
+            }, status=status.HTTP_400_BAD_REQUEST)
+            
+        except Exception as e:
+            return Response({
+                'success': False,
+                'message': f'Import failed: {str(e)}',
+                'errors': [{'error': str(e)}]
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    @action(detail=False, methods=['post'], parser_classes=[MultiPartParser, FormParser])
+    def import_preview(self, request):
+        """
+        Preview bank statement import without saving to database.
+        
+        POST /statements/import_preview/
+        
+        Content-Type: multipart/form-data
+        
+        Fields:
+        - file: Excel (.xlsx, .xls) or CSV (.csv) file
+        - bank_account_id: ID of bank account
+        
+        HOW IT WORKS:
+        1. Parses file without creating any records
+        2. Validates all data
+        3. Returns preview of first 10 lines
+        4. Shows any errors/warnings
+        5. Shows totals and summary
+        6. User can review before confirming actual import
+        
+        Returns:
+        {
+            "success": true,
+            "statement_info": {
+                "from_date": "2026-01-01",
+                "to_date": "2026-01-31",
+                "transaction_count": 25
+            },
+            "lines_preview": [ ... first 10 lines ... ],
+            "total_lines": 25,
+            "summary": {
+                "total_rows": 25,
+                "valid_rows": 25,
+                "error_rows": 0,
+                "total_debits": "5000.00",
+                "total_credits": "7500.00"
+            },
+            "errors": [],
+            "warnings": []
+        }
+        """
+        serializer = self.get_serializer(data=request.data)
+        
+        if not serializer.is_valid():
+            return Response(
+                {
+                    'success': False,
+                    'errors': serializer.errors
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            # Initialize importer
+            importer = BankStatementImporter(
+                file_obj=serializer.validated_data['file'],
+                bank_account_id=serializer.validated_data['bank_account_id'],
+                user=request.user
+            )
+            
+            # Preview import
+            preview_data = importer.preview_import()
+            
+            return Response(preview_data, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response({
+                'success': False,
+                'message': f'Preview failed: {str(e)}',
+                'errors': [{'error': str(e)}]
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    @action(detail=False, methods=['get'])
+    def download_template(self, request):
+        """
+        Download Excel template for bank statement import.
+        
+        GET /statements/download_template/
+        
+        Returns an Excel file with:
+        - Proper column headers
+        - Sample data rows
+        - Instructions sheet
+        - Data validation
+        
+        HOW TO USE THE TEMPLATE:
+        1. Download this template
+        2. Fill in your bank statement data
+        3. Keep column headers as-is
+        4. Use YYYY-MM-DD format for dates
+        5. Use numbers only for amounts (no currency symbols)
+        6. Upload using import_statement endpoint
+        """
+        # Create workbook
+        wb = openpyxl.Workbook()
+        
+        # Create Instructions sheet
+        ws_instructions = wb.active
+        ws_instructions.title = "Instructions"
+        
+        # Add instructions
+        instructions = [
+            ["Bank Statement Import Template", ""],
+            ["", ""],
+            ["HOW TO USE:", ""],
+            ["1. Go to 'Statement Data' sheet", ""],
+            ["2. Fill in your transaction data", ""],
+            ["3. Keep column headers as-is (row 1)", ""],
+            ["4. Date format: YYYY-MM-DD (e.g., 2026-01-15)", ""],
+            ["5. Amounts: Numbers only, no currency symbols", ""],
+            ["6. Transaction Type: DEBIT or CREDIT", ""],
+            ["7. Save file and upload via API", ""],
+            ["", ""],
+            ["REQUIRED COLUMNS:", ""],
+            ["- Transaction Date", "Must be valid date"],
+            ["- Description", "Cannot be empty"],
+            ["- Amount OR Debit/Credit", "Must be numeric"],
+            ["", ""],
+            ["OPTIONAL COLUMNS:", ""],
+            ["- Line Number", "Auto-generated if not provided"],
+            ["- Value Date", "Defaults to Transaction Date"],
+            ["- Reference Number", "Invoice/check number"],
+            ["- Payee/Payer", "Who sent/received money"],
+            ["- Balance", "Running balance after transaction"],
+        ]
+        
+        for row_idx, row_data in enumerate(instructions, start=1):
+            for col_idx, cell_value in enumerate(row_data, start=1):
+                cell = ws_instructions.cell(row=row_idx, column=col_idx, value=cell_value)
+                if row_idx == 1:
+                    cell.font = Font(bold=True, size=14)
+                elif row_data[0] in ["HOW TO USE:", "REQUIRED COLUMNS:", "OPTIONAL COLUMNS:"]:
+                    cell.font = Font(bold=True)
+        
+        # Create Statement Data sheet
+        ws_data = wb.create_sheet("Statement Data")
+        
+        # Define headers
+        headers = [
+            "Line Number",
+            "Transaction Date",
+            "Value Date",
+            "Transaction Type",
+            "Debit Amount",
+            "Credit Amount",
+            "Balance",
+            "Reference Number",
+            "Description",
+            "Payee/Payer"
+        ]
+        
+        # Add headers with styling
+        for col_idx, header in enumerate(headers, start=1):
+            cell = ws_data.cell(row=1, column=col_idx, value=header)
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+            cell.alignment = Alignment(horizontal="center")
+        
+        # Add sample data
+        sample_data = [
+            [1, "2026-01-15", "2026-01-15", "CREDIT", "", "5000.00", "15000.00", "DEP001", "Customer payment - Invoice #1001", "ABC Corporation"],
+            [2, "2026-01-16", "2026-01-16", "DEBIT", "500.00", "", "14500.00", "CHQ001", "Rent payment", "Property Management Co"],
+            [3, "2026-01-17", "2026-01-17", "CREDIT", "", "2500.00", "17000.00", "WIRE002", "Wire transfer received", "XYZ Ltd"],
+        ]
+        
+        for row_idx, row_data in enumerate(sample_data, start=2):
+            for col_idx, cell_value in enumerate(row_data, start=1):
+                ws_data.cell(row=row_idx, column=col_idx, value=cell_value)
+        
+        # Auto-size columns
+        for column in ws_data.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(cell.value)
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws_data.column_dimensions[column_letter].width = adjusted_width
+        
+        # Save to response
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename=bank_statement_import_template_{date.today()}.xlsx'
+        
+        wb.save(response)
+        return response
+
+
+# ==================== BANK STATEMENT LINE VIEWSET ====================
+
+class BankStatementLineViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for BankStatementLine CRUD operations.
+    
+    Endpoints:
+    - GET /statement-lines/ - List all statement lines
+    - POST /statement-lines/ - Create new statement line
+    - GET /statement-lines/{id}/ - Get statement line details
+    - PUT/PATCH /statement-lines/{id}/ - Update statement line
+    - DELETE /statement-lines/{id}/ - Delete statement line
+    """
+    queryset = BankStatementLine.objects.select_related('bank_statement', 'matched_payment', 'reconciled_by').all()
+    permission_classes = [IsAuthenticated]
+    
+    def get_serializer_class(self):
+        """Return appropriate serializer based on action"""
+        if self.action == 'list':
+            return BankStatementLineListSerializer
+        elif self.action == 'create':
+            return BankStatementLineCreateSerializer
+        return BankStatementLineDetailSerializer
+    
+    def get_queryset(self):
+        """Filter queryset based on query parameters."""
+        queryset = super().get_queryset()
+        
+        # Filter by bank statement
+        bank_statement_id = self.request.query_params.get('bank_statement')
+        if bank_statement_id:
+            queryset = queryset.filter(bank_statement_id=bank_statement_id)
+        
+        # Filter by reconciliation status
+        reconciliation_status = self.request.query_params.get('reconciliation_status')
+        if reconciliation_status:
+            queryset = queryset.filter(reconciliation_status=reconciliation_status.upper())
+        
+        # Filter by matched status
+        has_match = self.request.query_params.get('has_match')
+        if has_match is not None:
+            if has_match.lower() == 'true':
+                queryset = queryset.filter(matched_payment__isnull=False)
+            elif has_match.lower() == 'false':
+                queryset = queryset.filter(matched_payment__isnull=True)
+        
+        return queryset
+
+
+# ==================== BANK STATEMENT LINE MATCH VIEWSET ====================
+
+class BankStatementLineMatchViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for BankStatementLineMatch CRUD operations.
+    
+    Endpoints:
+    - GET /matches/ - List all matches
+    - POST /matches/ - Create new match
+    - GET /matches/{id}/ - Get match details
+    - PUT/PATCH /matches/{id}/ - Update match
+    - DELETE /matches/{id}/ - Delete match (unmatch)
+    """
+    queryset = BankStatementLineMatch.objects.select_related('statement_line', 'payment', 'matched_by').all()
+    permission_classes = [IsAuthenticated]
+    
+    def get_serializer_class(self):
+        """Return appropriate serializer based on action"""
+        if self.action == 'list':
+            return BankStatementLineMatchListSerializer
+        elif self.action == 'create':
+            return BankStatementLineMatchCreateSerializer
+        return BankStatementLineMatchDetailSerializer
+    
+    def get_queryset(self):
+        """Filter queryset based on query parameters."""
+        queryset = super().get_queryset()
+        
+        # Filter by statement line
+        statement_line_id = self.request.query_params.get('statement_line')
+        if statement_line_id:
+            queryset = queryset.filter(statement_line_id=statement_line_id)
+        
+        # Filter by payment
+        payment_id = self.request.query_params.get('payment')
+        if payment_id:
+            queryset = queryset.filter(payment_id=payment_id)
+        
+        # Filter by match status
+        match_status = self.request.query_params.get('match_status')
+        if match_status:
+            queryset = queryset.filter(match_status=match_status.upper())
+        
+        # Filter by match type
+        match_type = self.request.query_params.get('match_type')
+        if match_type:
+            queryset = queryset.filter(match_type=match_type.upper())
+        
+        return queryset

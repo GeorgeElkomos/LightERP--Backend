@@ -1,0 +1,195 @@
+{
+	"info": {
+		"_postman_id": "bank-statement-import-2026",
+		"name": "Bank Statement Import API",
+		"description": "API endpoints for importing bank statements from Excel/CSV files.\n\n## Features:\n- Upload and import bank statements\n- Preview import before committing\n- Download Excel template\n- Support for CSV and Excel formats\n- Flexible column mapping\n- Comprehensive validation\n\n## Authentication:\nAll endpoints require authentication. Include Authorization header with Bearer token.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{access_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"item": [
+		{
+			"name": "1. Download Template",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/finance/cash/statements/download_template/",
+					"host": ["{{base_url}}"],
+					"path": ["finance", "cash", "statements", "download_template", ""]
+				},
+				"description": "Download Excel template for bank statement import.\n\n**Response:**\n- Excel file (.xlsx) with:\n  - Instructions sheet with usage guide\n  - Statement Data sheet with column headers\n  - Sample data format\n\n**How to use:**\n1. Download this template\n2. Fill in your bank statement data in 'Statement Data' sheet\n3. Keep column headers as-is\n4. Use YYYY-MM-DD format for dates\n5. Use numbers only for amounts (no currency symbols)\n6. Save and upload using import_statement endpoint"
+			},
+			"response": []
+		},
+		{
+			"name": "2. Import Statement (Full Import)",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "file",
+							"type": "file",
+							"src": "/path/to/bank_statement_sample.xlsx",
+							"description": "Excel (.xlsx, .xls) or CSV (.csv) file with bank statement data"
+						},
+						{
+							"key": "bank_account_id",
+							"value": "1",
+							"type": "text",
+							"description": "ID of the bank account this statement belongs to"
+						}
+					]
+				},
+				"url": {
+					"raw": "{{base_url}}/finance/cash/statements/import_statement/",
+					"host": ["{{base_url}}"],
+					"path": ["finance", "cash", "statements", "import_statement", ""]
+				},
+				"description": "Import bank statement from Excel/CSV file.\n\n**Parameters:**\n- `file` (required): Excel or CSV file\n- `bank_account_id` (required): Bank account ID\n\n**File Format:**\n- Supported: .xlsx, .xls, .csv\n- Required columns: Transaction Date, Description, Amount OR (Debit Amount + Credit Amount)\n- Optional columns: Line Number, Value Date, Reference Number, Payee/Payer, Balance, Transaction Type\n\n**Response:**\n```json\n{\n  \"statement_id\": 123,\n  \"lines_imported\": 25,\n  \"message\": \"Successfully imported 25 transaction lines\",\n  \"errors\": [],\n  \"warnings\": []\n}\n```\n\n**Example CSV:**\n```\nTransaction Date,Description,Debit Amount,Credit Amount,Reference Number\n2026-01-15,Salary Deposit,,5000.00,SAL-2026-01\n2026-01-16,Rent Payment,1200.00,,CHQ-001\n```"
+			},
+			"response": []
+		},
+		{
+			"name": "3. Preview Import (Validate Only)",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "file",
+							"type": "file",
+							"src": "/path/to/bank_statement_sample.xlsx",
+							"description": "Excel (.xlsx, .xls) or CSV (.csv) file"
+						},
+						{
+							"key": "bank_account_id",
+							"value": "1",
+							"type": "text",
+							"description": "Bank account ID"
+						}
+					]
+				},
+				"url": {
+					"raw": "{{base_url}}/finance/cash/statements/import_preview/",
+					"host": ["{{base_url}}"],
+					"path": ["finance", "cash", "statements", "import_preview", ""]
+				},
+				"description": "Preview bank statement import without saving to database.\n\n**Use Case:**\n- Validate file format and data before importing\n- Check for errors or warnings\n- Review parsed data\n- No database changes are made\n\n**Parameters:**\n- `file` (required): Excel or CSV file\n- `bank_account_id` (required): Bank account ID\n\n**Response:**\n```json\n{\n  \"lines\": [\n    {\n      \"line_number\": 1,\n      \"transaction_date\": \"2026-01-15\",\n      \"value_date\": \"2026-01-15\",\n      \"description\": \"Salary Deposit\",\n      \"debit_amount\": \"0.00\",\n      \"credit_amount\": \"5000.00\",\n      \"balance\": \"25000.00\",\n      \"reference_number\": \"SAL-2026-01\",\n      \"transaction_type\": \"CREDIT\",\n      \"payee_payer\": \"Employer Inc\"\n    }\n  ],\n  \"total_lines\": 25,\n  \"errors\": [],\n  \"warnings\": [\"Line 3: Balance not provided\"],\n  \"message\": \"Preview successful. Ready to import 25 lines.\"\n}\n```"
+			},
+			"response": []
+		},
+		{
+			"name": "4. List Bank Statements",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/finance/cash/statements/?bank_account=1",
+					"host": ["{{base_url}}"],
+					"path": ["finance", "cash", "statements", ""],
+					"query": [
+						{
+							"key": "bank_account",
+							"value": "1",
+							"description": "Filter by bank account ID"
+						},
+						{
+							"key": "from_date",
+							"value": "2026-01-01",
+							"description": "Filter statements from this date",
+							"disabled": true
+						},
+						{
+							"key": "to_date",
+							"value": "2026-01-31",
+							"description": "Filter statements to this date",
+							"disabled": true
+						}
+					]
+				},
+				"description": "List all bank statements.\n\n**Query Parameters:**\n- `bank_account` (optional): Filter by bank account ID\n- `from_date` (optional): Filter statements from date\n- `to_date` (optional): Filter statements to date\n\n**Response:**\n```json\n{\n  \"results\": [\n    {\n      \"id\": 123,\n      \"bank_account\": 1,\n      \"statement_date\": \"2026-01-31\",\n      \"from_date\": \"2026-01-01\",\n      \"to_date\": \"2026-01-31\",\n      \"opening_balance\": \"20000.00\",\n      \"closing_balance\": \"25000.00\",\n      \"total_lines\": 25,\n      \"created_by\": \"admin\",\n      \"created_at\": \"2026-01-15T10:30:00Z\"\n    }\n  ]\n}\n```"
+			},
+			"response": []
+		},
+		{
+			"name": "5. Get Statement Details",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/finance/cash/statements/123/",
+					"host": ["{{base_url}}"],
+					"path": ["finance", "cash", "statements", "123", ""]
+				},
+				"description": "Get detailed information about a specific bank statement including all transaction lines.\n\n**Response:**\n```json\n{\n  \"id\": 123,\n  \"bank_account\": {\n    \"id\": 1,\n    \"account_number\": \"1234567890\",\n    \"account_name\": \"Main Operating Account\",\n    \"bank_name\": \"ABC Bank\"\n  },\n  \"statement_date\": \"2026-01-31\",\n  \"from_date\": \"2026-01-01\",\n  \"to_date\": \"2026-01-31\",\n  \"opening_balance\": \"20000.00\",\n  \"closing_balance\": \"25000.00\",\n  \"lines\": [\n    {\n      \"id\": 1001,\n      \"line_number\": 1,\n      \"transaction_date\": \"2026-01-15\",\n      \"value_date\": \"2026-01-15\",\n      \"description\": \"Salary Deposit\",\n      \"debit_amount\": \"0.00\",\n      \"credit_amount\": \"5000.00\",\n      \"balance\": \"25000.00\",\n      \"reference_number\": \"SAL-2026-01\",\n      \"transaction_type\": \"CREDIT\",\n      \"payee_payer\": \"Employer Inc\"\n    }\n  ],\n  \"created_by\": \"admin\",\n  \"created_at\": \"2026-01-15T10:30:00Z\"\n}\n```"
+			},
+			"response": []
+		},
+		{
+			"name": "6. Get Bank Accounts",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/finance/cash/accounts/",
+					"host": ["{{base_url}}"],
+					"path": ["finance", "cash", "accounts", ""]
+				},
+				"description": "Get list of bank accounts to use for statement import.\n\n**Response:**\n```json\n{\n  \"results\": [\n    {\n      \"id\": 1,\n      \"account_number\": \"1234567890\",\n      \"account_name\": \"Main Operating Account\",\n      \"currency\": \"USD\",\n      \"bank\": {\n        \"id\": 1,\n        \"name\": \"ABC Bank\",\n        \"swift_code\": \"ABCBUS33\"\n      },\n      \"branch\": {\n        \"id\": 1,\n        \"name\": \"Downtown Branch\",\n        \"code\": \"001\"\n      },\n      \"current_balance\": \"25000.00\",\n      \"is_active\": true\n    }\n  ]\n}\n```"
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Pre-request script runs before each request",
+					"// You can set dynamic variables here",
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Test script runs after each request",
+					"// Example: Check if response is 200 OK",
+					"pm.test(\"Status code is 200 or 201\", function () {",
+					"    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+					"});"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "access_token",
+			"value": "your_access_token_here",
+			"type": "string"
+		}
+	]
+}

@@ -8,8 +8,27 @@ from Finance.BusinessPartner.models import BusinessPartner
 from Finance.Invoice.models import Invoice
 from Finance.GL.models import JournalEntry
 from core.approval.mixins import ApprovableMixin, ApprovableInterface
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 class Payment(ApprovableMixin, ApprovableInterface, models.Model):
+    
+    # Payment Type Choices
+    PAYMENT = 'PAYMENT'
+    RECEIPT = 'RECEIPT'
+    PAYMENT_TYPE_CHOICES = [
+        (PAYMENT, 'Payment (Outgoing)'),
+        (RECEIPT, 'Receipt (Incoming)'),
+    ]
+    
+    # Reconciliation Status Choices
+    UNRECONCILED = 'UNRECONCILED'
+    RECONCILED = 'RECONCILED'
+    RECONCILIATION_STATUS_CHOICES = [
+        (UNRECONCILED, 'Unreconciled'),
+        (RECONCILED, 'Reconciled'),
+    ]
     
     # Status choices (shared by all payment types)
     DRAFT = 'DRAFT'
@@ -22,6 +41,24 @@ class Payment(ApprovableMixin, ApprovableInterface, models.Model):
         (APPROVED, 'Approved'),
         (REJECTED, 'Rejected'),
     ]
+    
+    # Payment Direction
+    payment_type = models.CharField(
+        max_length=10,
+        choices=PAYMENT_TYPE_CHOICES,
+        default=PAYMENT,
+        help_text="Payment direction: PAYMENT (outgoing) or RECEIPT (incoming)"
+    )
+    
+    # Payment Method
+    payment_method = models.ForeignKey(
+        'cash_management.PaymentType',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='payments',
+        help_text="Payment method (Cash, Check, Wire Transfer, etc.)"
+    )
     
     date = models.DateField()
     
@@ -43,6 +80,16 @@ class Payment(ApprovableMixin, ApprovableInterface, models.Model):
         null=True,
         blank=True,
         help_text="Exchange rate to base currency at payment date"
+    )
+    
+    # Bank Account for cash management integration
+    bank_account = models.ForeignKey(
+        'cash_management.BankAccount',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='payments',
+        help_text="Bank account used for this payment (for cash management reconciliation)"
     )
     
     # Status and workflow
@@ -73,6 +120,29 @@ class Payment(ApprovableMixin, ApprovableInterface, models.Model):
         blank=True,
         default='',
         help_text="Reason for rejection"
+    )
+    
+    # Reconciliation fields
+    reconciliation_status = models.CharField(
+        max_length=20,
+        choices=RECONCILIATION_STATUS_CHOICES,
+        default=UNRECONCILED,
+        help_text="Bank reconciliation status"
+    )
+    
+    reconciled_date = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When payment was reconciled with bank statement"
+    )
+    
+    reconciled_by = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='reconciled_payments',
+        help_text="User who reconciled this payment"
     )
     
     gl_entry = models.ForeignKey(
@@ -265,6 +335,15 @@ class Payment(ApprovableMixin, ApprovableInterface, models.Model):
         if self.gl_entry:
             try:
                 self.gl_entry.post()
+            except Exception as e:
+                # Log error but don't fail the approval
+                # You may want to handle this differently
+                pass
+        
+        # Create bank transaction for cash management integration
+        if self.bank_account:
+            try:
+                self.create_bank_transaction()
             except Exception as e:
                 # Log error but don't fail the approval
                 # You may want to handle this differently
