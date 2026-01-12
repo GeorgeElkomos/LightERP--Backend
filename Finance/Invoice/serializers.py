@@ -320,6 +320,7 @@ class APInvoiceListSerializer(serializers.ModelSerializer):
         model = AP_Invoice
         fields = [
             "invoice_id",
+            "invoice_number",
             "date",
             "supplier_id",
             "supplier_name",
