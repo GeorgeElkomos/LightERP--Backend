@@ -262,3 +262,108 @@ class DefaultCombinationsViewSet(viewsets.ModelViewSet):
             for code, label in set_default_combinations.TRANSACTION_TYPES
         ]
         return Response(types)
+    
+    @action(detail=False, methods=['get'], url_path='gl-segments')
+    def gl_segments(self, request):
+        """
+        Get GL segment combination details for a transaction type.
+        Returns the segment types and values as a structured list.
+        
+        URL: /default-combinations/gl-segments/?transaction_type={AP_INVOICE|AR_INVOICE}
+        
+        Query Parameters:
+        - transaction_type: Required. Must be AP_INVOICE or AR_INVOICE
+        
+        Returns:
+        - transaction_type: The transaction type requested
+        - transaction_type_label: Human-readable label
+        - default_combination_id: ID of the default combination record
+        - segment_combination_id: ID of the GL segment combination
+        - is_active: Whether the default is active
+        - segments: List of segment types and their values
+        - created_by: User who created the default
+        - created_at: Creation timestamp
+        - updated_at: Last update timestamp
+        """
+        transaction_type = request.query_params.get('transaction_type')
+        
+        if not transaction_type:
+            return Response(
+                {'error': 'transaction_type query parameter is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if transaction_type not in dict(set_default_combinations.TRANSACTION_TYPES).keys():
+            return Response(
+                {
+                    'error': f'Invalid transaction type. Must be one of: {", ".join(dict(set_default_combinations.TRANSACTION_TYPES).keys())}'
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            default = set_default_combinations.objects.select_related(
+                'segment_combination',
+                'created_by',
+                'updated_by'
+            ).prefetch_related(
+                'segment_combination__details__segment_type',
+                'segment_combination__details__segment'
+            ).get(transaction_type=transaction_type)
+        except set_default_combinations.DoesNotExist:
+            return Response(
+                {'error': f'No default combination found for transaction type: {transaction_type}'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Build segments list
+        segments_list = []
+        for detail in default.segment_combination.details.all().order_by('segment_type__display_order'):
+            segments_list.append({
+                'segment_type': detail.segment_type.segment_name,
+                'segment_type_id': detail.segment_type.id,
+                'display_order': detail.segment_type.display_order,
+                'is_required': detail.segment_type.is_required,
+                'segment_code': detail.segment.code,
+                'segment_name': detail.segment.name,
+                'segment_alias': detail.segment.alias or '',
+                'segment_id': detail.segment.id,
+            })
+        
+        response_data = {
+            'transaction_type': default.transaction_type,
+            'transaction_type_label': default.get_transaction_type_display(),
+            'default_combination_id': default.id,
+            'segment_combination_id': default.segment_combination.id,
+            'is_active': default.is_active,
+            'segments': segments_list,
+            'created_by': default.created_by.name if default.created_by else None,
+            'created_at': default.created_at,
+            'updated_at': default.updated_at,
+        }
+        
+        return Response(response_data)
+    
+    @action(detail=False, methods=['get'], url_path='ap-invoice-segments')
+    def ap_invoice_segments(self, request):
+        """
+        Convenience endpoint to get AP Invoice GL segments.
+        
+        URL: /default-combinations/ap-invoice-segments/
+        """
+        request.query_params._mutable = True
+        request.query_params['transaction_type'] = 'AP_INVOICE'
+        request.query_params._mutable = False
+        return self.gl_segments(request)
+    
+    @action(detail=False, methods=['get'], url_path='ar-invoice-segments')
+    def ar_invoice_segments(self, request):
+        """
+        Convenience endpoint to get AR Invoice GL segments.
+        
+        URL: /default-combinations/ar-invoice-segments/
+        """
+        request.query_params._mutable = True
+        request.query_params['transaction_type'] = 'AR_INVOICE'
+        request.query_params._mutable = False
+        return self.gl_segments(request)

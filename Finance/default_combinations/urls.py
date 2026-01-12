@@ -34,3 +34,6 @@ urlpatterns = [
 # POST   /default-combinations/{id}/activate/            - Activate default
 # POST   /default-combinations/{id}/deactivate/          - Deactivate default
 # GET    /default-combinations/transaction-types/        - List transaction types
+# GET    /default-combinations/gl-segments/?transaction_type={type} - Get GL segment details
+# GET    /default-combinations/ap-invoice-segments/      - Get AP invoice GL segments
+# GET    /default-combinations/ar-invoice-segments/      - Get AR invoice GL segments
