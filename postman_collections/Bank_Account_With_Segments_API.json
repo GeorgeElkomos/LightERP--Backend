@@ -1,0 +1,244 @@
+{
+  "info": {
+    "name": "Bank Account API - With GL Segments Support",
+    "_postman_id": "bank-account-segments-collection",
+    "description": "Updated Bank Account API showing both approaches for GL combinations:\n1. Using existing combination IDs (original)\n2. Using segment details directly (NEW - like Invoice/Payment/JE)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Create Bank Account with GL Combination IDs (Original)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{access_token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"branch\": 1,\n  \"account_number\": \"ACC1234567890\",\n  \"account_name\": \"Main Operating Account\",\n  \"account_type\": \"CURRENT\",\n  \"currency\": 1,\n  \"opening_balance\": \"50000.00\",\n  \"iban\": \"US12NBCO0210000211234567890\",\n  \"opening_date\": \"2026-01-01\",\n  \"cash_GL_combination\": 1,\n  \"cash_clearing_GL_combination\": 2,\n  \"is_active\": true,\n  \"description\": \"Main company operating account for daily transactions\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/finance/cash/accounts/",
+          "host": ["{{base_url}}"],
+          "path": ["finance", "cash", "accounts", ""]
+        },
+        "description": "**ORIGINAL APPROACH**\n\nCreate bank account using pre-existing GL combination IDs.\n\nRequired:\n- cash_GL_combination: ID of existing combination\n- cash_clearing_GL_combination: ID of existing combination"
+      },
+      "response": []
+    },
+    {
+      "name": "Create Bank Account with Segment Details (NEW!)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{access_token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"branch\": 1,\n  \"account_number\": \"ACC9876543210\",\n  \"account_name\": \"Secondary Operating Account\",\n  \"account_type\": \"CURRENT\",\n  \"currency\": 1,\n  \"opening_balance\": \"25000.00\",\n  \"iban\": \"US12NBCO0210000219876543210\",\n  \"opening_date\": \"2026-01-01\",\n  \"cash_GL_segments\": [\n    {\n      \"segment_type_id\": 1,\n      \"segment_code\": \"100\"\n    },\n    {\n      \"segment_type_id\": 2,\n      \"segment_code\": \"1010\"\n    }\n  ],\n  \"cash_clearing_GL_segments\": [\n    {\n      \"segment_type_id\": 1,\n      \"segment_code\": \"100\"\n    },\n    {\n      \"segment_type_id\": 2,\n      \"segment_code\": \"1020\"\n    }\n  ],\n  \"is_active\": true,\n  \"description\": \"Account created using segment details - no pre-creation needed!\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/finance/cash/accounts/",
+          "host": ["{{base_url}}"],
+          "path": ["finance", "cash", "accounts", ""]
+        },
+        "description": "**NEW APPROACH!**\n\nCreate bank account by providing GL segment details directly (same as Invoice/Payment/JE creation).\n\nRequired:\n- cash_GL_segments: Array of segment objects (segment_type_id + segment_code)\n- cash_clearing_GL_segments: Array of segment objects\n\nBenefits:\n✓ No need to pre-create GL combinations\n✓ System automatically finds existing or creates new combinations\n✓ Same pattern as other modules (Invoice, Payment, Journal Entry)\n✓ Cleaner API - no need to manage combination IDs"
+      },
+      "response": [
+        {
+          "name": "Success Response",
+          "originalRequest": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"branch\": 1,\n  \"account_number\": \"ACC9876543210\",\n  \"cash_GL_segments\": [\n    {\"segment_type_id\": 1, \"segment_code\": \"100\"},\n    {\"segment_type_id\": 2, \"segment_code\": \"1010\"}\n  ],\n  \"cash_clearing_GL_segments\": [\n    {\"segment_type_id\": 1, \"segment_code\": \"100\"},\n    {\"segment_type_id\": 2, \"segment_code\": \"1020\"}\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/finance/cash/accounts/",
+              "host": ["{{base_url}}"],
+              "path": ["finance", "cash", "accounts", ""]
+            }
+          },
+          "status": "Created",
+          "code": 201,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "cookie": [],
+          "body": "{\n  \"id\": 15,\n  \"branch\": 1,\n  \"account_number\": \"ACC9876543210\",\n  \"account_name\": \"Secondary Operating Account\",\n  \"account_type\": \"CURRENT\",\n  \"currency\": 1,\n  \"opening_balance\": \"25000.00\",\n  \"current_balance\": \"25000.00\",\n  \"cash_GL_combination\": 23,\n  \"cash_clearing_GL_combination\": 24,\n  \"is_active\": true,\n  \"created_at\": \"2026-01-12T10:30:00Z\",\n  \"updated_at\": \"2026-01-12T10:30:00Z\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Get Segment Types (Helper)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{access_token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/finance/gl/segment-types/",
+          "host": ["{{base_url}}"],
+          "path": ["finance", "gl", "segment-types", ""]
+        },
+        "description": "Get available segment types to use in your segment arrays.\n\nUse the returned IDs in your cash_GL_segments and cash_clearing_GL_segments arrays."
+      },
+      "response": []
+    },
+    {
+      "name": "Get Segments for Type (Helper)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{access_token}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/finance/gl/segments/?segment_type=1",
+          "host": ["{{base_url}}"],
+          "path": ["finance", "gl", "segments", ""],
+          "query": [
+            {
+              "key": "segment_type",
+              "value": "1",
+              "description": "Filter by segment type ID"
+            }
+          ]
+        },
+        "description": "Get available segment codes for a specific segment type.\n\nUse the returned codes in your segment arrays."
+      },
+      "response": []
+    },
+    {
+      "name": "Error: Missing GL Combination",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{access_token}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"branch\": 1,\n  \"account_number\": \"ACC001\",\n  \"account_name\": \"Test Account\",\n  \"account_type\": \"CURRENT\",\n  \"currency\": 1,\n  \"opening_balance\": \"1000.00\",\n  \"cash_clearing_GL_combination\": 1\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/finance/cash/accounts/",
+          "host": ["{{base_url}}"],
+          "path": ["finance", "cash", "accounts", ""]
+        },
+        "description": "Example validation error when neither ID nor segments provided for cash GL combination."
+      },
+      "response": [
+        {
+          "name": "Validation Error",
+          "originalRequest": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"branch\": 1,\n  \"cash_clearing_GL_combination\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/finance/cash/accounts/",
+              "host": ["{{base_url}}"],
+              "path": ["finance", "cash", "accounts", ""]
+            }
+          },
+          "status": "Bad Request",
+          "code": 400,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "cookie": [],
+          "body": "{\n  \"status\": \"error\",\n  \"message\": \"cash_GL_combination: Must provide either cash_GL_combination ID or cash_GL_segments\",\n  \"data\": null\n}"
+        }
+      ]
+    },
+    {
+      "name": "Error: Providing Both ID and Segments",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{access_token}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"branch\": 1,\n  \"account_number\": \"ACC002\",\n  \"account_name\": \"Test Account\",\n  \"account_type\": \"CURRENT\",\n  \"currency\": 1,\n  \"opening_balance\": \"1000.00\",\n  \"cash_GL_combination\": 1,\n  \"cash_GL_segments\": [\n    {\"segment_type_id\": 1, \"segment_code\": \"100\"}\n  ],\n  \"cash_clearing_GL_combination\": 2\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/finance/cash/accounts/",
+          "host": ["{{base_url}}"],
+          "path": ["finance", "cash", "accounts", ""]
+        },
+        "description": "Example validation error when both combination ID and segments are provided."
+      },
+      "response": [
+        {
+          "name": "Validation Error",
+          "originalRequest": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cash_GL_combination\": 1,\n  \"cash_GL_segments\": [...]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/finance/cash/accounts/",
+              "host": ["{{base_url}}"],
+              "path": ["finance", "cash", "accounts", ""]
+            }
+          },
+          "status": "Bad Request",
+          "code": 400,
+          "_postman_previewlanguage": "json",
+          "header": [],
+          "cookie": [],
+          "body": "{\n  \"status\": \"error\",\n  \"message\": \"cash_GL_combination: Cannot provide both cash_GL_combination ID and cash_GL_segments. Choose one approach.\",\n  \"data\": null\n}"
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "your_jwt_token_here",
+      "type": "string"
+    }
+  ]
+}

@@ -274,6 +274,12 @@ class BankBranchDetailSerializer(serializers.ModelSerializer):
 
 # ==================== BANK ACCOUNT SERIALIZERS ====================
 
+class SegmentInputSerializer(serializers.Serializer):
+    """Serializer for segment input in GL combination creation"""
+    segment_type_id = serializers.IntegerField(min_value=1)
+    segment_code = serializers.CharField(max_length=50)
+
+
 class BankAccountListSerializer(serializers.ModelSerializer):
     """
     Lightweight serializer for listing bank accounts.
@@ -336,11 +342,19 @@ class BankAccountDetailSerializer(serializers.ModelSerializer):
         queryset=Currency.objects.all()
     )
     cash_GL_combination = serializers.PrimaryKeyRelatedField(
-        queryset=XX_Segment_combination.objects.all()
+        queryset=XX_Segment_combination.objects.all(),
+        required=False,
+        allow_null=True
     )
     cash_clearing_GL_combination = serializers.PrimaryKeyRelatedField(
-        queryset=XX_Segment_combination.objects.all()
+        queryset=XX_Segment_combination.objects.all(),
+        required=False,
+        allow_null=True
     )
+    
+    # Nested segment input (alternative to providing IDs)
+    cash_GL_segments = SegmentInputSerializer(many=True, required=False, write_only=True)
+    cash_clearing_GL_segments = SegmentInputSerializer(many=True, required=False, write_only=True)
     
     class Meta:
         model = BankAccount
@@ -365,6 +379,8 @@ class BankAccountDetailSerializer(serializers.ModelSerializer):
             'opening_date',
             'cash_GL_combination',
             'cash_clearing_GL_combination',
+            'cash_GL_segments',  # Write-only nested input
+            'cash_clearing_GL_segments',  # Write-only nested input
             'is_active',
             'description',
             'created_by',
@@ -418,12 +434,81 @@ class BankAccountDetailSerializer(serializers.ModelSerializer):
                     'opening_balance': 'Opening balance cannot be negative for this account type'
                 })
         
+        # Validate GL combinations: must provide either ID or segments for each
+        cash_gl_id = data.get('cash_GL_combination')
+        cash_gl_segments = data.get('cash_GL_segments')
+        clearing_gl_id = data.get('cash_clearing_GL_combination')
+        clearing_gl_segments = data.get('cash_clearing_GL_segments')
+        
+        # Cash GL combination validation
+        if not cash_gl_id and not cash_gl_segments:
+            raise serializers.ValidationError({
+                'cash_GL_combination': 'Must provide either cash_GL_combination ID or cash_GL_segments'
+            })
+        if cash_gl_id and cash_gl_segments:
+            raise serializers.ValidationError({
+                'cash_GL_combination': 'Cannot provide both cash_GL_combination ID and cash_GL_segments. Choose one approach.'
+            })
+        
+        # Cash clearing GL combination validation
+        if not clearing_gl_id and not clearing_gl_segments:
+            raise serializers.ValidationError({
+                'cash_clearing_GL_combination': 'Must provide either cash_clearing_GL_combination ID or cash_clearing_GL_segments'
+            })
+        if clearing_gl_id and clearing_gl_segments:
+            raise serializers.ValidationError({
+                'cash_clearing_GL_combination': 'Cannot provide both cash_clearing_GL_combination ID and cash_clearing_GL_segments. Choose one approach.'
+            })
+        
+        # Validate segments if provided
+        if cash_gl_segments:
+            if len(cash_gl_segments) == 0:
+                raise serializers.ValidationError({
+                    'cash_GL_segments': 'At least one segment is required'
+                })
+        
+        if clearing_gl_segments:
+            if len(clearing_gl_segments) == 0:
+                raise serializers.ValidationError({
+                    'cash_clearing_GL_segments': 'At least one segment is required'
+                })
+        
         return data
     
     def create(self, validated_data):
         """Create new account with audit fields"""
         user = self.context['request'].user
         validated_data['created_by'] = user
+        
+        # Process cash GL combination from segments if provided
+        cash_gl_segments = validated_data.pop('cash_GL_segments', None)
+        if cash_gl_segments:
+            # Convert to list of tuples format
+            segment_list = [
+                (seg['segment_type_id'], seg['segment_code'])
+                for seg in cash_gl_segments
+            ]
+            # Get or create combination
+            cash_combo_id = XX_Segment_combination.get_combination_id(
+                segment_list,
+                description='Bank Account Cash GL'
+            )
+            validated_data['cash_GL_combination_id'] = cash_combo_id
+        
+        # Process cash clearing GL combination from segments if provided
+        clearing_gl_segments = validated_data.pop('cash_clearing_GL_segments', None)
+        if clearing_gl_segments:
+            # Convert to list of tuples format
+            segment_list = [
+                (seg['segment_type_id'], seg['segment_code'])
+                for seg in clearing_gl_segments
+            ]
+            # Get or create combination
+            clearing_combo_id = XX_Segment_combination.get_combination_id(
+                segment_list,
+                description='Bank Account Cash Clearing GL'
+            )
+            validated_data['cash_clearing_GL_combination_id'] = clearing_combo_id
         
         # Set current_balance to opening_balance initially
         if 'opening_balance' in validated_data:
