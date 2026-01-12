@@ -208,7 +208,6 @@ class APInvoiceCreateSerializer(serializers.Serializer):
     # Invoice fields
     date = serializers.DateField()
     currency_id = serializers.IntegerField(min_value=Decimal("1"))
- 
     country_id = serializers.IntegerField(min_value=Decimal("1"),
   required=False, allow_null=True)
 
@@ -309,6 +308,7 @@ class APInvoiceListSerializer(serializers.ModelSerializer):
     currency_code = serializers.CharField(
         source="invoice.currency.code", read_only=True
     )
+    invoice_number = serializers.CharField(source="invoice.invoice_number", read_only=True)
 
     # Invoice fields (proxied through properties)
     date = serializers.DateField()
@@ -659,7 +659,7 @@ class ARInvoiceListSerializer(serializers.ModelSerializer):
     currency_code = serializers.CharField(
         source="invoice.currency.code", read_only=True
     )
-
+    invoice_number = serializers.CharField(source="invoice.invoice_number", read_only=True)
     date = serializers.DateField()
     total = serializers.DecimalField(max_digits=14, decimal_places=2)
     approval_status = serializers.CharField()
@@ -900,6 +900,8 @@ class OneTimeSupplierListSerializer(serializers.ModelSerializer):
     currency_code = serializers.CharField(
         source="invoice.currency.code", read_only=True
     )
+
+    invoice_number = serializers.CharField(source="invoice.invoice_number", read_only=True)
 
     # Invoice fields (proxied through properties)
     date = serializers.DateField()
