@@ -723,13 +723,58 @@ class BankStatementViewSet(viewsets.ModelViewSet):
                 user=request.user
             )
             
-            # Import statement
+            # Parse file to get dates (needed for auto-generation)
+            if not importer.read_file():
+                return Response({
+                    'success': False,
+                    'message': 'Failed to read file',
+                    'errors': importer.errors
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            parsed_data = importer.parse_data()
+            
+            # Auto-generate statement_number if not provided
+            statement_number = serializer.validated_data.get('statement_number')
+            if not statement_number:
+                # Generate: STMT-<AccountID>-<YYYYMMDD>-<Counter>
+                from datetime import datetime
+                date_str = datetime.now().strftime('%Y%m%d')
+                account_id = serializer.validated_data['bank_account_id']
+                
+                # Find next available counter for today
+                existing_count = BankStatement.objects.filter(
+                    bank_account_id=account_id,
+                    statement_number__startswith=f'STMT-{account_id}-{date_str}'
+                ).count()
+                
+                statement_number = f'STMT-{account_id}-{date_str}-{existing_count + 1:03d}'
+            
+            # Auto-generate statement_date if not provided
+            statement_date = serializer.validated_data.get('statement_date')
+            if not statement_date and parsed_data.get('statement_info'):
+                # Use the latest transaction date
+                statement_date = parsed_data['statement_info']['to_date']
+            elif not statement_date:
+                # Fallback to today
+                from datetime import date
+                statement_date = date.today()
+            
+            # Auto-calculate closing_balance if not provided
+            opening_balance = serializer.validated_data.get('opening_balance', Decimal('0'))
+            closing_balance = serializer.validated_data.get('closing_balance')
+            
+            # If closing_balance not provided or is 0, calculate it
+            if closing_balance is None or closing_balance == Decimal('0'):
+                net_change = parsed_data['summary']['total_credits'] - parsed_data['summary']['total_debits']
+                closing_balance = opening_balance + net_change
+            
+            # Import statement (skip_parse=True since we already parsed)
             result = importer.import_statement({
-                'statement_number': serializer.validated_data['statement_number'],
-                'statement_date': serializer.validated_data['statement_date'],
-                'opening_balance': serializer.validated_data.get('opening_balance', Decimal('0')),
-                'closing_balance': serializer.validated_data.get('closing_balance', Decimal('0')),
-            })
+                'statement_number': statement_number,
+                'statement_date': statement_date,
+                'opening_balance': opening_balance,
+                'closing_balance': closing_balance,
+            }, skip_parse=True)
             
             # Serialize statement for response
             statement_serializer = BankStatementDetailSerializer(result['statement'])

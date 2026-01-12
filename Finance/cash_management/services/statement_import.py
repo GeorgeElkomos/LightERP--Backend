@@ -432,7 +432,7 @@ class BankStatementImporter:
         return parsed_data
     
     @transaction.atomic
-    def import_statement(self, statement_data: Dict) -> Dict:
+    def import_statement(self, statement_data: Dict, skip_parse: bool = False) -> Dict:
         """
         Import parsed data into database.
         
@@ -442,11 +442,12 @@ class BankStatementImporter:
         Args:
             statement_data: Dictionary with statement_number, statement_date, 
                           opening_balance, closing_balance
+            skip_parse: If True, assumes file has already been read and parsed
             
         Returns:
             Dict: Import result with created statement and lines
         """
-        from ..models import BankStatement, BankStatementLine, BankAccount
+        from Finance.cash_management.models import BankStatement, BankStatementLine, BankAccount
         
         # Get bank account
         try:
@@ -454,11 +455,17 @@ class BankStatementImporter:
         except BankAccount.DoesNotExist:
             raise ValidationError(f'Bank account with ID {self.bank_account_id} not found')
         
-        # Read and parse file
-        if not self.read_file():
-            raise ValidationError('Failed to read file')
-        
-        parsed_data = self.parse_data()
+        # Read and parse file (only if not already done)
+        if not skip_parse:
+            if not self.read_file():
+                raise ValidationError('Failed to read file')
+            
+            parsed_data = self.parse_data()
+        else:
+            # Use already parsed data
+            if self.df is None:
+                raise ValidationError('File has not been read yet')
+            parsed_data = self.parse_data()
         
         if self.errors:
             raise ValidationError(f'File has {len(self.errors)} validation errors')

@@ -760,26 +760,33 @@ class BankStatementImportSerializer(serializers.Serializer):
     )
     statement_number = serializers.CharField(
         max_length=100,
-        required=True,
-        help_text="Unique statement reference number (e.g., STMT-2026-01)"
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        default=None,
+        help_text="Unique statement reference number (e.g., STMT-2026-01). Auto-generated if not provided."
     )
     statement_date = serializers.DateField(
-        required=True,
-        help_text="Date of the statement (YYYY-MM-DD)"
+        required=False,
+        allow_null=True,
+        default=None,
+        help_text="Date of the statement (YYYY-MM-DD). Auto-generated from transaction dates if not provided."
     )
     opening_balance = serializers.DecimalField(
         max_digits=15,
         decimal_places=2,
         required=False,
+        allow_null=True,
         default=Decimal('0'),
-        help_text="Opening balance at start of statement period"
+        help_text="Opening balance at start of statement period. Defaults to 0 if not provided."
     )
     closing_balance = serializers.DecimalField(
         max_digits=15,
         decimal_places=2,
         required=False,
-        default=Decimal('0'),
-        help_text="Closing balance at end of statement period"
+        allow_null=True,
+        default=None,
+        help_text="Closing balance at end of statement period. Auto-calculated if not provided."
     )
     
     def validate_file(self, value):
@@ -809,15 +816,16 @@ class BankStatementImportSerializer(serializers.Serializer):
     
     def validate_statement_number(self, value):
         """Validate statement number is unique for this account"""
-        bank_account_id = self.initial_data.get('bank_account_id')
-        if bank_account_id:
-            if BankStatement.objects.filter(
-                bank_account_id=bank_account_id,
-                statement_number=value
-            ).exists():
-                raise serializers.ValidationError(
-                    f'Statement number "{value}" already exists for this bank account'
-                )
+        if value:  # Only validate if provided
+            bank_account_id = self.initial_data.get('bank_account_id')
+            if bank_account_id:
+                if BankStatement.objects.filter(
+                    bank_account_id=bank_account_id,
+                    statement_number=value
+                ).exists():
+                    raise serializers.ValidationError(
+                        f'Statement number "{value}" already exists for this bank account'
+                    )
         return value
 
 
