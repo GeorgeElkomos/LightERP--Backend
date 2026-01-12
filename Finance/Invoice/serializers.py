@@ -308,13 +308,19 @@ class APInvoiceListSerializer(serializers.ModelSerializer):
     currency_code = serializers.CharField(
         source="invoice.currency.code", read_only=True
     )
-    invoice_number = serializers.CharField(source="invoice.invoice_number", read_only=True)
+    invoice_number = serializers.SerializerMethodField()
 
     # Invoice fields (proxied through properties)
     date = serializers.DateField()
     total = serializers.DecimalField(max_digits=14, decimal_places=2)
     approval_status = serializers.CharField()
     payment_status = serializers.CharField()
+    
+    def get_invoice_number(self, obj):
+        """Generate invoice number from prefix_code and invoice_id"""
+        if obj.invoice.prefix_code:
+            return f"{obj.invoice.prefix_code}-{obj.invoice.id}"
+        return str(obj.invoice.id)
 
     class Meta:
         model = AP_Invoice
@@ -660,16 +666,23 @@ class ARInvoiceListSerializer(serializers.ModelSerializer):
     currency_code = serializers.CharField(
         source="invoice.currency.code", read_only=True
     )
-    invoice_number = serializers.CharField(source="invoice.invoice_number", read_only=True)
+    invoice_number = serializers.SerializerMethodField()
     date = serializers.DateField()
     total = serializers.DecimalField(max_digits=14, decimal_places=2)
     approval_status = serializers.CharField()
     payment_status = serializers.CharField()
+    
+    def get_invoice_number(self, obj):
+        """Generate invoice number from prefix_code and invoice_id"""
+        if obj.invoice.prefix_code:
+            return f"{obj.invoice.prefix_code}-{obj.invoice.id}"
+        return str(obj.invoice.id)
 
     class Meta:
         model = AR_Invoice
         fields = [
             "invoice_id",
+            "invoice_number",
             "date",
             "customer_id",
             "customer_name",
