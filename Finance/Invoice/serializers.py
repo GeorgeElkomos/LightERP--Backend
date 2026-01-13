@@ -927,6 +927,7 @@ class OneTimeSupplierListSerializer(serializers.ModelSerializer):
         model = OneTimeSupplier
         fields = [
             "invoice_id",
+            "invoice_number",
             "date",
             "supplier_name",
             "currency_code",
