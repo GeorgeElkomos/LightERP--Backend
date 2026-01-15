@@ -64,4 +64,13 @@ urlpatterns = [
     
     # Get all available items filtered by type
     path('items-by-type/', views.pr_items_by_type, name='pr-items-by-type'),
+    
+    # ============================================================================
+    # Attachments
+    # ============================================================================
+    # List attachments or upload new attachment for a PR
+    path('<int:pr_id>/attachments/', views.pr_attachment_list, name='pr-attachment-list'),
+    
+    # Retrieve or delete a specific attachment
+    path('attachments/<int:attachment_id>/', views.pr_attachment_detail, name='pr-attachment-detail'),
 ]

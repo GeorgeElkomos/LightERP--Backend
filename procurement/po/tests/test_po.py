@@ -40,6 +40,7 @@ from procurement.po.tests.fixtures import (
     create_catalog_item,
     create_supplier,
     create_currency,
+    create_tax_rate,
     create_valid_po_data,
     get_or_create_test_user,
     create_simple_approval_template_for_po,
@@ -70,7 +71,8 @@ class POCreateManualTests(TestCase):
         self.uom = create_unit_of_measure()
         self.supplier = create_supplier()
         self.currency = create_currency()
-        self.valid_data = create_valid_po_data(self.supplier, self.currency, self.uom)
+        self.tax_rate = create_tax_rate()  # 5% tax rate
+        self.valid_data = create_valid_po_data(self.supplier, self.currency, self.uom, self.tax_rate)
     
     def test_create_po_success(self):
         """Test successful PO creation"""
@@ -190,17 +192,188 @@ class POCreateManualTests(TestCase):
         self.assertEqual(po.subtotal, expected_subtotal)
     
     def test_create_po_calculates_totals(self):
-        """Test that PO auto-calculates subtotal and total"""
+        """Test that PO auto-calculates subtotal, tax, delivery, and total"""
         response = self.client.post(self.url, self.valid_data, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         po = POHeader.objects.get(id=response.data['data']['id'])
         
+        # Expected calculations:
+        # Subtotal = 10 × 1200.00 = 12,000.00
+        # Tax = 12,000.00 × 5% = 600.00
+        # Delivery = 50.00 (from fixtures)
+        # Total = 12,000.00 + 600.00 + 50.00 = 12,650.00
+        
         expected_subtotal = Decimal('10.000') * Decimal('1200.00')
-        expected_total = expected_subtotal + Decimal('120.00')  # tax_amount
+        expected_tax = expected_subtotal * (Decimal('5.00') / Decimal('100'))  # 5% tax
+        expected_delivery = Decimal('50.00')
+        expected_total = expected_subtotal + expected_tax + expected_delivery
         
         self.assertEqual(po.subtotal, expected_subtotal)
+        self.assertEqual(po.tax_amount, expected_tax)
+        self.assertEqual(po.delivery_amount, expected_delivery)
         self.assertEqual(po.total_amount, expected_total)
+    
+    def test_tax_calculation_with_different_rates(self):
+        """Test tax calculation with different tax rates"""
+        # Create PO with 10% tax rate using different country to avoid unique constraint
+        from procurement.po.tests.fixtures import create_country
+        uk_country = create_country(code='GB', name='United Kingdom')
+        tax_rate_10 = create_tax_rate(country=uk_country, rate=Decimal('10.00'), category='STANDARD')
+        
+        data = create_valid_po_data(
+            self.supplier, 
+            self.currency, 
+            self.uom, 
+            tax_rate=tax_rate_10,
+            delivery_amount='100.00'
+        )
+        
+        response = self.client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        po = POHeader.objects.get(id=response.data['data']['id'])
+        
+        # Subtotal = 10 × 1200.00 = 12,000.00
+        # Tax = 12,000.00 × 10% = 1,200.00
+        # Delivery = 100.00
+        # Total = 12,000.00 + 1,200.00 + 100.00 = 13,300.00
+        
+        expected_subtotal = Decimal('12000.00')
+        expected_tax = Decimal('1200.00')
+        expected_delivery = Decimal('100.00')
+        expected_total = Decimal('13300.00')
+        
+        self.assertEqual(po.subtotal, expected_subtotal)
+        self.assertEqual(po.tax_amount, expected_tax)
+        self.assertEqual(po.delivery_amount, expected_delivery)
+        self.assertEqual(po.total_amount, expected_total)
+    
+    def test_zero_tax_rate_calculation(self):
+        """Test calculation with zero-rated tax (0%)"""
+        # Create PO with 0% tax rate
+        tax_rate_zero = create_tax_rate(rate=Decimal('0.00'), category='ZERO')
+        data = create_valid_po_data(
+            self.supplier, 
+            self.currency, 
+            self.uom, 
+            tax_rate=tax_rate_zero,
+            delivery_amount='25.00'
+        )
+        
+        response = self.client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        po = POHeader.objects.get(id=response.data['data']['id'])
+        
+        # Subtotal = 12,000.00
+        # Tax = 12,000.00 × 0% = 0.00
+        # Delivery = 25.00
+        # Total = 12,000.00 + 0.00 + 25.00 = 12,025.00
+        
+        self.assertEqual(po.subtotal, Decimal('12000.00'))
+        self.assertEqual(po.tax_amount, Decimal('0.00'))
+        self.assertEqual(po.delivery_amount, Decimal('25.00'))
+        self.assertEqual(po.total_amount, Decimal('12025.00'))
+    
+    def test_multiple_line_items_tax_calculation(self):
+        """Test tax calculation with multiple line items"""
+        data = create_valid_po_data(
+            self.supplier, 
+            self.currency, 
+            self.uom,
+            self.tax_rate,
+            delivery_amount='150.00'
+        )
+        
+        # Add second line item
+        data['items'].append({
+            "line_number": 2,
+            "line_type": "Catalog",
+            "item_name": "Monitor",
+            "item_description": "27-inch Monitor",
+            "quantity": "5",
+            "unit_of_measure_id": self.uom.id,
+            "unit_price": "500.00",
+            "line_notes": ""
+        })
+        
+        response = self.client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        po = POHeader.objects.get(id=response.data['data']['id'])
+        
+        # Subtotal = (10 × 1200.00) + (5 × 500.00) = 12,000.00 + 2,500.00 = 14,500.00
+        # Tax = 14,500.00 × 5% = 725.00
+        # Delivery = 150.00
+        # Total = 14,500.00 + 725.00 + 150.00 = 15,375.00
+        
+        expected_subtotal = Decimal('14500.00')
+        expected_tax = Decimal('725.00')
+        expected_delivery = Decimal('150.00')
+        expected_total = Decimal('15375.00')
+        
+        self.assertEqual(po.subtotal, expected_subtotal)
+        self.assertEqual(po.tax_amount, expected_tax)
+        self.assertEqual(po.delivery_amount, expected_delivery)
+        self.assertEqual(po.total_amount, expected_total)
+    
+    def test_no_delivery_amount(self):
+        """Test calculation with no delivery charges"""
+        data = create_valid_po_data(
+            self.supplier, 
+            self.currency, 
+            self.uom,
+            self.tax_rate,
+            delivery_amount='0.00'
+        )
+        
+        response = self.client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        po = POHeader.objects.get(id=response.data['data']['id'])
+        
+        # Subtotal = 12,000.00
+        # Tax = 12,000.00 × 5% = 600.00
+        # Delivery = 0.00
+        # Total = 12,000.00 + 600.00 + 0.00 = 12,600.00
+        
+        self.assertEqual(po.subtotal, Decimal('12000.00'))
+        self.assertEqual(po.tax_amount, Decimal('600.00'))
+        self.assertEqual(po.delivery_amount, Decimal('0.00'))
+        self.assertEqual(po.total_amount, Decimal('12600.00'))
+    
+    def test_recalculate_totals_after_line_update(self):
+        """Test that totals are recalculated when line items change"""
+        # Create initial PO
+        response = self.client.post(self.url, self.valid_data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        po = POHeader.objects.get(id=response.data['data']['id'])
+        initial_total = po.total_amount
+        
+        # Update line item quantity
+        line_item = po.line_items.first()
+        line_item.quantity = Decimal('20.000')  # Double the quantity
+        line_item.save()
+        
+        # Refresh from database
+        po.refresh_from_db()
+        
+        # New calculations:
+        # Subtotal = 20 × 1200.00 = 24,000.00
+        # Tax = 24,000.00 × 5% = 1,200.00
+        # Delivery = 50.00
+        # Total = 24,000.00 + 1,200.00 + 50.00 = 25,250.00
+        
+        expected_subtotal = Decimal('24000.00')
+        expected_tax = Decimal('1200.00')
+        expected_total = Decimal('25250.00')
+        
+        self.assertEqual(po.subtotal, expected_subtotal)
+        self.assertEqual(po.tax_amount, expected_tax)
+        self.assertEqual(po.total_amount, expected_total)
+        self.assertNotEqual(po.total_amount, initial_total)
 
 
 class POCreateFromPRTests(TestCase):
@@ -220,7 +393,8 @@ class POCreateFromPRTests(TestCase):
         self.pr, self.pr_items = create_approved_pr_with_items()
         self.supplier = create_supplier()
         self.currency = create_currency()
-        self.valid_data = create_valid_po_from_pr_data(self.pr_items, self.supplier, self.currency)
+        self.tax_rate = create_tax_rate()  # 5% tax rate
+        self.valid_data = create_valid_po_from_pr_data(self.pr_items, self.supplier, self.currency, self.tax_rate)
     
     def test_create_po_from_pr_success(self):
         """Test successful PO creation from PR items"""
@@ -895,3 +1069,455 @@ class POAuthenticationTests(TestCase):
         response = self.client.post(self.url, {})
         
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+# ============================================================================
+# ATTACHMENT TESTS
+# ============================================================================
+
+class POAttachmentTests(TestCase):
+    """Test PO attachment functionality"""
+    
+    def setUp(self):
+        """Set up test data"""
+        self.client = APIClient()
+        
+        # Create test user
+        self.user = get_or_create_test_user()
+        self.client.force_authenticate(user=self.user)
+        
+        # Create a PO for testing
+        self.uom = create_unit_of_measure()
+        self.supplier = create_supplier()
+        self.currency = create_currency()
+        self.tax_rate = create_tax_rate()
+        
+        po_data = create_valid_po_data(self.supplier, self.currency, self.uom, self.tax_rate)
+        response = self.client.post(reverse('po:po-list'), po_data, format='json')
+        self.po_id = response.data['data']['id']
+        
+        self.list_url = reverse('po:po-attachment-list', kwargs={'po_id': self.po_id})
+    
+    def test_upload_attachment_success(self):
+        """Test successful attachment upload"""
+        import base64
+        
+        # Create a simple test file
+        test_file_content = b"This is a test PDF file content"
+        file_data_base64 = base64.b64encode(test_file_content).decode('utf-8')
+        
+        data = {
+            'file_name': 'test_invoice.pdf',
+            'file_type': 'application/pdf',
+            'file_data_base64': file_data_base64,
+            'description': 'Test vendor invoice'
+        }
+        
+        response = self.client.post(self.list_url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIn('data', response.data)
+        self.assertEqual(response.data['data']['file_name'], 'test_invoice.pdf')
+        self.assertEqual(response.data['data']['file_size'], len(test_file_content))
+        self.assertIn('uploaded_by_email', response.data['data'])
+    
+    def test_list_attachments(self):
+        """Test listing all attachments for a PO"""
+        import base64
+        
+        # Upload a couple of attachments
+        for i in range(2):
+            test_content = f"Test file {i}".encode()
+            data = {
+                'file_name': f'test_file_{i}.txt',
+                'file_type': 'text/plain',
+                'file_data_base64': base64.b64encode(test_content).decode('utf-8'),
+                'description': f'Test file {i}'
+            }
+            self.client.post(self.list_url, data, format='json')
+        
+        # List attachments
+        response = self.client.get(self.list_url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('data', response.data)
+        self.assertEqual(len(response.data['data']), 2)
+        # Check that both files are present (ordering may vary)
+        file_names = [att['file_name'] for att in response.data['data']]
+        self.assertIn('test_file_0.txt', file_names)
+        self.assertIn('test_file_1.txt', file_names)
+    
+    def test_download_attachment(self):
+        """Test downloading a specific attachment"""
+        import base64
+        
+        # Upload an attachment first
+        test_content = b"Download test content"
+        upload_data = {
+            'file_name': 'download_test.pdf',
+            'file_type': 'application/pdf',
+            'file_data_base64': base64.b64encode(test_content).decode('utf-8'),
+            'description': 'Download test'
+        }
+        upload_response = self.client.post(self.list_url, upload_data, format='json')
+        attachment_id = upload_response.data['data']['attachment_id']
+        
+        # Download the attachment
+        detail_url = reverse('po:po-attachment-detail', kwargs={'attachment_id': attachment_id})
+        response = self.client.get(detail_url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('data', response.data)
+        self.assertEqual(response.data['data']['file_name'], 'download_test.pdf')
+        self.assertIn('file_data_base64', response.data['data'])
+        
+        # Verify file content
+        downloaded_content = base64.b64decode(response.data['data']['file_data_base64'])
+        self.assertEqual(downloaded_content, test_content)
+    
+    def test_delete_attachment(self):
+        """Test deleting an attachment"""
+        import base64
+        
+        # Upload an attachment
+        test_content = b"Delete test content"
+        upload_data = {
+            'file_name': 'delete_test.pdf',
+            'file_type': 'application/pdf',
+            'file_data_base64': base64.b64encode(test_content).decode('utf-8')
+        }
+        upload_response = self.client.post(self.list_url, upload_data, format='json')
+        attachment_id = upload_response.data['data']['attachment_id']
+        
+        # Delete the attachment
+        detail_url = reverse('po:po-attachment-detail', kwargs={'attachment_id': attachment_id})
+        response = self.client.delete(detail_url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # Verify attachment was deleted
+        list_response = self.client.get(self.list_url)
+        self.assertEqual(len(list_response.data['data']), 0)
+    
+    def test_upload_attachment_without_file_data(self):
+        """Test upload fails without file data"""
+        data = {
+            'file_name': 'test.pdf',
+            'file_type': 'application/pdf',
+            'description': 'Missing file data'
+        }
+        
+        response = self.client.post(self.list_url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+    
+    def test_upload_attachment_invalid_base64(self):
+        """Test upload fails with invalid base64"""
+        data = {
+            'file_name': 'test.pdf',
+            'file_type': 'application/pdf',
+            'file_data_base64': 'not-valid-base64!!!',
+            'description': 'Invalid base64'
+        }
+        
+        response = self.client.post(self.list_url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+    
+    def test_upload_attachment_to_nonexistent_po(self):
+        """Test upload fails for non-existent PO"""
+        import base64
+        
+        invalid_url = reverse('po:po-attachment-list', kwargs={'po_id': 99999})
+        data = {
+            'file_name': 'test.pdf',
+            'file_type': 'application/pdf',
+            'file_data_base64': base64.b64encode(b"test").decode('utf-8')
+        }
+        
+        response = self.client.post(invalid_url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+    
+    def test_download_nonexistent_attachment(self):
+        """Test download fails for non-existent attachment"""
+        detail_url = reverse('po:po-attachment-detail', kwargs={'attachment_id': 99999})
+        response = self.client.get(detail_url)
+        
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+    
+    def test_attachment_file_size_display(self):
+        """Test file size is displayed in human-readable format"""
+        import base64
+        
+        # Upload a 1KB file
+        test_content = b"x" * 1024
+        data = {
+            'file_name': 'size_test.txt',
+            'file_type': 'text/plain',
+            'file_data_base64': base64.b64encode(test_content).decode('utf-8')
+        }
+        
+        response = self.client.post(self.list_url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['data']['file_size'], 1024)
+        self.assertIn('KB', response.data['data']['file_size_display'])
+    
+    def test_attachment_uploaded_by_auto_set(self):
+        """Test uploaded_by is automatically set to authenticated user"""
+        import base64
+        
+        data = {
+            'file_name': 'user_test.pdf',
+            'file_type': 'application/pdf',
+            'file_data_base64': base64.b64encode(b"test").decode('utf-8')
+        }
+        
+        response = self.client.post(self.list_url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['data']['uploaded_by_email'], self.user.email)
+    
+    def test_attachment_included_in_po_detail(self):
+        """Test attachments are included in PO detail response"""
+        import base64
+        
+        # Upload an attachment
+        data = {
+            'file_name': 'detail_test.pdf',
+            'file_type': 'application/pdf',
+            'file_data_base64': base64.b64encode(b"test").decode('utf-8')
+        }
+        self.client.post(self.list_url, data, format='json')
+        
+        # Get PO detail
+        detail_url = reverse('po:po-detail', kwargs={'pk': self.po_id})
+        response = self.client.get(detail_url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('attachments', response.data['data'])
+        self.assertEqual(len(response.data['data']['attachments']), 1)
+        self.assertEqual(response.data['data']['attachments'][0]['file_name'], 'detail_test.pdf')
+    
+    def test_attachments_require_authentication(self):
+        """Test attachment endpoints require authentication"""
+        # Logout
+        self.client.force_authenticate(user=None)
+        
+        # Try to list attachments
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        
+        # Try to upload attachment
+        response = self.client.post(self.list_url, {})
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+# ============================================================================
+# TOLERANCE PERCENTAGE TESTS
+# ============================================================================
+
+class POLineToleranceTests(TestCase):
+    """Test PO line item tolerance percentage functionality"""
+    
+    def setUp(self):
+        """Set up test data"""
+        self.client = APIClient()
+        
+        # Create test user
+        self.user = get_or_create_test_user()
+        self.client.force_authenticate(user=self.user)
+        
+        self.url = reverse('po:po-list')
+        
+        # Create test data
+        self.uom = create_unit_of_measure()
+        self.supplier = create_supplier()
+        self.currency = create_currency()
+        self.tax_rate = create_tax_rate()
+        self.valid_data = create_valid_po_data(self.supplier, self.currency, self.uom, self.tax_rate)
+    
+    def test_create_po_with_tolerance(self):
+        """Test creating PO line with tolerance percentage"""
+        data = self.valid_data.copy()
+        data['items'][0]['tolerance_percentage'] = '10.00'
+        
+        response = self.client.post(self.url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        po = POHeader.objects.get(id=response.data['data']['id'])
+        line = po.line_items.first()
+        
+        self.assertEqual(line.tolerance_percentage, Decimal('10.00'))
+    
+    def test_create_po_default_zero_tolerance(self):
+        """Test that PO line has default 0% tolerance if not specified"""
+        response = self.client.post(self.url, self.valid_data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        po = POHeader.objects.get(id=response.data['data']['id'])
+        line = po.line_items.first()
+        
+        self.assertEqual(line.tolerance_percentage, Decimal('0.00'))
+    
+    def test_tolerance_percentage_validation_negative(self):
+        """Test that negative tolerance percentage is rejected"""
+        data = self.valid_data.copy()
+        data['items'][0]['tolerance_percentage'] = '-5.00'
+        
+        response = self.client.post(self.url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+    
+    def test_tolerance_percentage_validation_over_100(self):
+        """Test that tolerance percentage over 100 is rejected"""
+        data = self.valid_data.copy()
+        data['items'][0]['tolerance_percentage'] = '150.00'
+        
+        response = self.client.post(self.url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+    
+    def test_get_max_receivable_quantity(self):
+        """Test max receivable quantity calculation with tolerance"""
+        data = self.valid_data.copy()
+        data['items'][0]['quantity'] = '100.000'
+        data['items'][0]['tolerance_percentage'] = '10.00'
+        
+        response = self.client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        po = POHeader.objects.get(id=response.data['data']['id'])
+        line = po.line_items.first()
+        
+        # 100 + 10% = 110
+        self.assertEqual(line.get_max_receivable_quantity(), Decimal('110.000'))
+    
+    def test_get_min_acceptable_quantity(self):
+        """Test min acceptable quantity calculation with tolerance"""
+        data = self.valid_data.copy()
+        data['items'][0]['quantity'] = '100.000'
+        data['items'][0]['tolerance_percentage'] = '10.00'
+        
+        response = self.client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        po = POHeader.objects.get(id=response.data['data']['id'])
+        line = po.line_items.first()
+        
+        # 100 - 10% = 90
+        self.assertEqual(line.get_min_acceptable_quantity(), Decimal('90.000'))
+    
+    def test_get_remaining_quantity_with_tolerance(self):
+        """Test remaining quantity includes tolerance in max calculation"""
+        data = self.valid_data.copy()
+        data['items'][0]['quantity'] = '100.000'
+        data['items'][0]['tolerance_percentage'] = '10.00'
+        
+        response = self.client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        po = POHeader.objects.get(id=response.data['data']['id'])
+        line = po.line_items.first()
+        
+        # Max receivable = 110, received = 0, remaining = 110
+        self.assertEqual(line.get_remaining_quantity(), Decimal('110.000'))
+        
+        # Receive 50
+        line.quantity_received = Decimal('50.000')
+        line.save()
+        
+        # Remaining = 110 - 50 = 60
+        self.assertEqual(line.get_remaining_quantity(), Decimal('60.000'))
+    
+    def test_is_fully_received_with_tolerance(self):
+        """Test fully received check considers minimum tolerance"""
+        data = self.valid_data.copy()
+        data['items'][0]['quantity'] = '100.000'
+        data['items'][0]['tolerance_percentage'] = '10.00'
+        
+        response = self.client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        po = POHeader.objects.get(id=response.data['data']['id'])
+        line = po.line_items.first()
+        
+        # Not fully received initially
+        self.assertFalse(line.is_fully_received())
+        
+        # Receive 89 (below minimum 90) - not fully received
+        line.quantity_received = Decimal('89.000')
+        line.save()
+        self.assertFalse(line.is_fully_received())
+        
+        # Receive 90 (exactly minimum) - fully received
+        line.quantity_received = Decimal('90.000')
+        line.save()
+        self.assertTrue(line.is_fully_received())
+        
+        # Receive 100 (exactly ordered) - fully received
+        line.quantity_received = Decimal('100.000')
+        line.save()
+        self.assertTrue(line.is_fully_received())
+        
+        # Receive 110 (maximum with tolerance) - fully received
+        line.quantity_received = Decimal('110.000')
+        line.save()
+        self.assertTrue(line.is_fully_received())
+    
+    def test_tolerance_in_serializer_response(self):
+        """Test that tolerance fields appear in API response"""
+        data = self.valid_data.copy()
+        data['items'][0]['quantity'] = '100.000'
+        data['items'][0]['tolerance_percentage'] = '15.00'
+        
+        response = self.client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        # Get PO detail to check serializer response
+        po_id = response.data['data']['id']
+        detail_response = self.client.get(reverse('po:po-detail', kwargs={'pk': po_id}))
+        
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        line_data = detail_response.data['data']['items'][0]
+        
+        self.assertIn('tolerance_percentage', line_data)
+        self.assertEqual(Decimal(line_data['tolerance_percentage']), Decimal('15.00'))
+        self.assertIn('max_receivable_quantity', line_data)
+        self.assertEqual(Decimal(line_data['max_receivable_quantity']), Decimal('115.000'))
+        self.assertIn('min_acceptable_quantity', line_data)
+        self.assertEqual(Decimal(line_data['min_acceptable_quantity']), Decimal('85.000'))
+    
+    def test_different_tolerances_per_line(self):
+        """Test that each line can have different tolerance"""
+        data = self.valid_data.copy()
+        data['items'][0]['quantity'] = '100.000'
+        data['items'][0]['tolerance_percentage'] = '10.00'
+        
+        # Add second line with different tolerance
+        data['items'].append({
+            "line_number": 2,
+            "line_type": "Catalog",
+            "item_name": "Monitor",
+            "item_description": "27-inch Monitor",
+            "quantity": "50.000",
+            "unit_of_measure_id": self.uom.id,
+            "unit_price": "500.00",
+            "tolerance_percentage": "5.00",
+            "line_notes": ""
+        })
+        
+        response = self.client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        po = POHeader.objects.get(id=response.data['data']['id'])
+        lines = list(po.line_items.all().order_by('line_number'))
+        
+        # First line: 10% tolerance
+        self.assertEqual(lines[0].tolerance_percentage, Decimal('10.00'))
+        self.assertEqual(lines[0].get_max_receivable_quantity(), Decimal('110.000'))
+        
+        # Second line: 5% tolerance
+        self.assertEqual(lines[1].tolerance_percentage, Decimal('5.00'))
+        self.assertEqual(lines[1].get_max_receivable_quantity(), Decimal('52.500'))

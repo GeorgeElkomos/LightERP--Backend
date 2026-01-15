@@ -872,3 +872,323 @@ class GRNAuthenticationTests(TestCase):
         response = self.client.post(self.url, {}, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+# ============================================================================
+# RECEIVING TYPE (PARTIAL/FULLY) TESTS
+# ============================================================================
+
+class ReceivingTypeTests(TestCase):
+    """Test receiving_type (PARTIAL/FULLY) functionality with tolerance"""
+    
+    def setUp(self):
+        """Set up test data"""
+        self.client = APIClient()
+        
+        # Create test user
+        self.user = get_or_create_test_user()
+        self.client.force_authenticate(user=self.user)
+        
+        self.url = reverse('receiving:grn-list')
+        
+        # Create test data
+        self.uom = create_unit_of_measure()
+        self.supplier = create_supplier()
+        self.currency = create_currency()
+        
+        # Create confirmed PO with tolerance
+        self.po = create_confirmed_po(self.supplier, self.currency, self.uom, self.user)
+        po_line = self.po.line_items.first()
+        po_line.quantity = Decimal('100.000')
+        po_line.tolerance_percentage = Decimal('10.00')  # 10% tolerance
+        po_line.save()
+    
+    def test_partial_receiving_default_type(self):
+        """Test that PARTIAL is the default receiving type"""
+        data = create_valid_grn_from_po_data(self.po)
+        data['lines_from_po'][0]['quantity_to_receive'] = '30.000'
+        
+        response = self.client.post(self.url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        grn = GoodsReceipt.objects.get(id=response.data['data']['id'])
+        line = grn.lines.first()
+        
+        self.assertEqual(line.receiving_type, 'PARTIAL')
+    
+    def test_partial_receiving_allows_any_quantity_under_ordered(self):
+        """Test that PARTIAL receiving allows any quantity <= ordered"""
+        po_line = self.po.line_items.first()
+        
+        # First receipt: 30 units (PARTIAL)
+        data = create_valid_grn_from_po_data(self.po)
+        data['lines_from_po'][0]['quantity_to_receive'] = '30.000'
+        data['lines_from_po'][0]['receiving_type'] = 'PARTIAL'
+        
+        response = self.client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        po_line.refresh_from_db()
+        self.assertEqual(po_line.quantity_received, Decimal('30.000'))
+        
+        # Second receipt: 40 units (PARTIAL) - total 70
+        data2 = create_valid_grn_from_po_data(self.po)
+        data2['lines_from_po'][0]['quantity_to_receive'] = '40.000'
+        data2['lines_from_po'][0]['receiving_type'] = 'PARTIAL'
+        
+        response2 = self.client.post(self.url, data2, format='json')
+        self.assertEqual(response2.status_code, status.HTTP_201_CREATED)
+        
+        po_line.refresh_from_db()
+        self.assertEqual(po_line.quantity_received, Decimal('70.000'))
+        
+        # Third receipt: 30 units (PARTIAL) - total 100 (exactly ordered)
+        data3 = create_valid_grn_from_po_data(self.po)
+        data3['lines_from_po'][0]['quantity_to_receive'] = '30.000'
+        data3['lines_from_po'][0]['receiving_type'] = 'PARTIAL'
+        
+        response3 = self.client.post(self.url, data3, format='json')
+        self.assertEqual(response3.status_code, status.HTTP_201_CREATED)
+        
+        po_line.refresh_from_db()
+        self.assertEqual(po_line.quantity_received, Decimal('100.000'))
+    
+    def test_partial_receiving_rejects_over_ordered_quantity(self):
+        """Test that PARTIAL receiving rejects quantity exceeding ordered (ignores tolerance)"""
+        po_line = self.po.line_items.first()
+        
+        # Try to receive 101 (over ordered 100) with PARTIAL - should fail
+        data = create_valid_grn_from_po_data(self.po)
+        data['lines_from_po'][0]['quantity_to_receive'] = '101.000'
+        data['lines_from_po'][0]['receiving_type'] = 'PARTIAL'
+        
+        response = self.client.post(self.url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('exceed', str(response.data).lower())
+    
+    def test_partial_receiving_cumulative_check(self):
+        """Test that PARTIAL receiving checks cumulative totals"""
+        po_line = self.po.line_items.first()
+        
+        # First receipt: 80 units
+        data1 = create_valid_grn_from_po_data(self.po)
+        data1['lines_from_po'][0]['quantity_to_receive'] = '80.000'
+        data1['lines_from_po'][0]['receiving_type'] = 'PARTIAL'
+        
+        response1 = self.client.post(self.url, data1, format='json')
+        self.assertEqual(response1.status_code, status.HTTP_201_CREATED)
+        
+        # Second receipt: Try to receive 25 more (total would be 105 > 100 ordered)
+        data2 = create_valid_grn_from_po_data(self.po)
+        data2['lines_from_po'][0]['quantity_to_receive'] = '25.000'
+        data2['lines_from_po'][0]['receiving_type'] = 'PARTIAL'
+        
+        response2 = self.client.post(self.url, data2, format='json')
+        
+        self.assertEqual(response2.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('cumulative', str(response2.data).lower())
+    
+    def test_fully_receiving_within_tolerance_range(self):
+        """Test that FULLY receiving validates against tolerance range"""
+        po_line = self.po.line_items.first()
+        # Ordered: 100, Tolerance: 10%, Range: 90-110
+        
+        # Receive 95 units (within range 90-110) with FULLY - should succeed
+        data = create_valid_grn_from_po_data(self.po)
+        data['lines_from_po'][0]['quantity_to_receive'] = '95.000'
+        data['lines_from_po'][0]['receiving_type'] = 'FULLY'
+        
+        response = self.client.post(self.url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        po_line.refresh_from_db()
+        self.assertEqual(po_line.quantity_received, Decimal('95.000'))
+    
+    def test_fully_receiving_at_minimum_tolerance(self):
+        """Test FULLY receiving at minimum acceptable quantity (90)"""
+        data = create_valid_grn_from_po_data(self.po)
+        data['lines_from_po'][0]['quantity_to_receive'] = '90.000'
+        data['lines_from_po'][0]['receiving_type'] = 'FULLY'
+        
+        response = self.client.post(self.url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+    
+    def test_fully_receiving_at_maximum_tolerance(self):
+        """Test FULLY receiving at maximum receivable quantity (110)"""
+        data = create_valid_grn_from_po_data(self.po)
+        data['lines_from_po'][0]['quantity_to_receive'] = '110.000'
+        data['lines_from_po'][0]['receiving_type'] = 'FULLY'
+        
+        response = self.client.post(self.url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+    
+    def test_fully_receiving_below_minimum_tolerance(self):
+        """Test that FULLY receiving below minimum (89 < 90) fails"""
+        data = create_valid_grn_from_po_data(self.po)
+        data['lines_from_po'][0]['quantity_to_receive'] = '89.000'
+        data['lines_from_po'][0]['receiving_type'] = 'FULLY'
+        
+        response = self.client.post(self.url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('below minimum', str(response.data).lower())
+    
+    def test_fully_receiving_above_maximum_tolerance(self):
+        """Test that FULLY receiving above maximum (111 > 110) fails"""
+        data = create_valid_grn_from_po_data(self.po)
+        data['lines_from_po'][0]['quantity_to_receive'] = '111.000'
+        data['lines_from_po'][0]['receiving_type'] = 'FULLY'
+        
+        response = self.client.post(self.url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('exceeds maximum', str(response.data).lower())
+    
+    def test_fully_receiving_with_previous_partial_receipts(self):
+        """Test FULLY receiving validates cumulative with previous PARTIAL receipts"""
+        po_line = self.po.line_items.first()
+        
+        # First receipt: 50 units (PARTIAL)
+        data1 = create_valid_grn_from_po_data(self.po)
+        data1['lines_from_po'][0]['quantity_to_receive'] = '50.000'
+        data1['lines_from_po'][0]['receiving_type'] = 'PARTIAL'
+        
+        response1 = self.client.post(self.url, data1, format='json')
+        self.assertEqual(response1.status_code, status.HTTP_201_CREATED)
+        
+        # Second receipt: 45 units (FULLY) - total 95 (within 90-110 range)
+        data2 = create_valid_grn_from_po_data(self.po)
+        data2['lines_from_po'][0]['quantity_to_receive'] = '45.000'
+        data2['lines_from_po'][0]['receiving_type'] = 'FULLY'
+        
+        response2 = self.client.post(self.url, data2, format='json')
+        self.assertEqual(response2.status_code, status.HTTP_201_CREATED)
+        
+        po_line.refresh_from_db()
+        self.assertEqual(po_line.quantity_received, Decimal('95.000'))
+    
+    def test_fully_receiving_cumulative_below_minimum(self):
+        """Test FULLY receiving fails when cumulative is below minimum"""
+        po_line = self.po.line_items.first()
+        
+        # First receipt: 50 units (PARTIAL)
+        data1 = create_valid_grn_from_po_data(self.po)
+        data1['lines_from_po'][0]['quantity_to_receive'] = '50.000'
+        data1['lines_from_po'][0]['receiving_type'] = 'PARTIAL'
+        
+        response1 = self.client.post(self.url, data1, format='json')
+        self.assertEqual(response1.status_code, status.HTTP_201_CREATED)
+        
+        # Second receipt: 35 units (FULLY) - total 85 < 90 minimum
+        data2 = create_valid_grn_from_po_data(self.po)
+        data2['lines_from_po'][0]['quantity_to_receive'] = '35.000'
+        data2['lines_from_po'][0]['receiving_type'] = 'FULLY'
+        
+        response2 = self.client.post(self.url, data2, format='json')
+        
+        self.assertEqual(response2.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('below minimum', str(response2.data).lower())
+    
+    def test_fully_receiving_cumulative_above_maximum(self):
+        """Test FULLY receiving fails when cumulative exceeds maximum"""
+        po_line = self.po.line_items.first()
+        
+        # First receipt: 80 units (PARTIAL)
+        data1 = create_valid_grn_from_po_data(self.po)
+        data1['lines_from_po'][0]['quantity_to_receive'] = '80.000'
+        data1['lines_from_po'][0]['receiving_type'] = 'PARTIAL'
+        
+        response1 = self.client.post(self.url, data1, format='json')
+        self.assertEqual(response1.status_code, status.HTTP_201_CREATED)
+        
+        # Second receipt: 35 units (FULLY) - total 115 > 110 maximum
+        data2 = create_valid_grn_from_po_data(self.po)
+        data2['lines_from_po'][0]['quantity_to_receive'] = '35.000'
+        data2['lines_from_po'][0]['receiving_type'] = 'FULLY'
+        
+        response2 = self.client.post(self.url, data2, format='json')
+        
+        self.assertEqual(response2.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('exceeds maximum', str(response2.data).lower())
+    
+    def test_receiving_type_with_zero_tolerance(self):
+        """Test receiving types with 0% tolerance (exact quantity required)"""
+        # Update PO line to have 0% tolerance
+        po_line = self.po.line_items.first()
+        po_line.tolerance_percentage = Decimal('0.00')
+        po_line.save()
+        
+        # PARTIAL: Can receive 50 units
+        data1 = create_valid_grn_from_po_data(self.po)
+        data1['lines_from_po'][0]['quantity_to_receive'] = '50.000'
+        data1['lines_from_po'][0]['receiving_type'] = 'PARTIAL'
+        
+        response1 = self.client.post(self.url, data1, format='json')
+        self.assertEqual(response1.status_code, status.HTTP_201_CREATED)
+        
+        # FULLY: Must receive exactly 50 more (total 100)
+        data2 = create_valid_grn_from_po_data(self.po)
+        data2['lines_from_po'][0]['quantity_to_receive'] = '50.000'
+        data2['lines_from_po'][0]['receiving_type'] = 'FULLY'
+        
+        response2 = self.client.post(self.url, data2, format='json')
+        self.assertEqual(response2.status_code, status.HTTP_201_CREATED)
+        
+        po_line.refresh_from_db()
+        self.assertEqual(po_line.quantity_received, Decimal('100.000'))
+    
+    def test_receiving_type_with_zero_tolerance_under_fails(self):
+        """Test FULLY receiving fails when under exact quantity with 0% tolerance"""
+        po_line = self.po.line_items.first()
+        po_line.tolerance_percentage = Decimal('0.00')
+        po_line.save()
+        
+        # Try to receive 99 units with FULLY (< 100 required)
+        data = create_valid_grn_from_po_data(self.po)
+        data['lines_from_po'][0]['quantity_to_receive'] = '99.000'
+        data['lines_from_po'][0]['receiving_type'] = 'FULLY'
+        
+        response = self.client.post(self.url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+    
+    def test_receiving_type_in_response(self):
+        """Test that receiving_type appears in API response"""
+        data = create_valid_grn_from_po_data(self.po)
+        data['lines_from_po'][0]['quantity_to_receive'] = '50.000'
+        data['lines_from_po'][0]['receiving_type'] = 'PARTIAL'
+        
+        response = self.client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        # Get GRN detail to check response
+        grn_id = response.data['data']['id']
+        detail_response = self.client.get(reverse('receiving:grn-detail', kwargs={'pk': grn_id}))
+        
+        self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+        line_data = detail_response.data['data']['lines'][0]
+        
+        self.assertIn('receiving_type', line_data)
+        self.assertEqual(line_data['receiving_type'], 'PARTIAL')
+    
+    def test_manual_line_entry_with_receiving_type(self):
+        """Test creating GRN with manual line entry and receiving_type"""
+        po_line = self.po.line_items.first()
+        
+        data = create_valid_grn_manual_data(self.po, self.uom)
+        data['lines'][0]['po_line_item_id'] = po_line.id
+        data['lines'][0]['quantity_received'] = '95.000'
+        data['lines'][0]['receiving_type'] = 'FULLY'
+        
+        response = self.client.post(self.url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        grn = GoodsReceipt.objects.get(id=response.data['data']['id'])
+        line = grn.lines.first()
+        
+        self.assertEqual(line.receiving_type, 'FULLY')
+        self.assertEqual(line.quantity_received, Decimal('95.000'))

@@ -22,7 +22,7 @@ from erp_project.response_formatter import success_response, error_response
 from erp_project.pagination import auto_paginate
 from core.approval.managers import ApprovalManager
 
-from procurement.po.models import POHeader, POLineItem
+from procurement.po.models import POHeader, POLineItem, POAttachment
 from procurement.po.serializers import (
     POHeaderCreateSerializer,
     POHeaderListSerializer,
@@ -30,7 +30,9 @@ from procurement.po.serializers import (
     POSubmitSerializer,
     POConfirmSerializer,
     POCancelSerializer,
-    POReceiveSerializer
+    POReceiveSerializer,
+    POAttachmentSerializer,
+    POAttachmentListSerializer
 )
 
 
@@ -554,3 +556,99 @@ def po_from_pr(request):
     
     serializer = POHeaderListSerializer(queryset, many=True)
     return Response(serializer.data)
+
+
+# ============================================================================
+# PO ATTACHMENT VIEWS
+# ============================================================================
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def po_attachment_list(request, po_id):
+    """
+    GET: List all attachments for a PO
+    POST: Upload a new attachment to a PO
+    
+    POST Request Body:
+    {
+        "file_name": "invoice.pdf",
+        "file_type": "application/pdf",
+        "file_data_base64": "base64_encoded_file_data...",
+        "description": "Vendor invoice"
+    }
+    """
+    # Verify PO exists
+    po_header = get_object_or_404(POHeader, id=po_id)
+    
+    if request.method == 'GET':
+        # List attachments (without file data for efficiency)
+        attachments = po_header.attachments.all()
+        serializer = POAttachmentListSerializer(attachments, many=True)
+        return success_response(
+            data=serializer.data,
+            message=f"Retrieved {len(attachments)} attachment(s)"
+        )
+    
+    elif request.method == 'POST':
+        # Upload new attachment
+        serializer = POAttachmentSerializer(
+            data=request.data,
+            context={'request': request}
+        )
+        
+        if serializer.is_valid():
+            serializer.save(po_header=po_header)
+            return success_response(
+                data=serializer.data,
+                message="Attachment uploaded successfully",
+                status_code=status.HTTP_201_CREATED
+            )
+        
+        return error_response(
+            message="Failed to upload attachment",
+            errors=serializer.errors,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@api_view(['GET', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def po_attachment_detail(request, attachment_id):
+    """
+    GET: Download/retrieve a specific attachment
+    DELETE: Delete an attachment
+    """
+    attachment = get_object_or_404(POAttachment, attachment_id=attachment_id)
+    
+    if request.method == 'GET':
+        # Return attachment with file data encoded as base64
+        import base64
+        file_data_base64 = base64.b64encode(attachment.file_data).decode('utf-8')
+        
+        data = {
+            'attachment_id': attachment.attachment_id,
+            'file_name': attachment.file_name,
+            'file_type': attachment.file_type,
+            'file_size': attachment.file_size,
+            'file_size_display': attachment.get_file_size_display(),
+            'upload_date': attachment.upload_date,
+            'uploaded_by': attachment.uploaded_by.email if attachment.uploaded_by else None,
+            'description': attachment.description,
+            'file_data_base64': file_data_base64
+        }
+        
+        return success_response(
+            data=data,
+            message="Attachment retrieved successfully"
+        )
+    
+    elif request.method == 'DELETE':
+        # Delete attachment
+        po_number = attachment.po_header.po_number
+        file_name = attachment.file_name
+        attachment.delete()
+        
+        return success_response(
+            message=f"Attachment '{file_name}' deleted from PO {po_number}"
+        )
+

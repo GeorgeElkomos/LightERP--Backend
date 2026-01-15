@@ -1478,3 +1478,47 @@ class Service_PR(ChildModelMixin, models.Model):
             raise ValidationError("Cannot submit service PR without service items")
         
         return ApprovalManager.start_workflow(self)
+
+
+"""PR Attachment Model - Store file attachments as BLOBs for Purchase Requisitions."""
+class PRAttachment(models.Model):
+    """Model to store file attachments as BLOBs for purchase requisitions"""
+    
+    attachment_id = models.AutoField(primary_key=True)
+    pr = models.ForeignKey(
+        PR,
+        on_delete=models.CASCADE,
+        related_name="attachments",
+        help_text="Parent PR"
+    )
+    file_name = models.CharField(max_length=255, help_text="Original file name")
+    file_type = models.CharField(max_length=100, help_text="MIME type or file extension")
+    file_size = models.IntegerField(help_text="File size in bytes")
+    file_data = models.BinaryField(help_text="Binary file data (BLOB)")
+    upload_date = models.DateTimeField(auto_now_add=True)
+    uploaded_by = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Name of user who uploaded the attachment"
+    )
+    description = models.TextField(blank=True, help_text="Optional description of the attachment")
+    
+    class Meta:
+        db_table = 'pr_attachment'
+        ordering = ['-upload_date']
+        indexes = [
+            models.Index(fields=['pr', '-upload_date']),
+        ]
+    
+    def __str__(self):
+        return f"Attachment {self.attachment_id}: {self.file_name} for PR {self.pr.pr_number}"
+    
+    def get_file_size_display(self):
+        """Return human-readable file size."""
+        size_bytes = self.file_size
+        if size_bytes < 1024:
+            return f"{size_bytes} B"
+        elif size_bytes < 1024 * 1024:
+            return f"{size_bytes / 1024:.2f} KB"
+        else:
+            return f"{size_bytes / (1024 * 1024):.2f} MB"

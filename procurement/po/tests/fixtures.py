@@ -11,7 +11,7 @@ from django.contrib.auth import get_user_model
 
 from procurement.catalog.models import catalogItem, UnitOfMeasure
 from Finance.BusinessPartner.models import Supplier
-from Finance.core.models import Currency
+from Finance.core.models import Currency, Country, TaxRate
 from core.approval.models import ApprovalWorkflowTemplate, ApprovalWorkflowStageTemplate
 
 User = get_user_model()
@@ -72,6 +72,51 @@ def create_currency(code='USD', name='US Dollar'):
         }
     )
     return currency
+
+
+def create_country(code='AE', name='United Arab Emirates'):
+    """Create a test country"""
+    country, _ = Country.objects.get_or_create(
+        code=code,
+        defaults={
+            'name': name
+        }
+    )
+    return country
+
+
+def create_tax_rate(country=None, category='STANDARD', rate=Decimal('5.00'), name=None):
+    """Create a test tax rate"""
+    if country is None:
+        country = create_country()
+    
+    if name is None:
+        name = f'{country.code} {category} VAT'
+    
+    # Use filter + create instead of get_or_create to allow multiple rates
+    # Only check if exact match exists
+    existing = TaxRate.objects.filter(
+        country=country,
+        category=category,
+        rate=rate
+    ).first()
+    
+    if existing:
+        return existing
+    
+    # If no exact match, create new one
+    try:
+        tax_rate = TaxRate.objects.create(
+            country=country,
+            category=category,
+            name=name,
+            rate=rate,
+            is_active=True
+        )
+        return tax_rate
+    except Exception:
+        # If constraint fails, return existing one
+        return TaxRate.objects.get(country=country, category=category)
 
 
 def get_or_create_test_user(email='testuser@example.com', name='Test User'):
@@ -155,7 +200,7 @@ def approve_po_for_testing(po_instance):
     return po_instance
 
 
-def create_valid_po_data(supplier=None, currency=None, uom=None, po_type='Catalog'):
+def create_valid_po_data(supplier=None, currency=None, uom=None, tax_rate=None, po_type='Catalog', delivery_amount='50.00'):
     """Create valid data for PO creation (manual entry)"""
     if supplier is None:
         supplier = create_supplier()
@@ -163,19 +208,22 @@ def create_valid_po_data(supplier=None, currency=None, uom=None, po_type='Catalo
         currency = create_currency()
     if uom is None:
         uom = create_unit_of_measure()
+    if tax_rate is None:
+        tax_rate = create_tax_rate()  # Creates 5% tax rate by default
     
     return {
         "po_date": str(date.today()),
         "po_type": po_type,
         "supplier_id": supplier.id,
         "currency_id": currency.id,
+        "tax_rate_id": tax_rate.id,
+        "delivery_amount": delivery_amount,
         "receiving_date": str(date.today() + timedelta(days=10)),
         "receiving_address": "123 Main St, City",
         "receiver_email": "receiver@company.com",
         "receiver_contact": "John Doe",
         "receiver_phone": "555-1234",
         "description": "Test PO",
-        "tax_amount": "120.00",
         "items": [
             {
                 "line_number": 1,
@@ -258,12 +306,14 @@ def create_approved_pr_with_items():
     return catalog_pr, [item1, item2]
 
 
-def create_valid_po_from_pr_data(pr_items, supplier=None, currency=None):
+def create_valid_po_from_pr_data(pr_items, supplier=None, currency=None, tax_rate=None, delivery_amount='75.00'):
     """Create valid data for PO creation from PR items"""
     if supplier is None:
         supplier = create_supplier()
     if currency is None:
         currency = create_currency()
+    if tax_rate is None:
+        tax_rate = create_tax_rate()  # Creates 5% tax rate by default
     
     pr_type = pr_items[0].pr.type_of_pr
     
@@ -272,13 +322,14 @@ def create_valid_po_from_pr_data(pr_items, supplier=None, currency=None):
         "po_type": pr_type,
         "supplier_id": supplier.id,
         "currency_id": currency.id,
+        "tax_rate_id": tax_rate.id,
+        "delivery_amount": delivery_amount,
         "receiving_date": str(date.today() + timedelta(days=10)),
         "receiving_address": "123 Main St, City",
         "receiver_email": "receiver@company.com",
         "receiver_contact": "John Doe",
         "receiver_phone": "555-1234",
         "description": f"Converting PR items",
-        "tax_amount": "100.00",
         "items_from_pr": [
             {
                 "pr_item_id": pr_items[0].id,

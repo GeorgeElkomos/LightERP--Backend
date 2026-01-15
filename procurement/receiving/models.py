@@ -219,6 +219,20 @@ class GoodsReceiptLine(models.Model):
         help_text="Source PO line item (null for gifts/extras)"
     )
     
+    # Receiving type choices
+    RECEIVING_TYPE_CHOICES = [
+        ('PARTIAL', 'Partial Receiving'),
+        ('FULLY', 'Fully Receiving'),
+    ]
+    
+    # Receiving type (partial or fully)
+    receiving_type = models.CharField(
+        max_length=10,
+        choices=RECEIVING_TYPE_CHOICES,
+        default='PARTIAL',
+        help_text="Type of receiving: PARTIAL (any quantity ≤ ordered) or FULLY (validates against tolerance)"
+    )
+    
     # Item details (populated from PO or entered manually for gifts)
     item_name = models.CharField(
         max_length=255,
@@ -320,7 +334,7 @@ class GoodsReceiptLine(models.Model):
         self.calculate_line_total()
     
     def validate_quantity(self):
-        """Validate received quantity against ordered quantity."""
+        """Validate received quantity against ordered quantity based on receiving type."""
         if self.is_gift:
             return  # No validation for gifts
         
@@ -328,11 +342,49 @@ class GoodsReceiptLine(models.Model):
             raise ValidationError("Quantity received must be greater than 0")
         
         if self.po_line_item:
-            remaining = self.po_line_item.get_remaining_quantity()
-            if self.quantity_received > remaining:
-                raise ValidationError(
-                    f"Cannot receive {self.quantity_received} - only {remaining} remaining from PO line"
-                )
+            # Get the PO line item
+            po_line = self.po_line_item
+            
+            # Calculate cumulative received quantity (previous + current)
+            # Get total already received from other GRN lines (excluding this one)
+            previous_received = po_line.quantity_received
+            if self.pk:  # If this line already exists, subtract its previous value
+                try:
+                    old_line = GoodsReceiptLine.objects.get(pk=self.pk)
+                    previous_received -= old_line.quantity_received
+                except GoodsReceiptLine.DoesNotExist:
+                    pass
+            
+            cumulative_received = previous_received + self.quantity_received
+            
+            if self.receiving_type == 'PARTIAL':
+                # PARTIAL: Can receive any quantity ≤ ordered quantity
+                if cumulative_received > po_line.quantity:
+                    raise ValidationError(
+                        f"Partial receiving: Cannot receive {self.quantity_received}. "
+                        f"Total cumulative ({cumulative_received}) would exceed ordered quantity ({po_line.quantity}). "
+                        f"Previously received: {previous_received}"
+                    )
+            
+            elif self.receiving_type == 'FULLY':
+                # FULLY: Validate total cumulative against tolerance
+                max_receivable = po_line.get_max_receivable_quantity()
+                min_acceptable = po_line.get_min_acceptable_quantity()
+                
+                # Check if cumulative quantity is within tolerance range
+                if cumulative_received < min_acceptable:
+                    raise ValidationError(
+                        f"Fully receiving: Total cumulative received ({cumulative_received}) is below minimum acceptable "
+                        f"quantity ({min_acceptable}). Ordered: {po_line.quantity}, "
+                        f"Tolerance: {po_line.tolerance_percentage}%, Previously received: {previous_received}"
+                    )
+                
+                if cumulative_received > max_receivable:
+                    raise ValidationError(
+                        f"Fully receiving: Total cumulative received ({cumulative_received}) exceeds maximum receivable "
+                        f"quantity ({max_receivable}). Ordered: {po_line.quantity}, "
+                        f"Tolerance: {po_line.tolerance_percentage}%, Previously received: {previous_received}"
+                    )
     
     def get_receipt_percentage(self):
         """Calculate what percentage of ordered quantity was received."""

@@ -515,3 +515,284 @@ class CatalogPREdgeCaseTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         expected_total = Decimal('3') * Decimal('1234.56')
         self.assertEqual(Decimal(response.data['data']['total']), expected_total)
+
+
+# ============================================================================
+# ATTACHMENT TESTS
+# ============================================================================
+
+class CatalogPRAttachmentTests(TestCase):
+    """Test Catalog PR attachment functionality"""
+    
+    def setUp(self):
+        """Set up test data"""
+        self.client = APIClient()
+        
+        # Create test user
+        self.user = get_or_create_test_user()
+        self.client.force_authenticate(user=self.user)
+        
+        # Create a Catalog PR for testing
+        self.uom = create_unit_of_measure()
+        self.catalog_item = create_catalog_item()
+        
+        pr_data = create_valid_catalog_pr_data(self.catalog_item, self.uom)
+        response = self.client.post(reverse('pr:catalog-pr-list'), pr_data, format='json')
+        self.pr_id = response.data['data']['pr_id']
+        
+        self.list_url = reverse('pr:pr-attachment-list', kwargs={'pr_id': self.pr_id})
+    
+    def test_upload_attachment_success(self):
+        """Test successful attachment upload"""
+        import base64
+        
+        # Create a simple test file
+        test_file_content = b"This is a test quote document"
+        file_data_base64 = base64.b64encode(test_file_content).decode('utf-8')
+        
+        data = {
+            'file_name': 'vendor_quote.pdf',
+            'file_type': 'application/pdf',
+            'file_data_base64': file_data_base64,
+            'description': 'Vendor quotation'
+        }
+        
+        response = self.client.post(self.list_url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertIn('data', response.data)
+        self.assertEqual(response.data['data']['file_name'], 'vendor_quote.pdf')
+        self.assertEqual(response.data['data']['file_size'], len(test_file_content))
+        self.assertIn('uploaded_by', response.data['data'])
+    
+    def test_list_attachments(self):
+        """Test listing all attachments for a PR"""
+        import base64
+        
+        # Upload multiple attachments
+        for i in range(3):
+            test_content = f"PR attachment {i}".encode()
+            data = {
+                'file_name': f'pr_doc_{i}.pdf',
+                'file_type': 'application/pdf',
+                'file_data_base64': base64.b64encode(test_content).decode('utf-8'),
+                'description': f'PR document {i}'
+            }
+            self.client.post(self.list_url, data, format='json')
+        
+        # List attachments
+        response = self.client.get(self.list_url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('data', response.data)
+        self.assertEqual(len(response.data['data']), 3)
+        # Check that all files are present (ordering may vary)
+        file_names = [att['file_name'] for att in response.data['data']]
+        self.assertIn('pr_doc_0.pdf', file_names)
+        self.assertIn('pr_doc_1.pdf', file_names)
+        self.assertIn('pr_doc_2.pdf', file_names)
+    
+    def test_download_attachment(self):
+        """Test downloading a specific attachment"""
+        import base64
+        
+        # Upload an attachment first
+        test_content = b"PR download test content"
+        upload_data = {
+            'file_name': 'pr_download.pdf',
+            'file_type': 'application/pdf',
+            'file_data_base64': base64.b64encode(test_content).decode('utf-8'),
+            'description': 'Download test'
+        }
+        upload_response = self.client.post(self.list_url, upload_data, format='json')
+        attachment_id = upload_response.data['data']['attachment_id']
+        
+        # Download the attachment
+        detail_url = reverse('pr:pr-attachment-detail', kwargs={'attachment_id': attachment_id})
+        response = self.client.get(detail_url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('data', response.data)
+        self.assertEqual(response.data['data']['file_name'], 'pr_download.pdf')
+        self.assertIn('file_data_base64', response.data['data'])
+        
+        # Verify file content
+        downloaded_content = base64.b64decode(response.data['data']['file_data_base64'])
+        self.assertEqual(downloaded_content, test_content)
+    
+    def test_delete_attachment(self):
+        """Test deleting an attachment"""
+        import base64
+        
+        # Upload an attachment
+        test_content = b"PR delete test"
+        upload_data = {
+            'file_name': 'pr_delete.pdf',
+            'file_type': 'application/pdf',
+            'file_data_base64': base64.b64encode(test_content).decode('utf-8')
+        }
+        upload_response = self.client.post(self.list_url, upload_data, format='json')
+        attachment_id = upload_response.data['data']['attachment_id']
+        
+        # Delete the attachment
+        detail_url = reverse('pr:pr-attachment-detail', kwargs={'attachment_id': attachment_id})
+        response = self.client.delete(detail_url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        # Verify attachment was deleted
+        list_response = self.client.get(self.list_url)
+        self.assertEqual(len(list_response.data['data']), 0)
+    
+    def test_upload_attachment_without_file_data(self):
+        """Test upload fails without file data"""
+        data = {
+            'file_name': 'test.pdf',
+            'file_type': 'application/pdf',
+            'description': 'Missing file data'
+        }
+        
+        response = self.client.post(self.list_url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+    
+    def test_upload_attachment_invalid_base64(self):
+        """Test upload fails with invalid base64"""
+        data = {
+            'file_name': 'test.pdf',
+            'file_type': 'application/pdf',
+            'file_data_base64': 'invalid-base64-string!!!',
+            'description': 'Invalid encoding'
+        }
+        
+        response = self.client.post(self.list_url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+    
+    def test_upload_attachment_to_nonexistent_pr(self):
+        """Test upload fails for non-existent PR"""
+        import base64
+        
+        invalid_url = reverse('pr:pr-attachment-list', kwargs={'pr_id': 99999})
+        data = {
+            'file_name': 'test.pdf',
+            'file_type': 'application/pdf',
+            'file_data_base64': base64.b64encode(b"test").decode('utf-8')
+        }
+        
+        response = self.client.post(invalid_url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+    
+    def test_download_nonexistent_attachment(self):
+        """Test download fails for non-existent attachment"""
+        detail_url = reverse('pr:pr-attachment-detail', kwargs={'attachment_id': 99999})
+        response = self.client.get(detail_url)
+        
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+    
+    def test_attachment_file_size_display(self):
+        """Test file size is displayed in human-readable format"""
+        import base64
+        
+        # Upload a 2KB file
+        test_content = b"x" * 2048
+        data = {
+            'file_name': 'size_test.txt',
+            'file_type': 'text/plain',
+            'file_data_base64': base64.b64encode(test_content).decode('utf-8')
+        }
+        
+        response = self.client.post(self.list_url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['data']['file_size'], 2048)
+        self.assertIn('KB', response.data['data']['file_size_display'])
+    
+    def test_attachment_uploaded_by_auto_set(self):
+        """Test uploaded_by is automatically set to authenticated user"""
+        import base64
+        
+        data = {
+            'file_name': 'user_test.pdf',
+            'file_type': 'application/pdf',
+            'file_data_base64': base64.b64encode(b"test").decode('utf-8')
+        }
+        
+        response = self.client.post(self.list_url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        # uploaded_by is a CharField storing username/email
+        self.assertIsNotNone(response.data['data']['uploaded_by'])
+    
+    def test_attachment_included_in_pr_detail(self):
+        """Test attachments are included in PR detail response"""
+        import base64
+        
+        # Upload an attachment
+        data = {
+            'file_name': 'detail_test.pdf',
+            'file_type': 'application/pdf',
+            'file_data_base64': base64.b64encode(b"test").decode('utf-8')
+        }
+        self.client.post(self.list_url, data, format='json')
+        
+        # Get PR detail
+        detail_url = reverse('pr:catalog-pr-detail', kwargs={'pk': self.pr_id})
+        response = self.client.get(detail_url)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('attachments', response.data['data'])
+        self.assertEqual(len(response.data['data']['attachments']), 1)
+        self.assertEqual(response.data['data']['attachments'][0]['file_name'], 'detail_test.pdf')
+    
+    def test_multiple_attachments_different_types(self):
+        """Test uploading multiple attachments with different file types"""
+        import base64
+        
+        attachments = [
+            {'file_name': 'quote.pdf', 'file_type': 'application/pdf', 'content': b'PDF content'},
+            {'file_name': 'specs.docx', 'file_type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'content': b'Word content'},
+            {'file_name': 'image.jpg', 'file_type': 'image/jpeg', 'content': b'JPEG content'}
+        ]
+        
+        for att in attachments:
+            data = {
+                'file_name': att['file_name'],
+                'file_type': att['file_type'],
+                'file_data_base64': base64.b64encode(att['content']).decode('utf-8')
+            }
+            response = self.client.post(self.list_url, data, format='json')
+            self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        # Verify all attachments are listed
+        list_response = self.client.get(self.list_url)
+        self.assertEqual(len(list_response.data['data']), 3)
+    
+    def test_attachments_require_authentication(self):
+        """Test attachment endpoints require authentication"""
+        # Logout
+        self.client.force_authenticate(user=None)
+        
+        # Try to list attachments
+        response = self.client.get(self.list_url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        
+        # Try to upload attachment
+        response = self.client.post(self.list_url, {})
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+    
+    def test_attachment_description_optional(self):
+        """Test that attachment description is optional"""
+        import base64
+        
+        data = {
+            'file_name': 'no_description.pdf',
+            'file_type': 'application/pdf',
+            'file_data_base64': base64.b64encode(b"test").decode('utf-8')
+        }
+        
+        response = self.client.post(self.list_url, data, format='json')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['data']['description'], '')

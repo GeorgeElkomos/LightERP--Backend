@@ -55,4 +55,13 @@ urlpatterns = [
     
     # POs created from PRs
     path('from-pr/', views.po_from_pr, name='po-from-pr'),
+    
+    # ============================================================================
+    # Attachments
+    # ============================================================================
+    # List attachments or upload new attachment for a PO
+    path('<int:po_id>/attachments/', views.po_attachment_list, name='po-attachment-list'),
+    
+    # Retrieve or delete a specific attachment
+    path('attachments/<int:attachment_id>/', views.po_attachment_detail, name='po-attachment-detail'),
 ]

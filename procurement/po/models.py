@@ -3,8 +3,9 @@ from django.conf import settings
 from decimal import Decimal
 from datetime import date
 from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
-from Finance.core.models import Currency
+from Finance.core.models import Currency, TaxRate
 from Finance.BusinessPartner.models import BusinessPartner
 from procurement.PR.models import PR
 from core.approval.mixins import ApprovableMixin
@@ -61,8 +62,10 @@ class POHeader(ApprovableMixin, models.Model):
     
     # Financial - Transaction Currency
     # currency = models.ForeignKey(Currency, on_delete=models.PROTECT, help_text="Transaction currency")
+    tax_rate = models.ForeignKey(TaxRate, on_delete=models.PROTECT, null=True, blank=True, help_text="Tax rate applicable to this PO")
     subtotal = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00'), help_text="Subtotal in transaction currency")
     tax_amount = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00'), help_text="Tax in transaction currency")
+    delivery_amount = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00'), help_text="Delivery charges in transaction currency")
     total_amount = models.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00'), help_text="Total in transaction currency")
     
     # Multi-Currency Support
@@ -121,14 +124,36 @@ class POHeader(ApprovableMixin, models.Model):
     # ==================== CALCULATION FUNCTIONS ====================
     
     def calculate_totals(self):
-        """Recalculate subtotal, tax, and total from line items."""
+        """
+        Recalculate subtotal, tax, delivery, and total from line items.
+        
+        Calculation flow:
+        1. Subtotal = Sum of all line item totals
+        2. Tax Amount = Subtotal × (Tax Rate %)
+        3. Total Amount = Subtotal + Tax Amount + Delivery Amount
+        
+        Returns:
+            dict: Dictionary containing calculated values
+        """
         line_items = self.line_items.all()
+        
+        # Calculate subtotal from line items
         self.subtotal = sum(item.line_total for item in line_items)
-        # Tax calculation can be customized later
-        self.total_amount = self.subtotal + self.tax_amount
+        
+        # Calculate tax amount based on tax_rate percentage
+        if self.tax_rate:
+            tax_percentage = self.tax_rate.rate / Decimal('100')  # Convert percentage to decimal (5% -> 0.05)
+            self.tax_amount = self.subtotal * tax_percentage
+        else:
+            self.tax_amount = Decimal('0.00')
+        
+        # Calculate final total: subtotal + tax + delivery
+        self.total_amount = self.subtotal + self.tax_amount + self.delivery_amount
+        
         return {
             'subtotal': self.subtotal,
             'tax_amount': self.tax_amount,
+            'delivery_amount': self.delivery_amount,
             'total_amount': self.total_amount
         }
     
@@ -340,6 +365,15 @@ class POLineItem(models.Model):
         help_text="Quantity received so far"
     )
     
+    # Tolerance for receiving
+    tolerance_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00')), MaxValueValidator(Decimal('100.00'))],
+        help_text="Percentage tolerance for over/under receiving (0-100)"
+    )
+    
     # Notes
     line_notes = models.TextField(blank=True)
     
@@ -413,13 +447,25 @@ class POLineItem(models.Model):
     
     # ==================== RECEIVING FUNCTIONS ====================
     
+    def get_max_receivable_quantity(self):
+        """Calculate maximum receivable quantity including tolerance."""
+        tolerance_multiplier = Decimal('1') + (self.tolerance_percentage / Decimal('100'))
+        return self.quantity * tolerance_multiplier
+    
+    def get_min_acceptable_quantity(self):
+        """Calculate minimum acceptable quantity considering tolerance."""
+        tolerance_multiplier = Decimal('1') - (self.tolerance_percentage / Decimal('100'))
+        return self.quantity * tolerance_multiplier
+    
     def get_remaining_quantity(self):
-        """Calculate quantity not yet received."""
-        return self.quantity - self.quantity_received
+        """Calculate quantity not yet received (considering tolerance for max)."""
+        max_receivable = self.get_max_receivable_quantity()
+        return max_receivable - self.quantity_received
     
     def is_fully_received(self):
-        """Check if this line is fully received."""
-        return self.quantity_received >= self.quantity
+        """Check if this line is fully received (considering minimum tolerance threshold)."""
+        min_acceptable = self.get_min_acceptable_quantity()
+        return self.quantity_received >= min_acceptable
     
     def get_receiving_percentage(self):
         """Calculate percentage of quantity received."""
@@ -434,8 +480,10 @@ class POLineItem(models.Model):
         
         remaining = self.get_remaining_quantity()
         if quantity_received_now > remaining:
+            max_receivable = self.get_max_receivable_quantity()
             raise ValidationError(
-                f"Cannot receive {quantity_received_now}. Only {remaining} remaining."
+                f"Cannot receive {quantity_received_now}. Only {remaining} remaining. "
+                f"(Ordered: {self.quantity}, Max allowed with tolerance: {max_receivable})"
             )
         
         self.quantity_received += quantity_received_now
@@ -489,4 +537,51 @@ class POLineItem(models.Model):
         # After saving, recalculate PO header totals
         self.po_header.calculate_totals()
         self.po_header.save()
+
+
+"""PO Attachment Model - Store file attachments as BLOBs for Purchase Orders."""
+class POAttachment(models.Model):
+    """Model to store file attachments as BLOBs for purchase orders"""
+    
+    attachment_id = models.AutoField(primary_key=True)
+    po_header = models.ForeignKey(
+        POHeader,
+        on_delete=models.CASCADE,
+        related_name="attachments",
+        help_text="Parent PO Header"
+    )
+    file_name = models.CharField(max_length=255, help_text="Original file name")
+    file_type = models.CharField(max_length=100, help_text="MIME type or file extension")
+    file_size = models.IntegerField(help_text="File size in bytes")
+    file_data = models.BinaryField(help_text="Binary file data (BLOB)")
+    upload_date = models.DateTimeField(auto_now_add=True)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='po_attachments_uploaded',
+        help_text="User who uploaded the attachment"
+    )
+    description = models.TextField(blank=True, help_text="Optional description of the attachment")
+    
+    class Meta:
+        db_table = 'po_attachment'
+        ordering = ['-upload_date']
+        indexes = [
+            models.Index(fields=['po_header', '-upload_date']),
+        ]
+    
+    def __str__(self):
+        return f"Attachment {self.attachment_id}: {self.file_name} for PO {self.po_header.po_number}"
+    
+    def get_file_size_display(self):
+        """Return human-readable file size."""
+        size_bytes = self.file_size
+        if size_bytes < 1024:
+            return f"{size_bytes} B"
+        elif size_bytes < 1024 * 1024:
+            return f"{size_bytes / 1024:.2f} KB"
+        else:
+            return f"{size_bytes / (1024 * 1024):.2f} MB"
     

@@ -15,8 +15,9 @@ from rest_framework import serializers
 from decimal import Decimal
 from datetime import date
 from django.utils import timezone
+import base64
 
-from procurement.po.models import POHeader, POLineItem
+from procurement.po.models import POHeader, POLineItem, POAttachment
 from procurement.PR.models import PR, PRItem
 from Finance.BusinessPartner.models import Supplier
 from Finance.core.models import Currency
@@ -24,6 +25,81 @@ from procurement.catalog.models import UnitOfMeasure
 
 
 # ==================== NESTED SERIALIZERS ====================
+
+class POAttachmentSerializer(serializers.ModelSerializer):
+    """Serializer for PO attachments"""
+    
+    # Read-only fields
+    file_size_display = serializers.SerializerMethodField(read_only=True)
+    uploaded_by_email = serializers.CharField(source='uploaded_by.email', read_only=True)
+    
+    # For upload: accept base64 encoded file data
+    file_data_base64 = serializers.CharField(write_only=True, required=False)
+    
+    class Meta:
+        model = POAttachment
+        fields = [
+            'attachment_id', 'po_header', 'file_name', 'file_type', 
+            'file_size', 'file_size_display', 'upload_date',
+            'uploaded_by', 'uploaded_by_email', 'description',
+            'file_data_base64'  # For upload only
+        ]
+        read_only_fields = [
+            'attachment_id', 'file_size', 'upload_date', 
+            'uploaded_by', 'uploaded_by_email', 'file_size_display'
+        ]
+        extra_kwargs = {
+            'po_header': {'required': False}  # Will be set from URL
+        }
+    
+    def get_file_size_display(self, obj):
+        """Get human-readable file size"""
+        return obj.get_file_size_display()
+    
+    def create(self, validated_data):
+        """Handle file upload with base64 decoding"""
+        file_data_base64 = validated_data.pop('file_data_base64', None)
+        
+        if not file_data_base64:
+            raise serializers.ValidationError({
+                'file_data_base64': 'This field is required for file upload.'
+            })
+        
+        try:
+            # Decode base64 string to binary
+            file_data = base64.b64decode(file_data_base64)
+            validated_data['file_data'] = file_data
+            validated_data['file_size'] = len(file_data)
+        except Exception as e:
+            raise serializers.ValidationError({
+                'file_data_base64': f'Invalid base64 encoding: {str(e)}'
+            })
+        
+        # Set uploaded_by from request user
+        request = self.context.get('request')
+        if request and request.user:
+            validated_data['uploaded_by'] = request.user
+        
+        return super().create(validated_data)
+
+
+class POAttachmentListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for listing attachments (without file data)"""
+    
+    file_size_display = serializers.SerializerMethodField(read_only=True)
+    uploaded_by_email = serializers.CharField(source='uploaded_by.email', read_only=True)
+    
+    class Meta:
+        model = POAttachment
+        fields = [
+            'attachment_id', 'file_name', 'file_type', 
+            'file_size', 'file_size_display', 'upload_date',
+            'uploaded_by_email', 'description'
+        ]
+    
+    def get_file_size_display(self, obj):
+        return obj.get_file_size_display()
+
 
 class POLineItemSerializer(serializers.ModelSerializer):
     """Serializer for PO line items"""
@@ -36,6 +112,10 @@ class POLineItemSerializer(serializers.ModelSerializer):
     price_variance_percentage = serializers.SerializerMethodField(read_only=True)
     source_pr_number = serializers.CharField(source='source_pr_item.pr.pr_number', read_only=True)
     
+    # Tolerance-related computed fields
+    max_receivable_quantity = serializers.SerializerMethodField(read_only=True)
+    min_acceptable_quantity = serializers.SerializerMethodField(read_only=True)
+    
     class Meta:
         model = POLineItem
         fields = [
@@ -44,6 +124,8 @@ class POLineItemSerializer(serializers.ModelSerializer):
             'quantity', 'unit_of_measure', 'unit_of_measure_code',
             'unit_price', 'line_total',
             'quantity_received', 'remaining_quantity', 'receiving_percentage',
+            # Tolerance fields
+            'tolerance_percentage', 'max_receivable_quantity', 'min_acceptable_quantity',
             # PR tracking
             'source_pr_item', 'source_pr_number',
             'quantity_from_pr', 'price_from_pr',
@@ -54,6 +136,7 @@ class POLineItemSerializer(serializers.ModelSerializer):
         read_only_fields = [
             'id', 'line_total', 'unit_of_measure_code',
             'remaining_quantity', 'receiving_percentage',
+            'max_receivable_quantity', 'min_acceptable_quantity',
             'source_pr_number', 'price_variance', 'price_variance_percentage',
             'created_at', 'updated_at'
         ]
@@ -65,6 +148,14 @@ class POLineItemSerializer(serializers.ModelSerializer):
     def get_receiving_percentage(self, obj):
         """Get receiving progress as percentage"""
         return round(obj.get_receiving_percentage(), 2)
+    
+    def get_max_receivable_quantity(self, obj):
+        """Get maximum receivable quantity with tolerance"""
+        return float(obj.get_max_receivable_quantity())
+    
+    def get_min_acceptable_quantity(self, obj):
+        """Get minimum acceptable quantity with tolerance"""
+        return float(obj.get_min_acceptable_quantity())
     
     def get_price_variance(self, obj):
         """Get price difference from PR"""
@@ -92,6 +183,17 @@ class POLineItemCreateSerializer(serializers.Serializer):
     unit_price = serializers.DecimalField(max_digits=15, decimal_places=2, min_value=Decimal("0"))
  
     line_notes = serializers.CharField(required=False, allow_blank=True, default='')
+    
+    # Tolerance field
+    tolerance_percentage = serializers.DecimalField(
+        max_digits=5, 
+        decimal_places=2, 
+        min_value=Decimal("0.00"),
+        max_value=Decimal("100.00"),
+        required=False, 
+        default=Decimal("0.00"),
+        help_text="Percentage tolerance for over/under receiving (0-100)"
+    )
     
     # Optional PR reference
     source_pr_item_id = serializers.IntegerField(required=False, allow_null=True)
@@ -240,7 +342,10 @@ class POHeaderCreateSerializer(serializers.Serializer):
     receiver_phone = serializers.CharField(required=False, allow_blank=True, default='')
     
     description = serializers.CharField(required=False, allow_blank=True, default='')
-    tax_amount = serializers.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00'))
+    
+    # Tax and delivery
+    tax_rate_id = serializers.IntegerField(min_value=1, required=False, allow_null=True)
+    delivery_amount = serializers.DecimalField(max_digits=15, decimal_places=2, default=Decimal('0.00'))
     
     # Nested items - use one or the other, not both
     items = POLineItemCreateSerializer(many=True, required=False)
@@ -280,6 +385,17 @@ class POHeaderCreateSerializer(serializers.Serializer):
                 {"currency_id": f"Currency with ID {currency_id} not found"}
             )
         
+        # Validate tax_rate if provided
+        tax_rate_id = attrs.get('tax_rate_id')
+        if tax_rate_id:
+            try:
+                from Finance.core.models import TaxRate
+                TaxRate.objects.get(id=tax_rate_id)
+            except TaxRate.DoesNotExist:
+                raise serializers.ValidationError(
+                    {"tax_rate_id": f"Tax rate with ID {tax_rate_id} not found"}
+                )
+        
         # Validate line types match PO type
         if has_items:
             for item in attrs['items']:
@@ -318,13 +434,14 @@ class POHeaderCreateSerializer(serializers.Serializer):
             po_type=validated_data['po_type'],
             supplier_name_id=supplier.business_partner_id,
             currency_id=validated_data['currency_id'],
+            tax_rate_id=validated_data.get('tax_rate_id'),
+            delivery_amount=validated_data.get('delivery_amount', Decimal('0.00')),
             receiving_date=validated_data.get('receiving_date'),
             receiving_address=validated_data.get('receiving_address', ''),
             receiver_email=validated_data.get('receiver_email', ''),
             receiver_contact=validated_data.get('receiver_contact', ''),
             receiver_phone=validated_data.get('receiver_phone', ''),
             description=validated_data.get('description', ''),
-            tax_amount=validated_data.get('tax_amount', Decimal('0.00')),
             created_by=created_by
         )
         
@@ -340,6 +457,7 @@ class POHeaderCreateSerializer(serializers.Serializer):
                     quantity=item_data['quantity'],
                     unit_of_measure_id=item_data['unit_of_measure_id'],
                     unit_price=item_data['unit_price'],
+                    tolerance_percentage=item_data.get('tolerance_percentage', Decimal('0.00')),
                     line_notes=item_data.get('line_notes', ''),
                     source_pr_item_id=item_data.get('source_pr_item_id')
                 )
@@ -428,6 +546,7 @@ class POHeaderDetailSerializer(serializers.ModelSerializer):
     
     # Nested data
     items = POLineItemSerializer(source='line_items', many=True, read_only=True)
+    attachments = POAttachmentListSerializer(many=True, read_only=True)
     source_pr_numbers = serializers.SerializerMethodField(read_only=True)
     
     # Status summaries
@@ -457,7 +576,7 @@ class POHeaderDetailSerializer(serializers.ModelSerializer):
             'cancelled_by', 'cancelled_at', 'cancellation_reason',
             'updated_at',
             # Nested
-            'items',
+            'items', 'attachments',
             # Status
             'receiving_summary'
         ]

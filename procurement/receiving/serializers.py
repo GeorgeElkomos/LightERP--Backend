@@ -24,7 +24,7 @@ class GoodsReceiptLineSerializer(serializers.ModelSerializer):
             'item_name', 'item_description',
             'quantity_ordered', 'quantity_received', 'unit_of_measure', 'unit_of_measure_code',
             'unit_price', 'line_total',
-            'is_gift', 'line_notes', 'receipt_percentage',
+            'receiving_type', 'is_gift', 'line_notes', 'receipt_percentage',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['line_total', 'created_at', 'updated_at']
@@ -45,6 +45,11 @@ class GoodsReceiptLineCreateSerializer(serializers.Serializer):
     quantity_received = serializers.DecimalField(max_digits=14, decimal_places=3)
     unit_of_measure_id = serializers.IntegerField()
     unit_price = serializers.DecimalField(max_digits=14, decimal_places=2)
+    receiving_type = serializers.ChoiceField(
+        choices=['PARTIAL', 'FULLY'],
+        default='PARTIAL',
+        help_text="PARTIAL allows any quantity <= ordered, FULLY validates against tolerance"
+    )
     is_gift = serializers.BooleanField(default=False)
     line_notes = serializers.CharField(required=False, allow_blank=True)
     
@@ -70,12 +75,41 @@ class GoodsReceiptLineCreateSerializer(serializers.Serializer):
                 po_line = POLineItem.objects.get(id=attrs['po_line_item_id'])
                 attrs['_po_line_item'] = po_line
                 
-                # Validate quantity doesn't exceed remaining
-                remaining = po_line.get_remaining_quantity()
-                if attrs['quantity_received'] > remaining:
-                    raise serializers.ValidationError({
-                        'quantity_received': f"Cannot receive {attrs['quantity_received']} - only {remaining} remaining"
-                    })
+                # Get receiving type
+                receiving_type = attrs.get('receiving_type', 'PARTIAL')
+                
+                # Calculate cumulative received
+                previous_received = po_line.quantity_received
+                quantity_to_receive = attrs['quantity_received']
+                cumulative_received = previous_received + quantity_to_receive
+                
+                if receiving_type == 'PARTIAL':
+                    # PARTIAL: Can receive any quantity <= ordered quantity
+                    if cumulative_received > po_line.quantity:
+                        raise serializers.ValidationError({
+                            'quantity_received': f"Partial receiving: Total cumulative ({cumulative_received}) "
+                            f"would exceed ordered quantity ({po_line.quantity}). Previously received: {previous_received}"
+                        })
+                
+                elif receiving_type == 'FULLY':
+                    # FULLY: Validate against tolerance
+                    max_receivable = po_line.get_max_receivable_quantity()
+                    min_acceptable = po_line.get_min_acceptable_quantity()
+                    
+                    if cumulative_received < min_acceptable:
+                        raise serializers.ValidationError({
+                            'quantity_received': f"Fully receiving: Total cumulative ({cumulative_received}) "
+                            f"is below minimum acceptable ({min_acceptable}). Ordered: {po_line.quantity}, "
+                            f"Tolerance: {po_line.tolerance_percentage}%"
+                        })
+                    
+                    if cumulative_received > max_receivable:
+                        raise serializers.ValidationError({
+                            'quantity_received': f"Fully receiving: Total cumulative ({cumulative_received}) "
+                            f"exceeds maximum receivable ({max_receivable}). Ordered: {po_line.quantity}, "
+                            f"Tolerance: {po_line.tolerance_percentage}%"
+                        })
+                
             except POLineItem.DoesNotExist:
                 raise serializers.ValidationError({
                     'po_line_item_id': f"PO line item with id {attrs['po_line_item_id']} not found"
@@ -94,6 +128,11 @@ class GoodsReceiptLineFromPOSerializer(serializers.Serializer):
         required=False,
         help_text="Quantity to receive (defaults to remaining quantity)"
     )
+    receiving_type = serializers.ChoiceField(
+        choices=['PARTIAL', 'FULLY'],
+        default='PARTIAL',
+        help_text="PARTIAL allows any quantity <= ordered, FULLY validates against tolerance"
+    )
     line_notes = serializers.CharField(required=False, allow_blank=True)
     
     def validate_po_line_item_id(self, value):
@@ -109,23 +148,50 @@ class GoodsReceiptLineFromPOSerializer(serializers.Serializer):
         po_line = POLineItem.objects.get(id=attrs['po_line_item_id'])
         attrs['_po_line_item'] = po_line
         
-        # Check remaining quantity
-        remaining = po_line.get_remaining_quantity()
-        if remaining <= 0:
+        # Get receiving type
+        receiving_type = attrs.get('receiving_type', 'PARTIAL')
+        
+        # Calculate quantity to receive (default to remaining if not specified)
+        quantity_to_receive = attrs.get('quantity_to_receive')
+        if quantity_to_receive is None:
+            quantity_to_receive = po_line.get_remaining_quantity()
+            attrs['quantity_to_receive'] = quantity_to_receive
+        
+        # Calculate cumulative received
+        previous_received = po_line.quantity_received
+        cumulative_received = previous_received + quantity_to_receive
+        
+        # Validate quantity
+        if quantity_to_receive <= 0:
             raise serializers.ValidationError({
-                'po_line_item_id': f"PO line item {po_line.id} already fully received"
+                'quantity_to_receive': "Quantity must be greater than 0"
             })
         
-        # Validate quantity if specified
-        if 'quantity_to_receive' in attrs:
-            qty = attrs['quantity_to_receive']
-            if qty <= 0:
+        if receiving_type == 'PARTIAL':
+            # PARTIAL: Can receive any quantity <= ordered quantity
+            if cumulative_received > po_line.quantity:
                 raise serializers.ValidationError({
-                    'quantity_to_receive': "Quantity must be greater than 0"
+                    'quantity_to_receive': f"Partial receiving: Total cumulative ({cumulative_received}) "
+                    f"would exceed ordered quantity ({po_line.quantity}). Previously received: {previous_received}"
                 })
-            if qty > remaining:
+        
+        elif receiving_type == 'FULLY':
+            # FULLY: Validate against tolerance
+            max_receivable = po_line.get_max_receivable_quantity()
+            min_acceptable = po_line.get_min_acceptable_quantity()
+            
+            if cumulative_received < min_acceptable:
                 raise serializers.ValidationError({
-                    'quantity_to_receive': f"Cannot receive {qty} - only {remaining} remaining"
+                    'quantity_to_receive': f"Fully receiving: Total cumulative ({cumulative_received}) "
+                    f"is below minimum acceptable ({min_acceptable}). Ordered: {po_line.quantity}, "
+                    f"Tolerance: {po_line.tolerance_percentage}%"
+                })
+            
+            if cumulative_received > max_receivable:
+                raise serializers.ValidationError({
+                    'quantity_to_receive': f"Fully receiving: Total cumulative ({cumulative_received}) "
+                    f"exceeds maximum receivable ({max_receivable}). Ordered: {po_line.quantity}, "
+                    f"Tolerance: {po_line.tolerance_percentage}%"
                 })
         
         return attrs
@@ -242,6 +308,7 @@ class GoodsReceiptCreateSerializer(serializers.Serializer):
                     quantity_received=line_data['quantity_received'],
                     unit_of_measure_id=line_data['unit_of_measure_id'],
                     unit_price=line_data['unit_price'],
+                    receiving_type=line_data.get('receiving_type', 'PARTIAL'),
                     is_gift=line_data.get('is_gift', False),
                     line_notes=line_data.get('line_notes', '')
                 )
@@ -251,11 +318,13 @@ class GoodsReceiptCreateSerializer(serializers.Serializer):
             for idx, line_data in enumerate(lines_from_po_data, start=1):
                 po_line_item = line_data['_po_line_item']
                 quantity = line_data.get('quantity_to_receive')
+                receiving_type = line_data.get('receiving_type', 'PARTIAL')
                 
                 # Create line and populate from PO
                 grn_line = GoodsReceiptLine(
                     goods_receipt=grn,
-                    line_number=idx
+                    line_number=idx,
+                    receiving_type=receiving_type
                 )
                 grn_line.populate_from_po_line(po_line_item, quantity)
                 grn_line.line_notes = line_data.get('line_notes', '')

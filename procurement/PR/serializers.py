@@ -13,15 +13,89 @@ Business logic is in the models themselves.
 from rest_framework import serializers
 from decimal import Decimal
 from datetime import date
+import base64
 
 from procurement.PR.models import (
-    PR, PRItem, Catalog_PR, NonCatalog_PR, Service_PR
+    PR, PRItem, PRAttachment, Catalog_PR, NonCatalog_PR, Service_PR
 )
 from procurement.catalog.models import catalogItem, UnitOfMeasure
 from Finance.BusinessPartner.models import Supplier
 
 
 # ==================== NESTED SERIALIZERS ====================
+
+class PRAttachmentSerializer(serializers.ModelSerializer):
+    """Serializer for PR attachments"""
+    
+    # Read-only fields
+    file_size_display = serializers.SerializerMethodField(read_only=True)
+    
+    # For upload: accept base64 encoded file data
+    file_data_base64 = serializers.CharField(write_only=True, required=False)
+    
+    class Meta:
+        model = PRAttachment
+        fields = [
+            'attachment_id', 'pr', 'file_name', 'file_type', 
+            'file_size', 'file_size_display', 'upload_date',
+            'uploaded_by', 'description',
+            'file_data_base64'  # For upload only
+        ]
+        read_only_fields = [
+            'attachment_id', 'file_size', 'upload_date', 
+            'uploaded_by', 'file_size_display'
+        ]
+        extra_kwargs = {
+            'pr': {'required': False}  # Will be set from URL
+        }
+    
+    def get_file_size_display(self, obj):
+        """Get human-readable file size"""
+        return obj.get_file_size_display()
+    
+    def create(self, validated_data):
+        """Handle file upload with base64 decoding"""
+        file_data_base64 = validated_data.pop('file_data_base64', None)
+        
+        if not file_data_base64:
+            raise serializers.ValidationError({
+                'file_data_base64': 'This field is required for file upload.'
+            })
+        
+        try:
+            # Decode base64 string to binary
+            file_data = base64.b64decode(file_data_base64)
+            validated_data['file_data'] = file_data
+            validated_data['file_size'] = len(file_data)
+        except Exception as e:
+            raise serializers.ValidationError({
+                'file_data_base64': f'Invalid base64 encoding: {str(e)}'
+            })
+        
+        # Set uploaded_by from request user
+        request = self.context.get('request')
+        if request and request.user:
+            validated_data['uploaded_by'] = request.user.email
+        
+        return super().create(validated_data)
+
+
+class PRAttachmentListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for listing attachments (without file data)"""
+    
+    file_size_display = serializers.SerializerMethodField(read_only=True)
+    
+    class Meta:
+        model = PRAttachment
+        fields = [
+            'attachment_id', 'file_name', 'file_type', 
+            'file_size', 'file_size_display', 'upload_date',
+            'uploaded_by', 'description'
+        ]
+    
+    def get_file_size_display(self, obj):
+        return obj.get_file_size_display()
+
 
 class PRItemSerializer(serializers.ModelSerializer):
     """Serializer for PR line items"""
@@ -248,6 +322,7 @@ class CatalogPRDetailSerializer(serializers.ModelSerializer):
     
     # Nested data
     items = serializers.SerializerMethodField()
+    attachments = serializers.SerializerMethodField()
     
     class Meta:
         model = Catalog_PR
@@ -258,7 +333,7 @@ class CatalogPRDetailSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
             'submitted_for_approval_at', 'approved_at', 'approved_by',
             'rejected_at', 'rejected_by', 'rejection_reason',
-            'items'
+            'items', 'attachments'
         ]
         read_only_fields = fields
     
@@ -268,6 +343,11 @@ class CatalogPRDetailSerializer(serializers.ModelSerializer):
             'catalog_item', 'unit_of_measure'
         ).all()
         return PRItemSerializer(items, many=True).data
+    
+    def get_attachments(self, obj):
+        """Serialize PR attachments"""
+        attachments = obj.pr.attachments.all()
+        return PRAttachmentListSerializer(attachments, many=True).data
 
 
 # ==================== NON-CATALOG PR SERIALIZERS ====================
@@ -424,6 +504,7 @@ class NonCatalogPRDetailSerializer(serializers.ModelSerializer):
     
     # Nested data
     items = serializers.SerializerMethodField()
+    attachments = serializers.SerializerMethodField()
     
     class Meta:
         model = NonCatalog_PR
@@ -434,7 +515,7 @@ class NonCatalogPRDetailSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
             'submitted_for_approval_at', 'approved_at', 'approved_by',
             'rejected_at', 'rejected_by', 'rejection_reason',
-            'items'
+            'items', 'attachments'
         ]
         read_only_fields = fields
     
@@ -444,6 +525,11 @@ class NonCatalogPRDetailSerializer(serializers.ModelSerializer):
             'catalog_item', 'unit_of_measure'
         ).all()
         return PRItemSerializer(items, many=True).data
+    
+    def get_attachments(self, obj):
+        """Serialize PR attachments"""
+        attachments = obj.pr.attachments.all()
+        return PRAttachmentListSerializer(attachments, many=True).data
 
 
 # ==================== SERVICE PR SERIALIZERS ====================
@@ -599,6 +685,7 @@ class ServicePRDetailSerializer(serializers.ModelSerializer):
     
     # Nested data
     items = serializers.SerializerMethodField()
+    attachments = serializers.SerializerMethodField()
     
     class Meta:
         model = Service_PR
@@ -609,7 +696,7 @@ class ServicePRDetailSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
             'submitted_for_approval_at', 'approved_at', 'approved_by',
             'rejected_at', 'rejected_by', 'rejection_reason',
-            'items'
+            'items', 'attachments'
         ]
         read_only_fields = fields
     
@@ -619,3 +706,8 @@ class ServicePRDetailSerializer(serializers.ModelSerializer):
             'catalog_item', 'unit_of_measure'
         ).all()
         return PRItemSerializer(items, many=True).data
+    
+    def get_attachments(self, obj):
+        """Serialize PR attachments"""
+        attachments = obj.pr.attachments.all()
+        return PRAttachmentListSerializer(attachments, many=True).data
