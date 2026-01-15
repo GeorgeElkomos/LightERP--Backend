@@ -1,0 +1,402 @@
+{
+	"info": {
+		"_postman_id": "po-attachments-api-2026",
+		"name": "PO Attachments API",
+		"description": "Complete API collection for Purchase Order Attachments - Upload, List, Download, and Delete files attached to POs",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.environment.set(\"access_token\", jsonData.data.access);",
+									"    pm.environment.set(\"refresh_token\", jsonData.data.refresh);",
+									"    console.log(\"Token saved:\", jsonData.data.access);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"admin@company.com\",\n    \"password\": \"your_password\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/login/",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "login", ""]
+						},
+						"description": "Login to get access token. The token will be automatically saved to environment variables."
+					},
+					"response": []
+				}
+			],
+			"description": "Authentication endpoints to get access tokens"
+		},
+		{
+			"name": "List Attachments",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{access_token}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/procurement/po/{{po_id}}/attachments/",
+					"host": ["{{base_url}}"],
+					"path": ["procurement", "po", "{{po_id}}", "attachments", ""]
+				},
+				"description": "List all attachments for a specific PO (without file data for efficiency).\n\n**Requirements:**\n- Valid access token\n- PO must exist\n\n**Response includes:**\n- attachment_id\n- file_name\n- file_type\n- file_size (in bytes)\n- file_size_display (human-readable)\n- upload_date\n- uploaded_by_email\n- description"
+			},
+			"response": [
+				{
+					"name": "List Attachments - Success",
+					"originalRequest": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/procurement/po/1/attachments/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "po", "1", "attachments", ""]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [],
+					"cookie": [],
+					"body": "{\n    \"status\": \"success\",\n    \"message\": \"Retrieved 3 attachment(s)\",\n    \"data\": [\n        {\n            \"attachment_id\": 1,\n            \"file_name\": \"vendor_quote.pdf\",\n            \"file_type\": \"application/pdf\",\n            \"file_size\": 245632,\n            \"file_size_display\": \"239.88 KB\",\n            \"upload_date\": \"2026-01-15T10:30:00Z\",\n            \"uploaded_by_email\": \"user@company.com\",\n            \"description\": \"Vendor quotation\"\n        },\n        {\n            \"attachment_id\": 2,\n            \"file_name\": \"specifications.docx\",\n            \"file_type\": \"application/vnd.openxmlformats-officedocument.wordprocessingml.document\",\n            \"file_size\": 1048576,\n            \"file_size_display\": \"1.00 MB\",\n            \"upload_date\": \"2026-01-15T11:45:00Z\",\n            \"uploaded_by_email\": \"user@company.com\",\n            \"description\": \"Technical specifications\"\n        },\n        {\n            \"attachment_id\": 3,\n            \"file_name\": \"delivery_schedule.xlsx\",\n            \"file_type\": \"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\",\n            \"file_size\": 524288,\n            \"file_size_display\": \"512.00 KB\",\n            \"upload_date\": \"2026-01-15T14:20:00Z\",\n            \"uploaded_by_email\": \"admin@company.com\",\n            \"description\": \"Delivery schedule from vendor\"\n        }\n    ]\n}"
+				}
+			]
+		},
+		{
+			"name": "Upload Attachment (PDF)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{access_token}}",
+						"type": "text"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"file_name\": \"vendor_invoice.pdf\",\n    \"file_type\": \"application/pdf\",\n    \"file_data_base64\": \"JVBERi0xLjQKJeLjz9MKMyAwIG9iaiA8PC9MZW5ndGggMjE4Pj4Kc3RyZWFtCjIgSgowLjU3IDE4My43NyBtCjAuNTcgMTI5LjQxIGwKNTMuNzYgOTcuNjkgbAo1My43NiAxNTIuMDUgbApmClMKZW5kc3RyZWFtCmVuZG9iagoxIDAgb2JqIDw8L1R5cGUvUGFnZS9QYXJlbnQgNCAwIFIvUmVzb3VyY2VzIDIgMCBSL01lZGlhQm94WzAgMCA2MTIgNzkyXS9Hcm91cDw8L1MvVHJhbnNwYXJlbmN5L0NTL0RldmljZVJHQi9JIHRydWU+Pi9Db250ZW50cyAzIDAgUj4+CmVuZG9iagoyIDAgb2JqIDw8L0ZvbnQ8PC9GMSA1IDAgUj4+Pj4KZW5kb2JqCjQgMCBvYmogPDwvVHlwZS9QYWdlcy9Db3VudCAxL0tpZHNbMSAwIFJdPj4KZW5kb2JqCjUgMCBvYmogPDwvVHlwZS9Gb250L1N1YnR5cGUvVHlwZTEvQmFzZUZvbnQvSGVsdmV0aWNhPj4KZW5kb2JqCjYgMCBvYmogPDwvVHlwZS9DYXRhbG9nL1BhZ2VzIDQgMCBSPj4KZW5kb2JqCjcgMCBvYmogPDwvUHJvZHVjZXIoaVRleHSuIDUuNS4xMyBcdTAwYTkyMDAwLTIwMTcgaVRleHQgR3JvdXAgTlYgXChBR1BMLXZlcnNpb25cKSkvTW9kRGF0ZShEOjIwMjYwMTE1MTQyMDAwKS9DcmVhdGlvbkRhdGUoRDoyMDI2MDExNTE0MjAwMCk+PgplbmRvYmoKeHJlZgowIDgKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMzE1IDAwMDAwIG4gCjAwMDAwMDA0NTYgMDAwMDAgbiAKMDAwMDAwMDAxNSAwMDAwMCBuIAowMDAwMDAwNDk2IDAwMDAwIG4gCjAwMDAwMDA1NTEgMDAwMDAgbiAKMDAwMDAwMDYzMCAwMDAwMCBuIAowMDAwMDAwNjc1IDAwMDAwIG4gCnRyYWlsZXIKPDwvU2l6ZSA4L1Jvb3QgNiAwIFIvSW5mbyA3IDAgUi9JRFs8MWNmNGJhMWJhNWQ1NDRhNDk4YzJhOWNkOGEwYjFiYjM+PDFjZjRiYTFiYTVkNTQ0YTQ5OGMyYTljZDhhMGIxYmIzPl0+PgpzdGFydHhyZWYKODQ4CiUlRU9GCg==\",\n    \"description\": \"Vendor invoice for PO-2026-00123\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{base_url}}/procurement/po/{{po_id}}/attachments/",
+					"host": ["{{base_url}}"],
+					"path": ["procurement", "po", "{{po_id}}", "attachments", ""]
+				},
+				"description": "Upload a new PDF file attachment to a PO.\n\n**Required fields:**\n- `file_name`: Name of the file with extension\n- `file_type`: MIME type (e.g., \"application/pdf\")\n- `file_data_base64`: Base64-encoded file content\n\n**Optional fields:**\n- `description`: Description of the attachment\n\n**Note:** The example includes a minimal valid PDF file encoded in base64. Replace with your actual file content.\n\n**How to encode a file:**\n```bash\n# Linux/Mac\nbase64 myfile.pdf\n\n# Windows PowerShell\n[Convert]::ToBase64String([IO.File]::ReadAllBytes(\"myfile.pdf\"))\n```"
+			},
+			"response": [
+				{
+					"name": "Upload Success",
+					"originalRequest": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"file_name\": \"vendor_invoice.pdf\",\n    \"file_type\": \"application/pdf\",\n    \"file_data_base64\": \"JVBERi0xLjQKJeLjz9MK...\",\n    \"description\": \"Vendor invoice for PO-2026-00123\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/procurement/po/1/attachments/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "po", "1", "attachments", ""]
+						}
+					},
+					"status": "Created",
+					"code": 201,
+					"_postman_previewlanguage": "json",
+					"header": [],
+					"cookie": [],
+					"body": "{\n    \"status\": \"success\",\n    \"message\": \"Attachment uploaded successfully\",\n    \"data\": {\n        \"attachment_id\": 4,\n        \"po_header\": 1,\n        \"file_name\": \"vendor_invoice.pdf\",\n        \"file_type\": \"application/pdf\",\n        \"file_size\": 848,\n        \"file_size_display\": \"848 bytes\",\n        \"upload_date\": \"2026-01-15T15:30:00Z\",\n        \"uploaded_by\": 5,\n        \"uploaded_by_email\": \"user@company.com\",\n        \"description\": \"Vendor invoice for PO-2026-00123\"\n    }\n}"
+				}
+			]
+		},
+		{
+			"name": "Upload Attachment (Image)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{access_token}}",
+						"type": "text"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"file_name\": \"product_photo.png\",\n    \"file_type\": \"image/png\",\n    \"file_data_base64\": \"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==\",\n    \"description\": \"Product photo from catalog\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{base_url}}/procurement/po/{{po_id}}/attachments/",
+					"host": ["{{base_url}}"],
+					"path": ["procurement", "po", "{{po_id}}", "attachments", ""]
+				},
+				"description": "Upload an image file (PNG) to a PO.\n\n**Supported image types:**\n- image/png\n- image/jpeg\n- image/gif\n- image/bmp\n\nThe example contains a minimal 1x1 transparent PNG image."
+			},
+			"response": []
+		},
+		{
+			"name": "Upload Attachment (Excel)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{access_token}}",
+						"type": "text"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"file_name\": \"price_breakdown.xlsx\",\n    \"file_type\": \"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\",\n    \"file_data_base64\": \"UEsDBBQABgAIAAAAIQBi7p1oXgEAAJAEAAATAAgCW0NvbnRlbnRfVHlwZXNdLnhtbCCiBAIooAAC...\",\n    \"description\": \"Detailed price breakdown from vendor\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{base_url}}/procurement/po/{{po_id}}/attachments/",
+					"host": ["{{base_url}}"],
+					"path": ["procurement", "po", "{{po_id}}", "attachments", ""]
+				},
+				"description": "Upload an Excel file (.xlsx) to a PO.\n\n**Excel MIME types:**\n- .xlsx: `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`\n- .xls: `application/vnd.ms-excel`"
+			},
+			"response": []
+		},
+		{
+			"name": "Upload Attachment (Word)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{access_token}}",
+						"type": "text"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"file_name\": \"contract_terms.docx\",\n    \"file_type\": \"application/vnd.openxmlformats-officedocument.wordprocessingml.document\",\n    \"file_data_base64\": \"UEsDBBQABgAIAAAAIQDd5Y9QXgEAAJkEAAATAAgCW0NvbnRlbnRfVHlwZXNdLnhtbCCiBAIooAAC...\",\n    \"description\": \"Contract terms and conditions\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{base_url}}/procurement/po/{{po_id}}/attachments/",
+					"host": ["{{base_url}}"],
+					"path": ["procurement", "po", "{{po_id}}", "attachments", ""]
+				},
+				"description": "Upload a Word document (.docx) to a PO.\n\n**Word MIME types:**\n- .docx: `application/vnd.openxmlformats-officedocument.wordprocessingml.document`\n- .doc: `application/msword`"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Attachment Details",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{access_token}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/procurement/po/attachments/{{attachment_id}}/",
+					"host": ["{{base_url}}"],
+					"path": ["procurement", "po", "attachments", "{{attachment_id}}", ""]
+				},
+				"description": "Retrieve a specific attachment WITH file data (base64 encoded).\n\n**Use this endpoint to:**\n- Download file content\n- View file details\n- Get base64-encoded file data for client-side processing\n\n**Response includes:**\n- All metadata (file_name, file_type, file_size, etc.)\n- `file_data_base64`: Base64-encoded file content (decode to get original file)\n\n**Client-side decoding (JavaScript):**\n```javascript\nconst byteCharacters = atob(data.file_data_base64);\nconst byteNumbers = new Array(byteCharacters.length);\nfor (let i = 0; i < byteCharacters.length; i++) {\n    byteNumbers[i] = byteCharacters.charCodeAt(i);\n}\nconst byteArray = new Uint8Array(byteNumbers);\nconst blob = new Blob([byteArray], { type: data.file_type });\n```"
+			},
+			"response": [
+				{
+					"name": "Get Attachment - Success",
+					"originalRequest": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/procurement/po/attachments/4/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "po", "attachments", "4", ""]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [],
+					"cookie": [],
+					"body": "{\n    \"status\": \"success\",\n    \"message\": \"Attachment retrieved successfully\",\n    \"data\": {\n        \"attachment_id\": 4,\n        \"file_name\": \"vendor_invoice.pdf\",\n        \"file_type\": \"application/pdf\",\n        \"file_size\": 848,\n        \"file_size_display\": \"848 bytes\",\n        \"upload_date\": \"2026-01-15T15:30:00Z\",\n        \"uploaded_by\": \"user@company.com\",\n        \"description\": \"Vendor invoice for PO-2026-00123\",\n        \"file_data_base64\": \"JVBERi0xLjQKJeLjz9MKMyAwIG9iaiA8PC9MZW5ndGggMjE4Pj4Kc3RyZWFtCjIgSgowLjU3IDE4My43NyBtCjAuNTcgMTI5LjQxIGwKNTMuNzYgOTcuNjkgbAo1My43NiAxNTIuMDUgbApmClMKZW5kc3RyZWFtCmVuZG9iagoxIDAgb2JqIDw8L1R5cGUvUGFnZS9QYXJlbnQgNCAwIFIvUmVzb3VyY2VzIDIgMCBSL01lZGlhQm94WzAgMCA2MTIgNzkyXS9Hcm91cDw8L1MvVHJhbnNwYXJlbmN5L0NTL0RldmljZVJHQi9JIHRydWU+Pi9Db250ZW50cyAzIDAgUj4+CmVuZG9iagoyIDAgb2JqIDw8L0ZvbnQ8PC9GMSA1IDAgUj4+Pj4KZW5kb2JqCjQgMCBvYmogPDwvVHlwZS9QYWdlcy9Db3VudCAxL0tpZHNbMSAwIFJdPj4KZW5kb2JqCjUgMCBvYmogPDwvVHlwZS9Gb250L1N1YnR5cGUvVHlwZTEvQmFzZUZvbnQvSGVsdmV0aWNhPj4KZW5kb2JqCjYgMCBvYmogPDwvVHlwZS9DYXRhbG9nL1BhZ2VzIDQgMCBSPj4KZW5kb2JqCjcgMCBvYmogPDwvUHJvZHVjZXIoaVRleHSuIDUuNS4xMyBcdTAwYTkyMDAwLTIwMTcgaVRleHQgR3JvdXAgTlYgXChBR1BMLXZlcnNpb25cKSkvTW9kRGF0ZShEOjIwMjYwMTE1MTQyMDAwKS9DcmVhdGlvbkRhdGUoRDoyMDI2MDExNTE0MjAwMCk+PgplbmRvYmoKeHJlZgowIDgKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMzE1IDAwMDAwIG4gCjAwMDAwMDA0NTYgMDAwMDAgbiAKMDAwMDAwMDAxNSAwMDAwMCBuIAowMDAwMDAwNDk2IDAwMDAwIG4gCjAwMDAwMDA1NTEgMDAwMDAgbiAKMDAwMDAwMDYzMCAwMDAwMCBuIAowMDAwMDAwNjc1IDAwMDAwIG4gCnRyYWlsZXIKPDwvU2l6ZSA4L1Jvb3QgNiAwIFIvSW5mbyA3IDAgUi9JRFs8MWNmNGJhMWJhNWQ1NDRhNDk4YzJhOWNkOGEwYjFiYjM+PDFjZjRiYTFiYTVkNTQ0YTQ5OGMyYTljZDhhMGIxYmIzPl0+PgpzdGFydHhyZWYKODQ4CiUlRU9GCg==\"\n    }\n}"
+				}
+			]
+		},
+		{
+			"name": "Delete Attachment",
+			"request": {
+				"method": "DELETE",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{access_token}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/procurement/po/attachments/{{attachment_id}}/",
+					"host": ["{{base_url}}"],
+					"path": ["procurement", "po", "attachments", "{{attachment_id}}", ""]
+				},
+				"description": "Delete a specific attachment from a PO.\n\n**Warning:** This action is irreversible. The file will be permanently deleted from the database.\n\n**Use cases:**\n- Remove incorrect/outdated files\n- Clean up test data\n- Comply with data retention policies"
+			},
+			"response": [
+				{
+					"name": "Delete Success",
+					"originalRequest": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/procurement/po/attachments/4/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "po", "attachments", "4", ""]
+						}
+					},
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [],
+					"cookie": [],
+					"body": "{\n    \"status\": \"success\",\n    \"message\": \"Attachment 'vendor_invoice.pdf' deleted from PO PO-2026-00123\"\n}"
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "po_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "attachment_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "access_token",
+			"value": "",
+			"type": "string"
+		}
+	]
+}

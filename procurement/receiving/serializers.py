@@ -75,6 +75,13 @@ class GoodsReceiptLineCreateSerializer(serializers.Serializer):
                 po_line = POLineItem.objects.get(id=attrs['po_line_item_id'])
                 attrs['_po_line_item'] = po_line
                 
+                # Check if PO line is already fully received (early check)
+                if po_line.is_fully_received():
+                    raise serializers.ValidationError({
+                        'po_line_item_id': f"PO line item {po_line.id} is already fully received. "
+                        f"Received: {po_line.quantity_received}, Ordered: {po_line.quantity}"
+                    })
+                
                 # Get receiving type
                 receiving_type = attrs.get('receiving_type', 'PARTIAL')
                 
@@ -147,6 +154,13 @@ class GoodsReceiptLineFromPOSerializer(serializers.Serializer):
         """Validate PO line and quantity."""
         po_line = POLineItem.objects.get(id=attrs['po_line_item_id'])
         attrs['_po_line_item'] = po_line
+        
+        # Check if PO line is already fully received (early check)
+        if po_line.is_fully_received():
+            raise serializers.ValidationError({
+                'po_line_item_id': f"PO line item {po_line.id} is already fully received. "
+                f"Received: {po_line.quantity_received}, Ordered: {po_line.quantity}"
+            })
         
         # Get receiving type
         receiving_type = attrs.get('receiving_type', 'PARTIAL')
