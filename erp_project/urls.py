@@ -26,6 +26,9 @@ urlpatterns = [
     path('procurement/po/', include('procurement.po.urls')),
     path('procurement/receiving/', include('procurement.receiving.urls')),
     
+    # Budget Control (direct access for API)
+    path('api/', include('Finance.budget_control.urls')),
+    
     # Authentication endpoints (register, login, logout, password, tokens)
     path('auth/', include('core.user_accounts.auth_urls')),
     

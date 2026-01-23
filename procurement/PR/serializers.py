@@ -178,6 +178,7 @@ class CatalogPRCreateSerializer(serializers.Serializer):
         "priority": "MEDIUM",
         "description": "Quarterly IT equipment purchase",
         "notes": "Standard procurement",
+        "segment_combination_id": 5,
         "items": [
             {
                 "item_name": "Dell Laptop XPS 15",
@@ -205,6 +206,13 @@ class CatalogPRCreateSerializer(serializers.Serializer):
     description = serializers.CharField(required=False, allow_blank=True, default='')
     notes = serializers.CharField(required=False, allow_blank=True, default='')
     
+    # Budget Control - GL Account Combination
+    segment_combination_id = serializers.IntegerField(
+        required=False,
+        allow_null=True,
+        help_text="GL account combination ID for budget control (applies to all line items)"
+    )
+    
     # Nested items
     items = PRItemCreateSerializer(many=True)
     
@@ -231,6 +239,18 @@ class CatalogPRCreateSerializer(serializers.Serializer):
     def create(self, validated_data):
         """Create Catalog PR with items"""
         items_data = validated_data.pop('items')
+        segment_combination_id = validated_data.pop('segment_combination_id', None)
+        
+        # Handle segment_combination
+        segment_combination = None
+        if segment_combination_id:
+            from Finance.GL.models import XX_Segment_combination
+            try:
+                segment_combination = XX_Segment_combination.objects.get(id=segment_combination_id)
+            except XX_Segment_combination.DoesNotExist:
+                raise serializers.ValidationError({
+                    'segment_combination_id': f'Segment combination with ID {segment_combination_id} does not exist.'
+                })
         
         # Create Catalog_PR (auto-creates parent PR)
         catalog_pr = Catalog_PR.objects.create(
@@ -241,7 +261,8 @@ class CatalogPRCreateSerializer(serializers.Serializer):
             requester_email=validated_data.get('requester_email', ''),
             priority=validated_data.get('priority', 'MEDIUM'),
             description=validated_data.get('description', ''),
-            notes=validated_data.get('notes', '')
+            notes=validated_data.get('notes', ''),
+            segment_combination=segment_combination
         )
         
         # Create items
@@ -393,6 +414,13 @@ class NonCatalogPRCreateSerializer(serializers.Serializer):
     description = serializers.CharField(required=False, allow_blank=True, default='')
     notes = serializers.CharField(required=False, allow_blank=True, default='')
     
+    # Budget Control - GL Account Combination
+    segment_combination_id = serializers.IntegerField(
+        required=False,
+        allow_null=True,
+        help_text="GL account combination ID for budget control (applies to all line items)"
+    )
+    
     # Nested items
     items = PRItemCreateSerializer(many=True)
     
@@ -413,6 +441,18 @@ class NonCatalogPRCreateSerializer(serializers.Serializer):
     def create(self, validated_data):
         """Create Non-Catalog PR with items"""
         items_data = validated_data.pop('items')
+        segment_combination_id = validated_data.pop('segment_combination_id', None)
+        
+        # Handle segment_combination
+        segment_combination = None
+        if segment_combination_id:
+            from Finance.GL.models import XX_Segment_combination
+            try:
+                segment_combination = XX_Segment_combination.objects.get(id=segment_combination_id)
+            except XX_Segment_combination.DoesNotExist:
+                raise serializers.ValidationError({
+                    'segment_combination_id': f'Segment combination with ID {segment_combination_id} does not exist.'
+                })
         
         # Create NonCatalog_PR (auto-creates parent PR)
         noncatalog_pr = NonCatalog_PR.objects.create(
@@ -423,7 +463,8 @@ class NonCatalogPRCreateSerializer(serializers.Serializer):
             requester_email=validated_data.get('requester_email', ''),
             priority=validated_data.get('priority', 'MEDIUM'),
             description=validated_data.get('description', ''),
-            notes=validated_data.get('notes', '')
+            notes=validated_data.get('notes', ''),
+            segment_combination=segment_combination
         )
         
         # Create items
@@ -574,6 +615,13 @@ class ServicePRCreateSerializer(serializers.Serializer):
     description = serializers.CharField(required=False, allow_blank=True, default='')
     notes = serializers.CharField(required=False, allow_blank=True, default='')
     
+    # Budget Control - GL Account Combination
+    segment_combination_id = serializers.IntegerField(
+        required=False,
+        allow_null=True,
+        help_text="GL account combination ID for budget control (applies to all line items)"
+    )
+    
     # Nested items (services)
     items = PRItemCreateSerializer(many=True)
     
@@ -594,6 +642,18 @@ class ServicePRCreateSerializer(serializers.Serializer):
     def create(self, validated_data):
         """Create Service PR with service items"""
         items_data = validated_data.pop('items')
+        segment_combination_id = validated_data.pop('segment_combination_id', None)
+        
+        # Handle segment_combination
+        segment_combination = None
+        if segment_combination_id:
+            from Finance.GL.models import XX_Segment_combination
+            try:
+                segment_combination = XX_Segment_combination.objects.get(id=segment_combination_id)
+            except XX_Segment_combination.DoesNotExist:
+                raise serializers.ValidationError({
+                    'segment_combination_id': f'Segment combination with ID {segment_combination_id} does not exist.'
+                })
         
         # Create Service_PR (auto-creates parent PR)
         service_pr = Service_PR.objects.create(
@@ -604,7 +664,8 @@ class ServicePRCreateSerializer(serializers.Serializer):
             requester_email=validated_data.get('requester_email', ''),
             priority=validated_data.get('priority', 'MEDIUM'),
             description=validated_data.get('description', ''),
-            notes=validated_data.get('notes', '')
+            notes=validated_data.get('notes', ''),
+            segment_combination=segment_combination
         )
         
         # Create service items

@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'Finance.default_combinations',  # Default Segment Combinations
     'Finance.period',    # Period management
     'Finance.cash_management',  # Cash Management
+    'Finance.budget_control',  # Budget Control
     
     # Core Module
     'core',              # Main Core App

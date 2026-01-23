@@ -103,6 +103,13 @@ class GoodsReceipt(models.Model):
         related_name='created_goods_receipts'
     )
     
+    # Budget Control Integration (Stage 3: Actual)
+    budget_actual_updated_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Timestamp when budget actual was updated"
+    )
+    
     class Meta:
         ordering = ['-receipt_date', '-grn_number']
         verbose_name = 'Goods Receipt'
@@ -167,8 +174,131 @@ class GoodsReceipt(models.Model):
         """Get all AP Invoices associated with this goods receipt."""
         return self.ap_invoices.all()
     
+    # ==================== BUDGET CONTROL METHOD ====================
+    
+    def update_budget_actual(self):
+        """
+        Stage 3: Update budget actual and release encumbrance after goods receipt.
+        
+        Called automatically when GRN is saved.
+        This converts the PO encumbrance to actual expenditure.
+        """
+        from Finance.budget_control.models import BudgetHeader
+        from Finance.GL.models import XX_Segment
+        import logging
+        
+        logger = logging.getLogger(__name__)
+        
+        # Get segment_combination from PO
+        if not self.po_header.segment_combination:
+            logger.warning(f"GRN {self.grn_number} PO has no segment_combination - budget control skipped")
+            return
+        
+        segment_combination = self.po_header.segment_combination
+        
+        # Find active or closed budget for receipt date
+        budget = BudgetHeader.objects.filter(
+            status__in=['ACTIVE', 'CLOSED'],
+            is_active=True,
+            start_date__lte=self.receipt_date,
+            end_date__gte=self.receipt_date
+        ).first()
+        
+        if not budget:
+            logger.warning(f"No active budget found for GRN {self.grn_number} dated {self.receipt_date}")
+            return
+        
+        # Extract segments
+        segment_ids = list(
+            segment_combination.details.values_list('segment_id', flat=True)
+        )
+        segment_objects = list(XX_Segment.objects.filter(id__in=segment_ids))
+        
+        if not segment_objects:
+            logger.warning(f"No segments found for GRN {self.grn_number}")
+            return
+        
+        budget_amounts = budget.get_applicable_budget_amounts(segment_objects)
+        
+        if not budget_amounts.exists():
+            logger.warning(f"No budget amounts found for GRN {self.grn_number} segments")
+            return
+        
+        # Consume actual and release encumbrance
+        for budget_amt in budget_amounts:
+            try:
+                budget_amt.consume_actual(
+                    amount=self.total_amount,
+                    release_encumbrance=True  # Automatically release PO encumbrance
+                )
+                logger.info(
+                    f"Updated budget actual: {self.total_amount} for GRN {self.grn_number}, "
+                    f"released encumbrance"
+                )
+            except Exception as e:
+                logger.error(f"Failed to update budget actual for GRN {self.grn_number}: {str(e)}")
+                # Don't raise - allow GRN to be saved even if budget update fails
+        
+        self.budget_actual_updated_at = timezone.now()
+    
+    def reverse_budget_actual(self):
+        """
+        Reverse budget actual consumption when GRN is deleted.
+        Restores encumbrance to PO.
+        """
+        from Finance.budget_control.models import BudgetHeader
+        from Finance.GL.models import XX_Segment
+        import logging
+        
+        logger = logging.getLogger(__name__)
+        
+        # Only reverse if budget was previously updated
+        if not self.budget_actual_updated_at or not self.po_header.segment_combination:
+            return
+        
+        segment_combination = self.po_header.segment_combination
+        
+        # Find budget
+        budget = BudgetHeader.objects.filter(
+            status__in=['ACTIVE', 'CLOSED'],
+            start_date__lte=self.receipt_date,
+            end_date__gte=self.receipt_date
+        ).first()
+        
+        if not budget:
+            logger.warning(f"No budget found to reverse actual for GRN {self.grn_number}")
+            return
+        
+        # Extract segments
+        segment_ids = list(
+            segment_combination.details.values_list('segment_id', flat=True)
+        )
+        segment_objects = list(XX_Segment.objects.filter(id__in=segment_ids))
+        
+        if not segment_objects:
+            logger.warning(f"No segments found for GRN {self.grn_number} reversal")
+            return
+        
+        budget_amounts = budget.get_applicable_budget_amounts(segment_objects)
+        
+        # Reverse actual and restore encumbrance
+        for budget_amt in budget_amounts:
+            try:
+                # Decrease actual_amount
+                budget_amt.actual_amount -= self.total_amount
+                # Restore encumbrance
+                budget_amt.encumbered_amount += self.total_amount
+                budget_amt.save(update_fields=['actual_amount', 'encumbered_amount', 'updated_at'])
+                
+                logger.info(
+                    f"Reversed budget actual: {self.total_amount} for deleted GRN {self.grn_number}, "
+                    f"restored encumbrance"
+                )
+            except Exception as e:
+                logger.error(f"Failed to reverse budget actual for GRN {self.grn_number}: {str(e)}")
+    
     def save(self, *args, **kwargs):
-        """Override save to auto-generate GRN number and validate."""
+        """Override save to auto-generate GRN number, validate, and update budget."""
         # Generate GRN number if not set
         if not self.grn_number:
             last_grn = GoodsReceipt.objects.order_by('-id').first()
@@ -185,6 +315,11 @@ class GoodsReceipt(models.Model):
         if self.pk:
             self.calculate_total()
             super().save(update_fields=['total_amount'])
+            
+            # Update budget actual after totals are calculated
+            self.update_budget_actual()
+            if self.budget_actual_updated_at:
+                super().save(update_fields=['budget_actual_updated_at'])
 
 
 class GoodsReceiptLine(models.Model):
