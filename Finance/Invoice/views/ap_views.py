@@ -26,7 +26,8 @@ from Finance.Invoice.serializers import (
     APInvoiceListSerializer, 
     APInvoiceDetailSerializer,
     APInvoiceUpdateSerializer,
-    APInvoiceFromReceiptSerializer
+    APInvoiceFromReceiptSerializer,
+    APInvoiceVariancePreviewSerializer
 )
 
 
@@ -274,6 +275,64 @@ def ap_invoice_submit_for_approval(request, pk):
             {'error': f'An error occurred: {str(e)}'},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+@api_view(['POST'])
+def ap_invoice_variance_preview(request):
+    """
+    Preview 3-way match variance without creating invoice.
+    
+    POST /invoices/ap/variance-preview/
+    
+    Request body: Same as create-from-receipt endpoint
+    {
+        "goods_receipt_id": 1,
+        "currency_id": 1,
+        "country_id": 1,
+        "tax_amount": "100.00",
+        "journal_entry": {...}
+    }
+    
+    Response:
+    {
+        "variance_percentage": "5.25",
+        "variance_amount": "525.00",
+        "po_total": "10000.00",
+        "invoice_total": "10525.00",
+        "preview": {
+            "goods_receipt_id": 1,
+            "grn_number": "GRN-001",
+            "supplier_name": "Tech Supplier Inc",
+            "items": [...]
+        }
+    }
+    
+    This endpoint:
+    - Calculates variance between PO and what the invoice would be
+    - Does NOT create any database records
+    - Useful for variance review before invoice creation
+    """
+    serializer = APInvoiceVariancePreviewSerializer(data=request.data)
+    
+    if serializer.is_valid():
+        try:
+            variance_data = serializer.save()  # Returns dict, not model instance
+            return Response(
+                variance_data,
+                status=status.HTTP_200_OK
+            )
+        except ValidationError as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            return Response(
+                {'error': f'An error occurred: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['POST'])

@@ -191,7 +191,7 @@ class GoodsReceipt(models.Model):
         
         # Get segment_combination from PO
         if not self.po_header.segment_combination:
-            logger.warning(f"GRN {self.grn_number} PO has no segment_combination - budget control skipped")
+            logger.debug(f"GRN {self.grn_number} PO has no segment_combination - budget control skipped")
             return
         
         segment_combination = self.po_header.segment_combination

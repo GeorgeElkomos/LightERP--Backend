@@ -273,7 +273,7 @@ class POHeader(ApprovableMixin, models.Model):
         
         # Skip if no segment combination
         if not self.segment_combination:
-            logger.warning(f"PO {self.po_number} has no segment_combination - budget control skipped")
+            logger.debug(f"PO {self.po_number} has no segment_combination - budget control skipped")
             return
         
         # Find active or closed budget for PO date
