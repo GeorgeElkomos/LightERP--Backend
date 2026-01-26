@@ -135,8 +135,8 @@ class BudgetHeaderCRUDTestCase(APITestCase):
         self.assertGreaterEqual(len(results), 1)
         self.assertEqual(results[0]['budget_code'], 'DRAFT001')
     
-    def test_create_budget_header_minimal(self):
-        """Test POST /budget-headers/ with minimal data"""
+    def test_create_budget_header_without_amounts(self):
+        """Test POST /budget-headers/ WITHOUT budget amounts (new workflow)"""
         url = reverse('budget_control:budget-header-list')
         data = {
             'budget_code': 'BUD2026',
@@ -144,24 +144,37 @@ class BudgetHeaderCRUDTestCase(APITestCase):
             'start_date': '2026-01-01',
             'end_date': '2026-12-31',
             'currency_id': self.currency.id,
-            'default_control_level': 'ADVISORY'
+            'default_control_level': 'ADVISORY',
+            'segment_values': [
+                {
+                    'segment_value_id': self.segment_5000.id,
+                    'control_level': 'ABSOLUTE'
+                },
+                {
+                    'segment_value_id': self.segment_5100.id,
+                    'control_level': 'ADVISORY'
+                }
+            ]
+            # NO budget_amounts - will be imported from Excel
         }
         
         response = self.client.post(url, data, format='json')
         
-        # Allow different status codes as validation may vary
-        if response.status_code == status.HTTP_201_CREATED:
-            # Create returns budget object directly (no pagination)
-            self.assertIn('budget_code', response.data)
-            self.assertEqual(response.data['budget_code'], 'BUD2026')
-            self.assertEqual(response.data['status'], 'DRAFT')
+        # Should succeed with 201 Created
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         
-            # Verify in database
-            budget = BudgetHeader.objects.get(budget_code='BUD2026')
-            self.assertEqual(budget.budget_name, '2026 Annual Budget')
-            self.assertEqual(budget.default_control_level, 'ADVISORY')
-        else:
-            self.assertIn(response.status_code, [status.HTTP_200_OK, status.HTTP_400_BAD_REQUEST])
+        # Verify budget created in DRAFT status
+        budget = BudgetHeader.objects.get(budget_code='BUD2026')
+        self.assertEqual(budget.budget_name, '2026 Annual Budget')
+        self.assertEqual(budget.status, 'DRAFT')
+        self.assertEqual(budget.is_active, False)
+        self.assertEqual(budget.default_control_level, 'ADVISORY')
+        
+        # Verify segment values created
+        self.assertEqual(budget.budget_segment_values.count(), 2)
+        
+        # Verify NO budget amounts
+        self.assertEqual(budget.budget_amounts.count(), 0)
     
     def test_create_budget_header_with_segments_and_amounts(self):
         """Test POST /budget-headers/ with nested segments and amounts"""
@@ -449,11 +462,18 @@ class BudgetHeaderCRUDTestCase(APITestCase):
             status='DRAFT'
         )
         
+        # Create segment values but no amounts
+        BudgetSegmentValue.objects.create(
+            budget_header=budget,
+            segment_value=self.segment_5000,
+            control_level='ABSOLUTE'
+        )
+        
         url = reverse('budget_control:budget-header-activate', kwargs={'pk': budget.id})
-        response = self.client.post(url)
+        response = self.client.post(url, {'activated_by': 'test_user'}, format='json')
         
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        # Any error response is valid (error field, detail, or other fields)
+        # Verify error message is returned (any format is acceptable)
         self.assertTrue(len(response.data) > 0)
     
     def test_close_budget_header(self):
@@ -532,5 +552,50 @@ class BudgetHeaderCRUDTestCase(APITestCase):
         results = data.get('results', [])
         self.assertGreaterEqual(len(results), 1)
         self.assertEqual(results[0]['budget_code'], 'ACTIVE004')
+    
+    def test_complete_workflow_without_amounts_then_add(self):
+        """Test complete workflow: create without amounts, add amounts via API, activate"""
+        # Step 1: Create budget without amounts
+        url = reverse('budget_control:budget-header-list')
+        data = {
+            'budget_code': 'WORKFLOW001',
+            'budget_name': 'Workflow Test Budget',
+            'start_date': str(date.today()),
+            'end_date': str(date.today() + timedelta(days=365)),
+            'currency_id': self.currency.id,
+            'default_control_level': 'ABSOLUTE',
+            'segment_values': [
+                {
+                    'segment_value_id': self.segment_5000.id,
+                    'control_level': 'ABSOLUTE'
+                }
+            ]
+        }
+        
+        response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        
+        budget = BudgetHeader.objects.get(budget_code='WORKFLOW001')
+        self.assertEqual(budget.budget_amounts.count(), 0)
+        
+        # Step 2: Add budget amount via direct model creation (simulating Excel import)
+        seg_val = budget.budget_segment_values.first()
+        BudgetAmount.objects.create(
+            budget_header=budget,
+            budget_segment_value=seg_val,
+            original_budget=Decimal('100000.00')
+        )
+        
+        budget.refresh_from_db()
+        self.assertEqual(budget.budget_amounts.count(), 1)
+        
+        # Step 3: Activate should now succeed
+        url = reverse('budget_control:budget-header-activate', kwargs={'pk': budget.id})
+        response = self.client.post(url, {'activated_by': 'test_user'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        budget.refresh_from_db()
+        self.assertEqual(budget.status, 'ACTIVE')
+        self.assertTrue(budget.is_active)
 
 

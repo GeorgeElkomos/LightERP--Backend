@@ -107,10 +107,10 @@ def export_budget_to_excel(budget):
     output.seek(0)
     
     response = HttpResponse(
-        output.read(),
+        output.getvalue(),
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
-    response['Content-Disposition'] = f'attachment; filename=Budget_{budget.budget_code}.xlsx'
+    response['Content-Disposition'] = f'attachment; filename="Budget_{budget.budget_code}.xlsx"'
     
     return response
 
@@ -155,10 +155,10 @@ def create_budget_template(budget):
     output.seek(0)
     
     response = HttpResponse(
-        output.read(),
+        output.getvalue(),
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
-    response['Content-Disposition'] = f'attachment; filename=Budget_Import_Template_{budget.budget_code}.xlsx'
+    response['Content-Disposition'] = f'attachment; filename="Budget_Import_Template_{budget.budget_code}.xlsx"'
     
     return response
 

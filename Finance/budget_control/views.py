@@ -1017,3 +1017,8 @@ def budget_template_excel(request, pk):
             {'error': 'Budget not found'},
             status=status.HTTP_404_NOT_FOUND
         )
+    except Exception as e:
+        return Response(
+            {'error': f'Error generating template: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

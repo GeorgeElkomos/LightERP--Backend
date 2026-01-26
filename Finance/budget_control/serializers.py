@@ -305,7 +305,8 @@ class BudgetHeaderDetailSerializer(serializers.ModelSerializer):
 class BudgetHeaderCreateSerializer(serializers.Serializer):
     """
     Create serializer for BudgetHeader with nested segment values and amounts.
-    This handles the complete budget creation workflow.
+    Budget amounts are OPTIONAL at creation - can be imported from Excel later.
+    Budget header will be created in DRAFT status and cannot be activated until amounts are added.
     """
     budget_code = serializers.CharField(max_length=50)
     budget_name = serializers.CharField(max_length=200)
@@ -321,7 +322,7 @@ class BudgetHeaderCreateSerializer(serializers.Serializer):
     
     # Nested data
     segment_values = BudgetSegmentValueCreateSerializer(many=True)
-    budget_amounts = BudgetAmountCreateSerializer(many=True)
+    budget_amounts = BudgetAmountCreateSerializer(many=True, required=False)
     
     def validate_budget_code(self, value):
         """Validate that budget code is unique"""
@@ -343,28 +344,30 @@ class BudgetHeaderCreateSerializer(serializers.Serializer):
                 'end_date': 'End date must be after start date'
             })
         
-        # Validate that all budget amounts have corresponding segment values
-        segment_value_ids = {sv['segment_value_id'] for sv in data['segment_values']}
-        budget_amount_segment_ids = {ba['segment_value_id'] for ba in data['budget_amounts']}
-        
-        missing_segments = budget_amount_segment_ids - segment_value_ids
-        if missing_segments:
-            raise serializers.ValidationError({
-                'budget_amounts': f'Budget amounts reference segments not in segment_values: {missing_segments}'
-            })
+        # Validate that all budget amounts have corresponding segment values (only if provided)
+        budget_amounts_data = data.get('budget_amounts', [])
+        if budget_amounts_data:
+            segment_value_ids = {sv['segment_value_id'] for sv in data['segment_values']}
+            budget_amount_segment_ids = {ba['segment_value_id'] for ba in budget_amounts_data}
+            
+            missing_segments = budget_amount_segment_ids - segment_value_ids
+            if missing_segments:
+                raise serializers.ValidationError({
+                    'budget_amounts': f'Budget amounts reference segments not in segment_values: {missing_segments}'
+                })
         
         return data
     
     def create(self, validated_data):
-        """Create budget header with nested segment values and amounts"""
+        """Create budget header with nested segment values and optional amounts"""
         from django.db import transaction
         
         segment_values_data = validated_data.pop('segment_values')
-        budget_amounts_data = validated_data.pop('budget_amounts')
+        budget_amounts_data = validated_data.pop('budget_amounts', [])  # Default to empty list
         currency_id = validated_data.pop('currency_id')
         
         with transaction.atomic():
-            # Create budget header
+            # Create budget header (always DRAFT and inactive when created)
             budget_header = BudgetHeader.objects.create(
                 currency_id=currency_id,
                 status='DRAFT',
@@ -383,16 +386,18 @@ class BudgetHeaderCreateSerializer(serializers.Serializer):
                 )
                 segment_value_map[segment_value_id] = budget_segment
             
-            # Create budget amounts
-            for ba_data in budget_amounts_data:
-                segment_value_id = ba_data.pop('segment_value_id')
-                budget_segment = segment_value_map[segment_value_id]
-                
-                BudgetAmount.objects.create(
-                    budget_segment_value=budget_segment,
-                    budget_header=budget_header,
-                    **ba_data
-                )
+            # Create budget amounts (only if provided)
+            if budget_amounts_data:
+                for ba_data in budget_amounts_data:
+                    segment_value_id = ba_data.pop('segment_value_id')
+                    budget_segment = segment_value_map.get(segment_value_id)
+                    
+                    if budget_segment:
+                        BudgetAmount.objects.create(
+                            budget_segment_value=budget_segment,
+                            budget_header=budget_header,
+                            **ba_data
+                        )
         
         return budget_header
 
