@@ -226,6 +226,15 @@ class POLineItemFromPRSerializer(serializers.Serializer):
  
         help_text="Actual unit price from vendor (may differ from PR estimated price)"
     )
+    tolerance_percentage = serializers.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        min_value=Decimal("0"),
+        max_value=Decimal("100"),
+        default=Decimal("0.00"),
+        required=False,
+        help_text="Receiving tolerance percentage (0-100). Allows receiving within ±tolerance of ordered quantity."
+    )
     line_notes = serializers.CharField(required=False, allow_blank=True, default='')
     
     def validate(self, attrs):
@@ -308,19 +317,27 @@ class POHeaderCreateSerializer(serializers.Serializer):
         "po_type": "Catalog",
         "supplier_id": 5,
         "currency_id": 1,
+        "tax_rate_id": 1,
+        "delivery_amount": "50.00",
         "receiving_date": "2025-12-25",
         "receiving_address": "123 Main St, City",
+        "receiver_email": "receiver@company.com",
+        "receiver_contact": "John Doe",
+        "receiver_phone": "555-1234",
         "description": "Converting PR-2025-00123",
-        "tax_amount": "120.00",
         "items_from_pr": [
             {
                 "pr_item_id": 45,
                 "quantity_to_convert": "10",
-                "unit_price": "1200.00"
+                "unit_price": "1200.00",
+                "tolerance_percentage": "10.00",
+                "line_notes": "Accept ±10% quantity variance"
             },
             {
                 "pr_item_id": 46,
-                "unit_price": "50.00"  // Uses remaining quantity
+                "unit_price": "50.00",
+                "tolerance_percentage": "5.00"
+                // Uses remaining quantity
             }
         ]
     }
@@ -497,8 +514,9 @@ class POHeaderCreateSerializer(serializers.Serializer):
                 )
                 po_line.populate_from_pr_item(pr_item, item_data['quantity_to_convert'])
                 
-                # Override unit price from request
+                # Override unit price and tolerance from request
                 po_line.unit_price = item_data['unit_price']
+                po_line.tolerance_percentage = item_data.get('tolerance_percentage', Decimal('0.00'))
                 po_line.line_notes = item_data.get('line_notes', '')
                 po_line.calculate_line_total()
                 po_line.save()
