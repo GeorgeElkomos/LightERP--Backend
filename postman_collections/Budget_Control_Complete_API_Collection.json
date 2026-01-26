@@ -1,0 +1,505 @@
+{
+	"info": {
+		"_postman_id": "budget-control-complete-api-2026",
+		"name": "Budget Control - Complete API Collection",
+		"description": "Complete API collection for Budget Control module with budget headers, segments, amounts, checking, and Excel operations",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.environment.set(\"access_token\", jsonData.data.access);",
+									"    pm.environment.set(\"refresh_token\", jsonData.data.refresh);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"admin@company.com\",\n    \"password\": \"your_password\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/login/",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "login", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Budget Headers",
+			"item": [
+				{
+					"name": "List All Budgets",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/budget-control/budget-headers/?status=&is_active=",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "budget-control", "budget-headers", ""],
+							"query": [
+								{"key": "status", "value": "", "description": "DRAFT/ACTIVE/CLOSED"},
+								{"key": "is_active", "value": "", "description": "true/false"}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Active Budgets Only",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/budget-control/budget-headers/active/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "budget-control", "budget-headers", "active", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Budget",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"budget_code\": \"BUD-2026-Q1\",\n    \"budget_name\": \"Q1 2026 Operating Budget\",\n    \"description\": \"First quarter operational budget\",\n    \"start_date\": \"2026-01-01\",\n    \"end_date\": \"2026-03-31\",\n    \"currency_id\": 1,\n    \"default_control_level\": \"ABSOLUTE\",\n    \"notes\": \"Quarterly budget with monthly monitoring\",\n    \"segment_values\": [\n        {\n            \"segment_value_id\": 1,\n            \"control_level\": \"ABSOLUTE\",\n            \"notes\": \"IT Department - Strict control\"\n        },\n        {\n            \"segment_value_id\": 2,\n            \"control_level\": \"ADVISORY\",\n            \"notes\": \"Marketing Department - Advisory only\"\n        },\n        {\n            \"segment_value_id\": 3,\n            \"control_level\": \"ABSOLUTE\",\n            \"notes\": \"Finance Department - Strict control\"\n        }\n    ],\n    \"budget_amounts\": [\n        {\n            \"segment_value_id\": 1,\n            \"original_budget\": \"500000.00\",\n            \"notes\": \"IT operating expenses\"\n        },\n        {\n            \"segment_value_id\": 2,\n            \"original_budget\": \"300000.00\",\n            \"notes\": \"Marketing campaigns\"\n        },\n        {\n            \"segment_value_id\": 3,\n            \"original_budget\": \"200000.00\",\n            \"notes\": \"Finance operations\"\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/budget-control/budget-headers/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "budget-control", "budget-headers", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Budget Detail",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/budget-control/budget-headers/{{budget_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "budget-control", "budget-headers", "{{budget_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Budget",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"budget_name\": \"Q1 2026 Operating Budget - Revised\",\n    \"description\": \"Updated budget description\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/budget-control/budget-headers/{{budget_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "budget-control", "budget-headers", "{{budget_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Budget",
+					"request": {
+						"method": "DELETE",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/budget-control/budget-headers/{{budget_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "budget-control", "budget-headers", "{{budget_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Activate Budget",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {"mode": "raw", "raw": "{}"},
+						"url": {
+							"raw": "{{base_url}}/finance/budget-control/budget-headers/{{budget_id}}/activate/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "budget-control", "budget-headers", "{{budget_id}}", "activate", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Close Budget",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {"mode": "raw", "raw": "{}"},
+						"url": {
+							"raw": "{{base_url}}/finance/budget-control/budget-headers/{{budget_id}}/close/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "budget-control", "budget-headers", "{{budget_id}}", "close", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Deactivate Budget",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {"mode": "raw", "raw": "{}"},
+						"url": {
+							"raw": "{{base_url}}/finance/budget-control/budget-headers/{{budget_id}}/deactivate/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "budget-control", "budget-headers", "{{budget_id}}", "deactivate", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Budget Summary",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/budget-control/budget-headers/{{budget_id}}/summary/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "budget-control", "budget-headers", "{{budget_id}}", "summary", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Budget Segments",
+			"item": [
+				{
+					"name": "List Budget Segments",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/budget-control/budget-headers/{{budget_id}}/segments/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "budget-control", "budget-headers", "{{budget_id}}", "segments", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Add Budget Segment",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"segment_value_id\": 4,\n    \"control_level\": \"ADVISORY\",\n    \"notes\": \"HR Department - Advisory control\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/budget-control/budget-headers/{{budget_id}}/segments/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "budget-control", "budget-headers", "{{budget_id}}", "segments", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Budget Segment Detail",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/budget-control/budget-headers/{{budget_id}}/segments/{{segment_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "budget-control", "budget-headers", "{{budget_id}}", "segments", "{{segment_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Budget Segment",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"control_level\": \"ABSOLUTE\",\n    \"notes\": \"Changed to strict control\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/budget-control/budget-headers/{{budget_id}}/segments/{{segment_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "budget-control", "budget-headers", "{{budget_id}}", "segments", "{{segment_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Budget Segment",
+					"request": {
+						"method": "DELETE",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/budget-control/budget-headers/{{budget_id}}/segments/{{segment_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "budget-control", "budget-headers", "{{budget_id}}", "segments", "{{segment_id}}", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Budget Amounts",
+			"item": [
+				{
+					"name": "List Budget Amounts",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/budget-control/budget-headers/{{budget_id}}/amounts/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "budget-control", "budget-headers", "{{budget_id}}", "amounts", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Add Budget Amount",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"segment_value_id\": 4,\n    \"original_budget\": \"150000.00\",\n    \"notes\": \"HR operating budget\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/budget-control/budget-headers/{{budget_id}}/amounts/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "budget-control", "budget-headers", "{{budget_id}}", "amounts", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Budget Amount Detail",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/budget-control/budget-headers/{{budget_id}}/amounts/{{amount_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "budget-control", "budget-headers", "{{budget_id}}", "amounts", "{{amount_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Budget Amount",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"original_budget\": \"175000.00\",\n    \"notes\": \"Increased allocation\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/budget-control/budget-headers/{{budget_id}}/amounts/{{amount_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "budget-control", "budget-headers", "{{budget_id}}", "amounts", "{{amount_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Adjust Budget Amount (Active Budget)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"adjustment_amount\": \"25000.00\",\n    \"notes\": \"Additional allocation for Q1 projects\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/budget-control/budget-headers/{{budget_id}}/amounts/{{amount_id}}/adjust/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "budget-control", "budget-headers", "{{budget_id}}", "amounts", "{{amount_id}}", "adjust", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Budget Amount",
+					"request": {
+						"method": "DELETE",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/budget-control/budget-headers/{{budget_id}}/amounts/{{amount_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "budget-control", "budget-headers", "{{budget_id}}", "amounts", "{{amount_id}}", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Budget Checking",
+			"item": [
+				{
+					"name": "Check Budget Availability",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"segment_combination_id\": 1,\n    \"amount\": \"50000.00\",\n    \"transaction_date\": \"2026-01-26\",\n    \"transaction_type\": \"PR\",\n    \"transaction_description\": \"IT Equipment Purchase - PR-2026-001\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/budget-control/budget-check/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "budget-control", "budget-check", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Reporting",
+			"item": [
+				{
+					"name": "Budget Violations Report",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/budget-control/budget-violations/?budget_id=&date_from=&date_to=",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "budget-control", "budget-violations", ""],
+							"query": [
+								{"key": "budget_id", "value": "", "description": "Filter by specific budget"},
+								{"key": "date_from", "value": "", "description": "Date from (YYYY-MM-DD)"},
+								{"key": "date_to", "value": "", "description": "Date to (YYYY-MM-DD)"}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Excel Import/Export",
+			"item": [
+				{
+					"name": "Export Budget to Excel",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/budget-control/budget-headers/{{budget_id}}/export/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "budget-control", "budget-headers", "{{budget_id}}", "export", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Import Budget from Excel",
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{"key": "file", "type": "file", "src": []}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/budget-control/budget-headers/{{budget_id}}/import/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "budget-control", "budget-headers", "{{budget_id}}", "import", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Download Budget Template",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/budget-control/budget-headers/{{budget_id}}/template/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "budget-control", "budget-headers", "{{budget_id}}", "template", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{"key": "base_url", "value": "http://localhost:8000", "type": "string"},
+		{"key": "budget_id", "value": "1", "type": "string"},
+		{"key": "segment_id", "value": "1", "type": "string"},
+		{"key": "amount_id", "value": "1", "type": "string"},
+		{"key": "access_token", "value": "", "type": "string"}
+	]
+}

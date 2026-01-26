@@ -1,0 +1,244 @@
+{
+	"info": {
+		"_postman_id": "receiving-complete-api-2026",
+		"name": "Receiving (GRN) - Complete API Collection",
+		"description": "Complete API collection for Goods Receipt Notes (GRN) including manual creation, PO-based receiving, and reporting",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.environment.set(\"access_token\", jsonData.data.access);",
+									"    pm.environment.set(\"refresh_token\", jsonData.data.refresh);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"admin@company.com\",\n    \"password\": \"your_password\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/login/",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "login", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Goods Receipt Notes",
+			"item": [
+				{
+					"name": "List GRNs",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/procurement/receiving/?po_id=&supplier_id=&from_date=&to_date=",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "receiving", ""],
+							"query": [
+								{"key": "po_id", "value": ""},
+								{"key": "supplier_id", "value": ""},
+								{"key": "from_date", "value": ""},
+								{"key": "to_date", "value": ""}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create GRN from PO",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"po_id\": 5,\n    \"receipt_date\": \"2026-01-26\",\n    \"received_by\": \"John Smith\",\n    \"location\": \"Main Warehouse - Dock 3\",\n    \"notes\": \"All items received in good condition\",\n    \"lines\": [\n        {\n            \"po_line_id\": 10,\n            \"quantity_received\": \"5\",\n            \"quality_status\": \"ACCEPTED\",\n            \"notes\": \"All units tested and working\"\n        },\n        {\n            \"po_line_id\": 11,\n            \"quantity_received\": \"5\",\n            \"quality_status\": \"ACCEPTED\"\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/procurement/receiving/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "receiving", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Manual GRN (Without PO)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"receipt_date\": \"2026-01-26\",\n    \"supplier_id\": 8,\n    \"received_by\": \"Jane Doe\",\n    \"location\": \"Emergency Storage\",\n    \"notes\": \"Emergency purchase - no PO\",\n    \"segment_combination_id\": 5,\n    \"lines\": [\n        {\n            \"item_name\": \"Emergency Server Parts\",\n            \"item_description\": \"Critical replacement components\",\n            \"quantity_received\": \"3\",\n            \"unit_of_measure_id\": 1,\n            \"unit_price\": \"450.00\",\n            \"quality_status\": \"ACCEPTED\",\n            \"notes\": \"Verified compatibility\"\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/procurement/receiving/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "receiving", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get GRN Detail",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/procurement/receiving/{{grn_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "receiving", "{{grn_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update GRN",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"notes\": \"Updated after inspection\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/procurement/receiving/{{grn_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "receiving", "{{grn_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete GRN",
+					"request": {
+						"method": "DELETE",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/procurement/receiving/{{grn_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "receiving", "{{grn_id}}", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "PO Integration",
+			"item": [
+				{
+					"name": "Get PO for Receiving",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/procurement/receiving/po/{{po_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "receiving", "po", "{{po_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get POs Ready for Receiving",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/procurement/receiving/po/ready-for-receiving/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "receiving", "po", "ready-for-receiving", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "GRN Reports",
+			"item": [
+				{
+					"name": "Get GRN Summary",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/procurement/receiving/{{grn_id}}/summary/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "receiving", "{{grn_id}}", "summary", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Receiving Report",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/procurement/receiving/report/?from_date=2026-01-01&to_date=2026-01-31&supplier_id=&quality_status=",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "receiving", "report", ""],
+							"query": [
+								{"key": "from_date", "value": "2026-01-01"},
+								{"key": "to_date", "value": "2026-01-31"},
+								{"key": "supplier_id", "value": ""},
+								{"key": "quality_status", "value": "", "description": "ACCEPTED/REJECTED/PENDING"}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Quality Issues Report",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/procurement/receiving/quality-issues/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "receiving", "quality-issues", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{"key": "base_url", "value": "http://localhost:8000", "type": "string"},
+		{"key": "grn_id", "value": "1", "type": "string"},
+		{"key": "po_id", "value": "1", "type": "string"},
+		{"key": "access_token", "value": "", "type": "string"}
+	]
+}

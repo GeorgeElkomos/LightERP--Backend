@@ -1,0 +1,629 @@
+{
+	"info": {
+		"_postman_id": "pr-complete-api-2026",
+		"name": "Purchase Requisition - Complete API Collection",
+		"description": "Complete API collection for Purchase Requisitions including Catalog, Non-Catalog, and Service PRs with approval workflow and attachments",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.environment.set(\"access_token\", jsonData.data.access);",
+									"    pm.environment.set(\"refresh_token\", jsonData.data.refresh);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"admin@company.com\",\n    \"password\": \"your_password\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/login/",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "login", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Catalog PR",
+			"item": [
+				{
+					"name": "List Catalog PRs",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/catalog/?status=&priority=",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "catalog", ""],
+							"query": [
+								{"key": "status", "value": "", "description": "DRAFT/SUBMITTED/APPROVED/REJECTED/CANCELLED"},
+								{"key": "priority", "value": "", "description": "LOW/MEDIUM/HIGH/URGENT"}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Catalog PR",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"date\": \"2026-01-26\",\n    \"required_date\": \"2026-02-15\",\n    \"requester_name\": \"John Doe\",\n    \"requester_department\": \"IT\",\n    \"requester_email\": \"john.doe@company.com\",\n    \"priority\": \"HIGH\",\n    \"description\": \"IT equipment for new hires\",\n    \"notes\": \"Urgent procurement needed\",\n    \"segment_combination_id\": 5,\n    \"items\": [\n        {\n            \"item_name\": \"Dell Laptop XPS 15\",\n            \"item_description\": \"High performance laptop\",\n            \"catalog_item_id\": 1,\n            \"quantity\": \"5\",\n            \"unit_of_measure_id\": 1,\n            \"estimated_unit_price\": \"1200.00\",\n            \"notes\": \"Must have SSD\"\n        },\n        {\n            \"item_name\": \"Microsoft Surface Mouse\",\n            \"item_description\": \"Wireless mouse\",\n            \"catalog_item_id\": 2,\n            \"quantity\": \"5\",\n            \"unit_of_measure_id\": 1,\n            \"estimated_unit_price\": \"45.00\"\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/catalog/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "catalog", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Catalog PR Detail",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/catalog/{{pr_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "catalog", "{{pr_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Catalog PR",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"priority\": \"URGENT\",\n    \"notes\": \"Updated priority due to critical need\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/catalog/{{pr_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "catalog", "{{pr_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Catalog PR",
+					"request": {
+						"method": "DELETE",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/catalog/{{pr_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "catalog", "{{pr_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Submit Catalog PR for Approval",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {"mode": "raw", "raw": "{}"},
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/catalog/{{pr_id}}/submit-for-approval/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "catalog", "{{pr_id}}", "submit-for-approval", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Catalog PR Pending Approvals",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/catalog/pending-approvals/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "catalog", "pending-approvals", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Approve/Reject Catalog PR",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"action\": \"approve\",\n    \"comments\": \"Approved for procurement\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/catalog/{{pr_id}}/approval-action/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "catalog", "{{pr_id}}", "approval-action", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cancel Catalog PR",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"cancellation_reason\": \"No longer needed\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/catalog/{{pr_id}}/cancel/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "catalog", "{{pr_id}}", "cancel", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Non-Catalog PR",
+			"item": [
+				{
+					"name": "List Non-Catalog PRs",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/non-catalog/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "non-catalog", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Non-Catalog PR",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"date\": \"2026-01-26\",\n    \"required_date\": \"2026-03-01\",\n    \"requester_name\": \"Jane Smith\",\n    \"requester_department\": \"Operations\",\n    \"requester_email\": \"jane.smith@company.com\",\n    \"priority\": \"MEDIUM\",\n    \"description\": \"Custom office furniture\",\n    \"notes\": \"Need custom dimensions\",\n    \"segment_combination_id\": 7,\n    \"items\": [\n        {\n            \"item_name\": \"Custom Standing Desk\",\n            \"item_description\": \"Electric standing desk 180x80cm\",\n            \"quantity\": \"10\",\n            \"unit_of_measure_id\": 1,\n            \"estimated_unit_price\": \"650.00\",\n            \"notes\": \"Custom height range required\"\n        },\n        {\n            \"item_name\": \"Ergonomic Office Chair\",\n            \"item_description\": \"Premium ergonomic chair\",\n            \"quantity\": \"10\",\n            \"unit_of_measure_id\": 1,\n            \"estimated_unit_price\": \"450.00\"\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/non-catalog/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "non-catalog", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Non-Catalog PR Detail",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/non-catalog/{{pr_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "non-catalog", "{{pr_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Non-Catalog PR",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"description\": \"Updated description\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/non-catalog/{{pr_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "non-catalog", "{{pr_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Non-Catalog PR",
+					"request": {
+						"method": "DELETE",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/non-catalog/{{pr_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "non-catalog", "{{pr_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Submit Non-Catalog PR for Approval",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {"mode": "raw", "raw": "{}"},
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/non-catalog/{{pr_id}}/submit-for-approval/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "non-catalog", "{{pr_id}}", "submit-for-approval", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Non-Catalog PR Pending Approvals",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/non-catalog/pending-approvals/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "non-catalog", "pending-approvals", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Approve/Reject Non-Catalog PR",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"action\": \"approve\",\n    \"comments\": \"Approved\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/non-catalog/{{pr_id}}/approval-action/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "non-catalog", "{{pr_id}}", "approval-action", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cancel Non-Catalog PR",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"cancellation_reason\": \"Requirements changed\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/non-catalog/{{pr_id}}/cancel/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "non-catalog", "{{pr_id}}", "cancel", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Service PR",
+			"item": [
+				{
+					"name": "List Service PRs",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/service/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "service", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Service PR",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"date\": \"2026-01-26\",\n    \"required_date\": \"2026-02-01\",\n    \"requester_name\": \"Bob Johnson\",\n    \"requester_department\": \"IT\",\n    \"requester_email\": \"bob.johnson@company.com\",\n    \"priority\": \"HIGH\",\n    \"description\": \"Annual software maintenance\",\n    \"notes\": \"Renewal required before expiration\",\n    \"segment_combination_id\": 6,\n    \"service_start_date\": \"2026-02-01\",\n    \"service_end_date\": \"2027-01-31\",\n    \"items\": [\n        {\n            \"item_name\": \"Database Maintenance Service\",\n            \"item_description\": \"24/7 database support and maintenance\",\n            \"quantity\": \"12\",\n            \"unit_of_measure_id\": 3,\n            \"estimated_unit_price\": \"5000.00\",\n            \"notes\": \"Monthly service\"\n        },\n        {\n            \"item_name\": \"Cloud Infrastructure Support\",\n            \"item_description\": \"AWS infrastructure management\",\n            \"quantity\": \"12\",\n            \"unit_of_measure_id\": 3,\n            \"estimated_unit_price\": \"3500.00\"\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/service/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "service", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Service PR Detail",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/service/{{pr_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "service", "{{pr_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Service PR",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"service_end_date\": \"2027-02-28\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/service/{{pr_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "service", "{{pr_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Service PR",
+					"request": {
+						"method": "DELETE",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/service/{{pr_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "service", "{{pr_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Submit Service PR for Approval",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {"mode": "raw", "raw": "{}"},
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/service/{{pr_id}}/submit-for-approval/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "service", "{{pr_id}}", "submit-for-approval", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Service PR Pending Approvals",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/service/pending-approvals/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "service", "pending-approvals", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Approve/Reject Service PR",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"action\": \"approve\",\n    \"comments\": \"Approved for service procurement\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/service/{{pr_id}}/approval-action/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "service", "{{pr_id}}", "approval-action", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cancel Service PR",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"cancellation_reason\": \"Service contract cancelled\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/service/{{pr_id}}/cancel/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "service", "{{pr_id}}", "cancel", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "PR-to-PO Conversion",
+			"item": [
+				{
+					"name": "Get Approved PRs for Conversion",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/approved-for-conversion/?pr_type=",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "approved-for-conversion", ""],
+							"query": [{"key": "pr_type", "value": "", "description": "Catalog/Non-Catalog/Service"}]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get PR Available Items",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/{{pr_id}}/available-items/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "{{pr_id}}", "available-items", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get PR Items by Type",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/items-by-type/?pr_type=Catalog",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "items-by-type", ""],
+							"query": [{"key": "pr_type", "value": "Catalog"}]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "PR Attachments",
+			"item": [
+				{
+					"name": "List PR Attachments",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/{{pr_id}}/attachments/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "{{pr_id}}", "attachments", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Upload PR Attachment",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"file_name\": \"quotation.pdf\",\n    \"file_type\": \"application/pdf\",\n    \"description\": \"Supplier quotation\",\n    \"file_data_base64\": \"JVBERi0xLjQKJeLjz9MKMy...\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/{{pr_id}}/attachments/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "{{pr_id}}", "attachments", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Attachment Detail",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/attachments/{{attachment_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "attachments", "{{attachment_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Attachment",
+					"request": {
+						"method": "DELETE",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/procurement/pr/attachments/{{attachment_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["procurement", "pr", "attachments", "{{attachment_id}}", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{"key": "base_url", "value": "http://localhost:8000", "type": "string"},
+		{"key": "pr_id", "value": "1", "type": "string"},
+		{"key": "attachment_id", "value": "1", "type": "string"},
+		{"key": "access_token", "value": "", "type": "string"}
+	]
+}

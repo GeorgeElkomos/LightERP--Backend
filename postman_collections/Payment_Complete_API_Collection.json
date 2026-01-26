@@ -1,0 +1,704 @@
+{
+	"info": {
+		"_postman_id": "payment-complete-api-2026",
+		"name": "Payment - Complete API Collection",
+		"description": "Complete API collection for Payment module including payments, allocations, payment plans, installments, and approval workflow",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.environment.set(\"access_token\", jsonData.data.access);",
+									"    pm.environment.set(\"refresh_token\", jsonData.data.refresh);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"admin@company.com\",\n    \"password\": \"your_password\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/login/",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "login", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Payments",
+			"item": [
+				{
+					"name": "List All Payments",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/?business_partner_id=&payment_type=&approval_status=",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", ""],
+							"query": [
+								{"key": "business_partner_id", "value": "", "description": "Filter by business partner"},
+								{"key": "payment_type", "value": "", "description": "PAYMENT or RECEIPT"},
+								{"key": "approval_status", "value": "", "description": "DRAFT/PENDING_APPROVAL/APPROVED/REJECTED"}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Payment - Simple",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"payment_type\": \"PAYMENT\",\n    \"date\": \"2026-01-26\",\n    \"business_partner_id\": 1,\n    \"currency_id\": 1,\n    \"exchange_rate\": \"1.0000\",\n    \"payment_method_id\": 1,\n    \"bank_account_id\": 1,\n    \"reference_number\": \"PAY-2026-001\",\n    \"description\": \"Payment to supplier for services\",\n    \"notes\": \"Monthly service payment\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Payment - With Allocations",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"payment_type\": \"PAYMENT\",\n    \"date\": \"2026-01-26\",\n    \"business_partner_id\": 1,\n    \"currency_id\": 1,\n    \"exchange_rate\": \"1.0000\",\n    \"payment_method_id\": 1,\n    \"bank_account_id\": 1,\n    \"reference_number\": \"PAY-2026-002\",\n    \"description\": \"Payment allocated to multiple invoices\",\n    \"allocations\": [\n        {\n            \"invoice_id\": 1,\n            \"amount_allocated\": \"1500.00\"\n        },\n        {\n            \"invoice_id\": 2,\n            \"amount_allocated\": \"2500.00\"\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Payment - With GL Entry",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"payment_type\": \"PAYMENT\",\n    \"date\": \"2026-01-26\",\n    \"business_partner_id\": 1,\n    \"currency_id\": 1,\n    \"exchange_rate\": \"1.0000\",\n    \"payment_method_id\": 1,\n    \"bank_account_id\": 1,\n    \"reference_number\": \"PAY-2026-003\",\n    \"description\": \"Payment with manual GL entry\",\n    \"gl_entry\": {\n        \"date\": \"2026-01-26\",\n        \"currency_id\": 1,\n        \"memo\": \"Supplier payment\",\n        \"lines\": [\n            {\n                \"amount\": \"5000.00\",\n                \"type\": \"DEBIT\",\n                \"segments\": [\n                    {\"segment_type_id\": 1, \"segment_code\": \"100\"},\n                    {\"segment_type_id\": 2, \"segment_code\": \"2100\"}\n                ]\n            },\n            {\n                \"amount\": \"5000.00\",\n                \"type\": \"CREDIT\",\n                \"segments\": [\n                    {\"segment_type_id\": 1, \"segment_code\": \"100\"},\n                    {\"segment_type_id\": 2, \"segment_code\": \"1100\"}\n                ]\n            }\n        ]\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Receipt - Incoming Payment",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"payment_type\": \"RECEIPT\",\n    \"date\": \"2026-01-26\",\n    \"business_partner_id\": 2,\n    \"currency_id\": 1,\n    \"exchange_rate\": \"1.0000\",\n    \"payment_method_id\": 2,\n    \"bank_account_id\": 1,\n    \"reference_number\": \"RCP-2026-001\",\n    \"description\": \"Customer payment received\",\n    \"allocations\": [\n        {\n            \"invoice_id\": 5,\n            \"amount_allocated\": \"3500.00\"\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Payment Detail",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Payment",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"description\": \"Updated payment description\",\n    \"notes\": \"Additional notes\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Payment",
+					"request": {
+						"method": "DELETE",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Submit Payment for Approval",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {"mode": "raw", "raw": "{}"},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/submit-for-approval/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "submit-for-approval", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Pending Approvals",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/pending-approvals/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "pending-approvals", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Approve/Reject Payment",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"action\": \"approve\",\n    \"comments\": \"Approved for processing\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/approval-action/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "approval-action", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Post Payment to GL",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {"mode": "raw", "raw": "{}"},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/post-to-gl/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "post-to-gl", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Payment Allocations",
+			"item": [
+				{
+					"name": "List Payment Allocations",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/allocations/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "allocations", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Allocation",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"invoice_id\": 3,\n    \"amount_allocated\": \"750.00\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/allocations/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "allocations", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Allocation Detail",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/allocations/{{allocation_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "allocations", "{{allocation_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Allocation",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"amount_allocated\": \"800.00\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/allocations/{{allocation_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "allocations", "{{allocation_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Allocation",
+					"request": {
+						"method": "DELETE",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/allocations/{{allocation_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "allocations", "{{allocation_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Available Invoices for Payment",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/{{payment_id}}/available-invoices/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "{{payment_id}}", "available-invoices", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Payment Plans",
+			"item": [
+				{
+					"name": "List Invoice Payment Plans",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/invoices/{{invoice_id}}/payment-plans/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "invoices", "{{invoice_id}}", "payment-plans", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Payment Plan",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"number_of_installments\": 4,\n    \"installment_frequency\": \"MONTHLY\",\n    \"first_installment_date\": \"2026-02-28\",\n    \"notes\": \"Quarterly payment plan\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/invoices/{{invoice_id}}/payment-plans/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "invoices", "{{invoice_id}}", "payment-plans", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Suggest Payment Plan",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"number_of_installments\": 3,\n    \"installment_frequency\": \"MONTHLY\",\n    \"first_installment_date\": \"2026-02-28\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/invoices/{{invoice_id}}/suggest-payment-plan/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "invoices", "{{invoice_id}}", "suggest-payment-plan", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Payment Plan Detail",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/payment-plans/{{plan_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "payment-plans", "{{plan_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Payment Plan",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"notes\": \"Updated payment plan notes\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/payment-plans/{{plan_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "payment-plans", "{{plan_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Payment Plan",
+					"request": {
+						"method": "DELETE",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/payment-plans/{{plan_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "payment-plans", "{{plan_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Process Payment Plan Payment",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"installment_id\": 1,\n    \"payment_date\": \"2026-02-28\",\n    \"amount_paid\": \"250.00\",\n    \"payment_method_id\": 1,\n    \"bank_account_id\": 1,\n    \"reference_number\": \"PAY-INST-001\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/payment-plans/{{plan_id}}/process-payment/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "payment-plans", "{{plan_id}}", "process-payment", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Payment Plan Status",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"status\": \"ACTIVE\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/payment-plans/{{plan_id}}/update-status/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "payment-plans", "{{plan_id}}", "update-status", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Cancel Payment Plan",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"cancellation_reason\": \"Customer requested cancellation\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/payment-plans/{{plan_id}}/cancel/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "payment-plans", "{{plan_id}}", "cancel", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Payment Plan Summary",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/payment-plans/{{plan_id}}/summary/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "payment-plans", "{{plan_id}}", "summary", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Overdue Installments",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/payment-plans/{{plan_id}}/overdue-installments/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "payment-plans", "{{plan_id}}", "overdue-installments", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Overdue Payment Plans",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/payment-plans/overdue/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "payment-plans", "overdue", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Business Partner Payment Plans",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/business-partners/{{bp_id}}/payment-plans/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "business-partners", "{{bp_id}}", "payment-plans", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Installments",
+			"item": [
+				{
+					"name": "List Plan Installments",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/payment-plans/{{plan_id}}/installments/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "payment-plans", "{{plan_id}}", "installments", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Installment",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"installment_number\": 5,\n    \"due_date\": \"2026-06-30\",\n    \"amount_due\": \"500.00\",\n    \"notes\": \"Additional installment\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/payment-plans/{{plan_id}}/installments/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "payment-plans", "{{plan_id}}", "installments", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Installment Detail",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/installments/{{installment_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "installments", "{{installment_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Installment",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"due_date\": \"2026-03-15\",\n    \"amount_due\": \"275.00\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/installments/{{installment_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "installments", "{{installment_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Installment",
+					"request": {
+						"method": "DELETE",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/installments/{{installment_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "installments", "{{installment_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Installment Status",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"status\": \"PAID\",\n    \"payment_date\": \"2026-02-28\",\n    \"amount_paid\": \"250.00\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/finance/payments/installments/{{installment_id}}/update-status/",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "installments", "{{installment_id}}", "update-status", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Installments Due Soon",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/finance/payments/installments/due-soon/?days=7",
+							"host": ["{{base_url}}"],
+							"path": ["finance", "payments", "installments", "due-soon", ""],
+							"query": [{"key": "days", "value": "7", "description": "Number of days to look ahead"}]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{"key": "base_url", "value": "http://localhost:8000", "type": "string"},
+		{"key": "payment_id", "value": "1", "type": "string"},
+		{"key": "allocation_id", "value": "1", "type": "string"},
+		{"key": "invoice_id", "value": "1", "type": "string"},
+		{"key": "plan_id", "value": "1", "type": "string"},
+		{"key": "installment_id", "value": "1", "type": "string"},
+		{"key": "bp_id", "value": "1", "type": "string"},
+		{"key": "access_token", "value": "", "type": "string"}
+	]
+}

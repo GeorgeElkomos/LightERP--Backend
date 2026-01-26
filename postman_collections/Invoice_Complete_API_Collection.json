@@ -1,0 +1,635 @@
+{
+	"info": {
+		"_postman_id": "invoice-complete-api-2026",
+		"name": "Invoice - Complete API Collection",
+		"description": "Complete API collection for Invoice module including AP, AR, and One-Time Supplier invoices with full workflows",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.environment.set(\"access_token\", jsonData.data.access);",
+									"    pm.environment.set(\"refresh_token\", jsonData.data.refresh);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{"key": "Content-Type", "value": "application/json"}],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"admin@company.com\",\n    \"password\": \"your_password\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/login/",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "login", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "AP Invoice",
+			"item": [
+				{
+					"name": "List AP Invoices",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/invoices/ap/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "ap", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create AP Invoice",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"date\": \"2026-01-26\",\n    \"currency_id\": 1,\n    \"country_id\": 1,\n    \"supplier_id\": 1,\n    \"tax_amount\": \"200.00\",\n    \"items\": [\n        {\n            \"name\": \"Dell Laptop XPS 15\",\n            \"description\": \"High performance laptop for development\",\n            \"quantity\": \"5\",\n            \"unit_price\": \"1200.00\"\n        },\n        {\n            \"name\": \"Office Chair\",\n            \"description\": \"Ergonomic office chair\",\n            \"quantity\": \"10\",\n            \"unit_price\": \"250.00\"\n        }\n    ],\n    \"journal_entry\": {\n        \"date\": \"2026-01-26\",\n        \"currency_id\": 1,\n        \"memo\": \"IT equipment and furniture purchase\",\n        \"lines\": [\n            {\n                \"amount\": \"8700.00\",\n                \"type\": \"DEBIT\",\n                \"segments\": [\n                    {\"segment_type_id\": 1, \"segment_code\": \"100\"},\n                    {\"segment_type_id\": 2, \"segment_code\": \"6100\"}\n                ]\n            },\n            {\n                \"amount\": \"8700.00\",\n                \"type\": \"CREDIT\",\n                \"segments\": [\n                    {\"segment_type_id\": 1, \"segment_code\": \"100\"},\n                    {\"segment_type_id\": 2, \"segment_code\": \"2100\"}\n                ]\n            }\n        ]\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/invoices/ap/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "ap", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create AP Invoice from Receipt",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"grn_id\": 1,\n    \"date\": \"2026-01-26\",\n    \"currency_id\": 1,\n    \"tax_amount\": \"150.00\",\n    \"journal_entry\": {\n        \"date\": \"2026-01-26\",\n        \"currency_id\": 1,\n        \"memo\": \"Invoice from GRN-001\",\n        \"lines\": [\n            {\n                \"amount\": \"5150.00\",\n                \"type\": \"DEBIT\",\n                \"segments\": [\n                    {\"segment_type_id\": 1, \"segment_code\": \"100\"},\n                    {\"segment_type_id\": 2, \"segment_code\": \"6100\"}\n                ]\n            },\n            {\n                \"amount\": \"5150.00\",\n                \"type\": \"CREDIT\",\n                \"segments\": [\n                    {\"segment_type_id\": 1, \"segment_code\": \"100\"},\n                    {\"segment_type_id\": 2, \"segment_code\": \"2100\"}\n                ]\n            }\n        ]\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/invoices/ap/create-from-receipt/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "ap", "create-from-receipt", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get AP Invoice Variance Preview",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"grn_id\": 1,\n    \"date\": \"2026-01-26\",\n    \"currency_id\": 1,\n    \"tax_amount\": \"150.00\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/invoices/ap/variance-preview/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "ap", "variance-preview", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get AP Invoice Detail",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/invoices/ap/{{invoice_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "ap", "{{invoice_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update AP Invoice",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"tax_amount\": \"250.00\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/invoices/ap/{{invoice_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "ap", "{{invoice_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete AP Invoice",
+					"request": {
+						"method": "DELETE",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/invoices/ap/{{invoice_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "ap", "{{invoice_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Submit AP Invoice for Approval",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {"mode": "raw", "raw": "{}"},
+						"url": {
+							"raw": "{{base_url}}/invoices/ap/{{invoice_id}}/submit-for-approval/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "ap", "{{invoice_id}}", "submit-for-approval", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get AP Pending Approvals",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/invoices/ap/pending-approvals/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "ap", "pending-approvals", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Approve/Reject AP Invoice",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"action\": \"approve\",\n    \"comments\": \"Approved for payment\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/invoices/ap/{{invoice_id}}/approval-action/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "ap", "{{invoice_id}}", "approval-action", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Post AP Invoice to GL",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {"mode": "raw", "raw": "{}"},
+						"url": {
+							"raw": "{{base_url}}/invoices/ap/{{invoice_id}}/post-to-gl/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "ap", "{{invoice_id}}", "post-to-gl", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get AP Invoice Payment Info",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/invoices/ap/{{invoice_id}}/payments/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "ap", "{{invoice_id}}", "payments", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Recalculate AP Invoice Payments",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {"mode": "raw", "raw": "{}"},
+						"url": {
+							"raw": "{{base_url}}/invoices/ap/{{invoice_id}}/recalculate-payments/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "ap", "{{invoice_id}}", "recalculate-payments", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "AR Invoice",
+			"item": [
+				{
+					"name": "List AR Invoices",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/invoices/ar/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "ar", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create AR Invoice",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"date\": \"2026-01-26\",\n    \"currency_id\": 1,\n    \"country_id\": 1,\n    \"customer_id\": 1,\n    \"tax_amount\": \"300.00\",\n    \"items\": [\n        {\n            \"name\": \"Consulting Services\",\n            \"description\": \"Software development consultation\",\n            \"quantity\": \"40\",\n            \"unit_price\": \"150.00\"\n        },\n        {\n            \"name\": \"Software License\",\n            \"description\": \"Annual software license\",\n            \"quantity\": \"1\",\n            \"unit_price\": \"2000.00\"\n        }\n    ],\n    \"journal_entry\": {\n        \"date\": \"2026-01-26\",\n        \"currency_id\": 1,\n        \"memo\": \"Services and software license revenue\",\n        \"lines\": [\n            {\n                \"amount\": \"8300.00\",\n                \"type\": \"DEBIT\",\n                \"segments\": [\n                    {\"segment_type_id\": 1, \"segment_code\": \"100\"},\n                    {\"segment_type_id\": 2, \"segment_code\": \"1200\"}\n                ]\n            },\n            {\n                \"amount\": \"8300.00\",\n                \"type\": \"CREDIT\",\n                \"segments\": [\n                    {\"segment_type_id\": 1, \"segment_code\": \"100\"},\n                    {\"segment_type_id\": 2, \"segment_code\": \"4100\"}\n                ]\n            }\n        ]\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/invoices/ar/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "ar", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get AR Invoice Detail",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/invoices/ar/{{invoice_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "ar", "{{invoice_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update AR Invoice",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"tax_amount\": \"350.00\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/invoices/ar/{{invoice_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "ar", "{{invoice_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete AR Invoice",
+					"request": {
+						"method": "DELETE",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/invoices/ar/{{invoice_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "ar", "{{invoice_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Submit AR Invoice for Approval",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {"mode": "raw", "raw": "{}"},
+						"url": {
+							"raw": "{{base_url}}/invoices/ar/{{invoice_id}}/submit-for-approval/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "ar", "{{invoice_id}}", "submit-for-approval", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get AR Pending Approvals",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/invoices/ar/pending-approvals/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "ar", "pending-approvals", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Approve/Reject AR Invoice",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"action\": \"approve\",\n    \"comments\": \"Approved for posting\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/invoices/ar/{{invoice_id}}/approval-action/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "ar", "{{invoice_id}}", "approval-action", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Post AR Invoice to GL",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {"mode": "raw", "raw": "{}"},
+						"url": {
+							"raw": "{{base_url}}/invoices/ar/{{invoice_id}}/post-to-gl/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "ar", "{{invoice_id}}", "post-to-gl", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get AR Invoice Payment Info",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/invoices/ar/{{invoice_id}}/payments/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "ar", "{{invoice_id}}", "payments", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Recalculate AR Invoice Payments",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {"mode": "raw", "raw": "{}"},
+						"url": {
+							"raw": "{{base_url}}/invoices/ar/{{invoice_id}}/recalculate-payments/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "ar", "{{invoice_id}}", "recalculate-payments", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "One-Time Supplier Invoice",
+			"item": [
+				{
+					"name": "List One-Time Supplier Invoices",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/invoices/one-time-supplier/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "one-time-supplier", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create One-Time Supplier Invoice",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"date\": \"2026-01-26\",\n    \"currency_id\": 1,\n    \"country_id\": 1,\n    \"supplier_name\": \"ABC Consulting Ltd\",\n    \"supplier_address\": \"123 Business St, City, Country\",\n    \"supplier_email\": \"contact@abcconsulting.com\",\n    \"supplier_phone\": \"+1-555-0123\",\n    \"tax_id\": \"TAX123456789\",\n    \"tax_amount\": \"120.00\",\n    \"items\": [\n        {\n            \"name\": \"One-time Consulting Service\",\n            \"description\": \"Special project consultation\",\n            \"quantity\": \"8\",\n            \"unit_price\": \"200.00\"\n        }\n    ],\n    \"journal_entry\": {\n        \"date\": \"2026-01-26\",\n        \"currency_id\": 1,\n        \"memo\": \"One-time supplier invoice for consulting\",\n        \"lines\": [\n            {\n                \"amount\": \"1720.00\",\n                \"type\": \"DEBIT\",\n                \"segments\": [\n                    {\"segment_type_id\": 1, \"segment_code\": \"100\"},\n                    {\"segment_type_id\": 2, \"segment_code\": \"6200\"}\n                ]\n            },\n            {\n                \"amount\": \"1720.00\",\n                \"type\": \"CREDIT\",\n                \"segments\": [\n                    {\"segment_type_id\": 1, \"segment_code\": \"100\"},\n                    {\"segment_type_id\": 2, \"segment_code\": \"2100\"}\n                ]\n            }\n        ]\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/invoices/one-time-supplier/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "one-time-supplier", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get One-Time Supplier Invoice Detail",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/invoices/one-time-supplier/{{invoice_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "one-time-supplier", "{{invoice_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update One-Time Supplier Invoice",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"supplier_email\": \"newemail@abcconsulting.com\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/invoices/one-time-supplier/{{invoice_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "one-time-supplier", "{{invoice_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete One-Time Supplier Invoice",
+					"request": {
+						"method": "DELETE",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/invoices/one-time-supplier/{{invoice_id}}/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "one-time-supplier", "{{invoice_id}}", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Submit One-Time Supplier Invoice for Approval",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {"mode": "raw", "raw": "{}"},
+						"url": {
+							"raw": "{{base_url}}/invoices/one-time-supplier/{{invoice_id}}/submit-for-approval/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "one-time-supplier", "{{invoice_id}}", "submit-for-approval", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get One-Time Supplier Pending Approvals",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/invoices/one-time-supplier/pending-approvals/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "one-time-supplier", "pending-approvals", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Approve/Reject One-Time Supplier Invoice",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"action\": \"approve\",\n    \"comments\": \"Verified and approved\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/invoices/one-time-supplier/{{invoice_id}}/approval-action/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "one-time-supplier", "{{invoice_id}}", "approval-action", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Post One-Time Supplier Invoice to GL",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {"mode": "raw", "raw": "{}"},
+						"url": {
+							"raw": "{{base_url}}/invoices/one-time-supplier/{{invoice_id}}/post-to-gl/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "one-time-supplier", "{{invoice_id}}", "post-to-gl", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get One-Time Supplier Invoice Payment Info",
+					"request": {
+						"method": "GET",
+						"header": [{"key": "Authorization", "value": "Bearer {{access_token}}"}],
+						"url": {
+							"raw": "{{base_url}}/invoices/one-time-supplier/{{invoice_id}}/payments/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "one-time-supplier", "{{invoice_id}}", "payments", ""]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Recalculate One-Time Supplier Invoice Payments",
+					"request": {
+						"method": "POST",
+						"header": [
+							{"key": "Authorization", "value": "Bearer {{access_token}}"},
+							{"key": "Content-Type", "value": "application/json"}
+						],
+						"body": {"mode": "raw", "raw": "{}"},
+						"url": {
+							"raw": "{{base_url}}/invoices/one-time-supplier/{{invoice_id}}/recalculate-payments/",
+							"host": ["{{base_url}}"],
+							"path": ["invoices", "one-time-supplier", "{{invoice_id}}", "recalculate-payments", ""]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{"key": "base_url", "value": "http://localhost:8000", "type": "string"},
+		{"key": "invoice_id", "value": "1", "type": "string"},
+		{"key": "access_token", "value": "", "type": "string"}
+	]
+}
