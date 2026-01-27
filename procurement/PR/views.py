@@ -879,7 +879,7 @@ def pr_attachment_list(request, pr_id):
         
         return error_response(
             message="Failed to upload attachment",
-            errors=serializer.errors,
+            data=serializer.errors,
             status_code=status.HTTP_400_BAD_REQUEST
         )
 
