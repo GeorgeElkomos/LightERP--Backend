@@ -185,6 +185,7 @@ class BudgetHeader(models.Model):
         Deactivate the budget without closing it. Can be reactivated later.
         """
         self.is_active = False
+        self.status = 'DRAFT'
         self.save()
     
     def can_delete(self):
