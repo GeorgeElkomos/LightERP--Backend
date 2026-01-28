@@ -16,6 +16,7 @@ urlpatterns = [
     # AP Invoice URLs
     # ============================================================================
     path('ap/', views.ap_invoice_list, name='ap-invoice-list'),
+    path('ap/variance-preview/', views.ap_invoice_variance_preview, name='ap-invoice-variance-preview'),
     path('ap/create-from-receipt/', views.ap_invoice_create_from_receipt, name='ap-invoice-create-from-receipt'),
     path('ap/<int:pk>/', views.ap_invoice_detail, name='ap-invoice-detail'),
     path('ap/<int:pk>/post-to-gl/', views.ap_invoice_post_to_gl, name='ap-invoice-post-to-gl'),

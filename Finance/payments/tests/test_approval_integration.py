@@ -25,7 +25,7 @@ from core.approval.models import (
     ApprovalAssignment,
 )
 from core.approval.managers import ApprovalManager
-from core.job_roles.models import JobRole, UserJobRole
+from core.job_roles.models import JobRole
 
 User = get_user_model()
 
@@ -36,13 +36,14 @@ class PaymentApprovalIntegrationTest(TestCase):
     def setUp(self):
         """Set up test data for each test."""
         # Create job roles
-        self.manager_role, _ = JobRole.objects.get_or_create(
-            name="manager",
-            defaults={'code': 'MANAGER_ROLE_PAY_INT'}
-        )
-        self.director_role, _ = JobRole.objects.get_or_create(
-            name="director",
-            defaults={'code': 'DIRECTOR_ROLE_PAY_INT'}
+        self.manager_role, _ = JobRole.objects.get_or_create(name="manager")
+        self.director_role, _ = JobRole.objects.get_or_create(name="director")
+
+        # Create user type
+        from core.user_accounts.models import UserType
+
+        self.user_type, _ = UserType.objects.get_or_create(
+            type_name="user", defaults={"description": "Regular user"}
         )
 
         # Create users
@@ -114,15 +115,8 @@ class PaymentApprovalIntegrationTest(TestCase):
         user = User.objects.create_user(
             email=email, name=name, phone_number=phone_number, password="testpass123"
         )
-        if role:
-            UserJobRole.objects.create(
-                user=user,
-                job_role=role,
-                effective_start_date=date.today()
-            )
-            # Attach role to user instance for convenience in tests
-            user.job_role = role
-            
+        user.job_role = role
+        user.save()
         return user
 
     def _create_gl_entry_with_lines(self, currency, amount, memo="Test GL"):

@@ -55,18 +55,9 @@ class PaymentApprovalEndpointTest(TestCase):
         self.client = APIClient()
         
         # Create job roles
-        self.accountant_role, _ = JobRole.objects.get_or_create(
-            name='accountant',
-            defaults={'code': 'ACCOUNTANT_ROLE_PAY'}
-        )
-        self.manager_role, _ = JobRole.objects.get_or_create(
-            name='manager',
-            defaults={'code': 'MANAGER_ROLE_PAY'}
-        )
-        self.director_role, _ = JobRole.objects.get_or_create(
-            name='director',
-            defaults={'code': 'DIRECTOR_ROLE_PAY'}
-        )
+        self.accountant_role, _ = JobRole.objects.get_or_create(name='accountant')
+        self.manager_role, _ = JobRole.objects.get_or_create(name='manager')
+        self.director_role, _ = JobRole.objects.get_or_create(name='director')
         
         # Create users with different roles
         self.accountant = self._create_user(
@@ -135,19 +126,20 @@ class PaymentApprovalEndpointTest(TestCase):
     
     def _create_user(self, email, name, phone_number, role=None):
         """Helper to create a user with specified role."""
+        from core.user_accounts.models import UserType
+        user_type, _ = UserType.objects.get_or_create(
+            type_name='user',
+            defaults={'description': 'Regular user'}
+        )
+        
         user = User.objects.create_user(
             email=email,
             name=name,
             phone_number=phone_number,
             password='testpass123'
         )
-        if role:
-            from core.job_roles.models import UserJobRole
-            UserJobRole.objects.create(
-                user=user,
-                job_role=role,
-                effective_start_date=date.today()
-            )
+        user.job_role = role
+        user.save()
         return user
     
     def _setup_workflow_template(self):

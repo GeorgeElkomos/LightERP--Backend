@@ -635,6 +635,36 @@ class PR(ApprovableMixin, ApprovableInterface, ManagedParentModel, models.Model)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
+    # Budget Control Integration
+    segment_combination = models.ForeignKey(
+        'finance_gl.XX_Segment_combination',
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='purchase_requisitions',
+        help_text="GL account coding for budget control - applies to ALL line items in this PR"
+    )
+    budget_check_status = models.CharField(
+        max_length=20,
+        choices=[
+            ('NOT_CHECKED', 'Not Checked'),
+            ('PASSED', 'Passed'),
+            ('WARNING', 'Warning'),
+            ('FAILED', 'Failed')
+        ],
+        default='NOT_CHECKED',
+        help_text="Budget check result"
+    )
+    budget_check_message = models.TextField(
+        blank=True,
+        help_text="Budget check details or warnings"
+    )
+    budget_committed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Timestamp when budget commitment was created"
+    )
+    
     # Custom manager
     objects = ManagedParentManager()
     
@@ -714,6 +744,10 @@ class PR(ApprovableMixin, ApprovableInterface, ManagedParentModel, models.Model)
         """Check if PR can be approved (only in PENDING_APPROVAL status)."""
         return self.status == self.PENDING_APPROVAL
     
+    def can_be_edited(self):
+        """Check if PR can be edited (only DRAFT or REJECTED PRs)."""
+        return self.status in [self.DRAFT, self.REJECTED]
+    
     def can_be_cancelled(self):
         """Check if PR can be cancelled (not already cancelled or converted to PO)."""
         return self.status not in [self.CANCELLED, self.CONVERTED_TO_PO]
@@ -768,9 +802,12 @@ class PR(ApprovableMixin, ApprovableInterface, ManagedParentModel, models.Model)
         return self.items.filter(converted_to_po=False)
     
     def cancel(self, reason=None):
-        """Cancel the PR."""
+        """Cancel the PR - includes budget release."""
         if not self.can_be_cancelled():
             raise ValidationError(f"Cannot cancel PR in {self.status} status")
+        
+        # Release budget commitment if it was created
+        self._release_budget_commitment()
         
         self.status = self.CANCELLED
         if reason:
@@ -807,6 +844,163 @@ class PR(ApprovableMixin, ApprovableInterface, ManagedParentModel, models.Model)
         """Get sum of all item quantities."""
         return sum(item.quantity or Decimal('0') for item in self.items.all())
     
+    # ==================== BUDGET CONTROL METHODS ====================
+    
+    def _check_and_consume_budget(self):
+        """
+        Stage 1: Check budget and consume commitment when PR is approved.
+        Called automatically during PR approval workflow.
+        """
+        from Finance.budget_control.models import BudgetHeader
+        from Finance.GL.models import XX_Segment
+        from django.core.exceptions import ValidationError
+        
+        # Skip if no segment combination assigned
+        if not self.segment_combination:
+            self.budget_check_status = 'NOT_CHECKED'
+            self.budget_check_message = 'No GL account assigned - budget control skipped'
+            self._allow_direct_save = True
+            self.save(update_fields=['budget_check_status', 'budget_check_message'])
+            return
+        
+        # Find active or closed budget for PR date (closed budgets can still be checked)
+        budget = BudgetHeader.objects.filter(
+            status__in=['ACTIVE', 'CLOSED'],
+            is_active=True,
+            start_date__lte=self.date,
+            end_date__gte=self.date
+        ).first()
+        
+        if not budget:
+            self.budget_check_status = 'NOT_CHECKED'
+            self.budget_check_message = 'No active budget found for this period'
+            self._allow_direct_save = True
+            self.save(update_fields=['budget_check_status', 'budget_check_message'])
+            return
+        
+        # Extract segments from combination
+        segment_ids = list(
+            self.segment_combination.details.values_list('segment_id', flat=True)
+        )
+        segment_objects = list(XX_Segment.objects.filter(id__in=segment_ids))
+        
+        if not segment_objects:
+            self.budget_check_status = 'NOT_CHECKED'
+            self.budget_check_message = 'No segments found in combination'
+            self._allow_direct_save = True
+            self.save(update_fields=['budget_check_status', 'budget_check_message'])
+            return
+        
+        # Check budget availability
+        check_result = budget.check_budget_for_segments(
+            segment_list=segment_objects,
+            transaction_amount=self.total,
+            transaction_date=self.date
+        )
+        
+        # Handle based on control level
+        if not check_result['allowed']:
+            if check_result['control_level'] == 'ABSOLUTE':
+                self.budget_check_status = 'FAILED'
+                self.budget_check_message = check_result['message']
+                
+                # Save before raising exception
+                self._allow_direct_save = True
+                self.save(update_fields=['budget_check_status', 'budget_check_message'])
+                
+                # Format violations for error message
+                violations_detail = []
+                for v in check_result['violations']:
+                    violations_detail.append(
+                        f"- {v['segment_type']}: {v['segment']} "
+                        f"(Available: {v['available']}, Requested: {v['requested']}, "
+                        f"Short: {v['shortage']})"
+                    )
+                
+                raise ValidationError(
+                    f"Budget exceeded - PR cannot be approved:\n"
+                    f"{check_result['message']}\n\n"
+                    f"Violations:\n" + "\n".join(violations_detail)
+                )
+            elif check_result['control_level'] == 'ADVISORY':
+                self.budget_check_status = 'WARNING'
+                self.budget_check_message = f"WARNING: {check_result['message']}"
+                self._allow_direct_save = True
+                self.save(update_fields=['budget_check_status', 'budget_check_message'])
+        else:
+            self.budget_check_status = 'PASSED'
+            self.budget_check_message = check_result['message']
+        
+        # Consume budget commitment
+        budget_amounts = budget.get_applicable_budget_amounts(segment_objects)
+        
+        if not budget_amounts.exists():
+            self.budget_check_status = 'NOT_CHECKED'
+            self.budget_check_message = 'No budget amounts found for these segments'
+            self._allow_direct_save = True
+            self.save(update_fields=['budget_check_status', 'budget_check_message'])
+            return
+        
+        for budget_amt in budget_amounts:
+            budget_amt.consume_commitment(
+                amount=self.total,
+                transaction_ref=f"PR-{self.pr_number}"
+            )
+        
+        self.budget_committed_at = timezone.now()
+        self._allow_direct_save = True
+        self.save(update_fields=['budget_check_status', 'budget_check_message', 'budget_committed_at'])
+    
+    def _release_budget_commitment(self):
+        """
+        Release budget commitment when PR is rejected or cancelled.
+        This frees up the budget for other transactions.
+        """
+        from Finance.budget_control.models import BudgetHeader
+        from Finance.GL.models import XX_Segment
+        import logging
+        
+        logger = logging.getLogger(__name__)
+        
+        # Only release if budget was previously committed
+        if not self.budget_committed_at or not self.segment_combination:
+            return
+        
+        # Find the budget that was used
+        budget = BudgetHeader.objects.filter(
+            status__in=['ACTIVE', 'CLOSED'],
+            start_date__lte=self.date,
+            end_date__gte=self.date
+        ).first()
+        
+        if not budget:
+            logger.warning(f"No budget found to release commitment for PR {self.pr_number}")
+            return
+        
+        # Extract segments
+        segment_ids = list(
+            self.segment_combination.details.values_list('segment_id', flat=True)
+        )
+        segment_objects = list(XX_Segment.objects.filter(id__in=segment_ids))
+        
+        if not segment_objects:
+            logger.warning(f"No segments found for PR {self.pr_number} commitment release")
+            return
+        
+        # Release commitment
+        budget_amounts = budget.get_applicable_budget_amounts(segment_objects)
+        for budget_amt in budget_amounts:
+            try:
+                budget_amt.release_commitment(amount=self.total)
+                logger.info(f"Released commitment of {self.total} for PR {self.pr_number}")
+            except Exception as e:
+                logger.error(f"Failed to release commitment for PR {self.pr_number}: {str(e)}")
+        
+        # Clear commitment tracking
+        self.budget_committed_at = None
+        self.budget_check_status = 'NOT_CHECKED'
+        self.budget_check_message = 'Budget commitment released due to PR cancellation/rejection'
+    
     # ==================== APPROVAL WORKFLOW INTERFACE METHODS ====================
     
     def on_approval_started(self, workflow_instance):
@@ -829,11 +1023,26 @@ class PR(ApprovableMixin, ApprovableInterface, ManagedParentModel, models.Model)
             child.on_stage_approved_child(stage_instance)
     
     def on_fully_approved(self, workflow_instance):
-        """Called when all stages are approved."""
+        """Called when all stages are approved - includes budget consumption."""
+        
+        # Budget integration - check and consume before marking approved
+        try:
+            self._check_and_consume_budget()
+        except Exception as e:
+            # Rollback approval if budget check fails
+            self.status = self.PENDING_APPROVAL
+            self.approved_at = None
+            self._allow_direct_save = True
+            self.save(update_fields=['status', 'approved_at', 'budget_check_status',
+                                    'budget_check_message', 'updated_at'])
+            raise
+        
+        # Mark as approved
         self.status = self.APPROVED
         self.approved_at = timezone.now()
         self._allow_direct_save = True
-        self.save(update_fields=['status', 'approved_at', 'updated_at'])
+        self.save(update_fields=['status', 'approved_at', 'budget_check_status',
+                                'budget_check_message', 'budget_committed_at', 'updated_at'])
         
         # Delegate to child-specific logic
         child = self._get_child_instance()
@@ -841,11 +1050,16 @@ class PR(ApprovableMixin, ApprovableInterface, ManagedParentModel, models.Model)
             child.on_fully_approved_child(workflow_instance)
     
     def on_rejected(self, workflow_instance, stage_instance=None):
-        """Called when workflow is rejected."""
+        """Called when workflow is rejected - releases budget commitment."""
+        
+        # Release budget commitment if it was created
+        self._release_budget_commitment()
+        
         self.status = self.REJECTED
         self.rejected_at = timezone.now()
         self._allow_direct_save = True
-        self.save(update_fields=['status', 'rejected_at', 'updated_at'])
+        self.save(update_fields=['status', 'rejected_at', 'budget_check_status',
+                                'budget_check_message', 'budget_committed_at', 'updated_at'])
         
         # Delegate to child-specific logic
         child = self._get_child_instance()

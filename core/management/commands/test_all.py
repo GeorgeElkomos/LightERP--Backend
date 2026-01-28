@@ -23,7 +23,7 @@ class Command(BaseCommand):
         
         verbosity = options.get('verbosity', 1)
         keepdb = options.get('keepdb', False)
-        failfast = options.get('failfast', True)
+        failfast = options.get('failfast', False)
         
         try:
             # Run ALL tests in the project using pattern matching
