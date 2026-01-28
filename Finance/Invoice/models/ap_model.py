@@ -74,16 +74,6 @@ class AP_Invoice(InvoiceChildModelMixin, models.Model):
         help_text="Goods Receipt that this invoice was created from (if applicable)"
     )
     
-    # 3-Way Match Variance Percentage (PO vs Invoice)
-    variance_percentage = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        null=True,
-        blank=True,
-        editable=False,
-        help_text="Variance percentage between PO total and Invoice total: ((invoice_total - po_total) / po_total) * 100"
-    )
-    
     # Custom manager
     objects = AP_InvoiceManager()
     
@@ -94,53 +84,6 @@ class AP_Invoice(InvoiceChildModelMixin, models.Model):
     
     def __str__(self):
         return f"AP Invoice: {self.supplier.name} - ${self.invoice.total}"
-    
-    def calculate_variance_percentage(self):
-        """
-        Calculate 3-way match variance percentage.
-        
-        Compares PO total vs Invoice total to determine variance.
-        Formula: ((invoice_total - po_total) / po_total) * 100
-        
-        Returns:
-            Decimal: Variance percentage (can be negative if invoice < PO)
-            None: If goods_receipt is not set or PO total is 0
-            
-        Example:
-            PO Total: $10,000
-            Invoice Total: $10,500
-            Variance: ((10500 - 10000) / 10000) * 100 = 5.00%
-        """
-        from decimal import Decimal
-        
-        # Can only calculate variance if invoice is linked to a Goods Receipt
-        if not self.goods_receipt:
-            return None
-        
-        # Get PO total from the linked Goods Receipt
-        po_header = self.goods_receipt.po_header
-        if not po_header:
-            return None
-        
-        po_total = po_header.total_amount
-        invoice_total = self.invoice.total
-        
-        # Avoid division by zero
-        if po_total == 0:
-            return None
-        
-        # Calculate variance percentage
-        variance = ((invoice_total - po_total) / po_total) * Decimal('100')
-        
-        return variance.quantize(Decimal('0.01'))  # Round to 2 decimal places
-    
-    def save(self, *args, **kwargs):
-        """Override save to auto-calculate variance percentage."""
-        # Calculate variance before saving if goods_receipt is set
-        if self.goods_receipt:
-            self.variance_percentage = self.calculate_variance_percentage()
-        
-        super().save(*args, **kwargs)
     
     # ==================== APPROVAL WORKFLOW CHILD HOOKS ====================
     # These methods are OPTIONAL - implement only what you need for AP-specific logic!

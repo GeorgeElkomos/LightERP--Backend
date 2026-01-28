@@ -415,9 +415,6 @@ class APInvoiceDetailTests(TestCase):
         self.assertEqual(response.data['invoice_id'], self.ap_invoice.invoice_id)
         self.assertEqual(response.data['approval_status'], 'DRAFT')
         
-        # Verify variance_percentage is in response (will be None if no GRN)
-        self.assertIn('variance_percentage', response.data)
-        
         # Verify journal_entry is included
         self.assertIn('journal_entry', response.data)
         
@@ -962,7 +959,6 @@ class APInvoiceCreateFromReceiptTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertIn('invoice_id', response.data)
         self.assertIn('goods_receipt_info', response.data)
-        self.assertIn('variance_percentage', response.data)
         
         # Verify invoice was created
         invoice_id = response.data['invoice_id']
@@ -974,13 +970,6 @@ class APInvoiceCreateFromReceiptTests(TestCase):
         self.assertEqual(ap_invoice.subtotal, Decimal('10000.00'))
         self.assertEqual(ap_invoice.tax_amount, Decimal('800.00'))
         self.assertEqual(ap_invoice.total, Decimal('10800.00'))
-        
-        # Verify variance percentage was calculated
-        # PO total: 10000.00, Invoice total: 10800.00
-        # Variance: ((10800 - 10000) / 10000) * 100 = 8.00%
-        self.assertIsNotNone(ap_invoice.variance_percentage)
-        self.assertEqual(ap_invoice.variance_percentage, Decimal('8.00'))
-        self.assertEqual(response.data['variance_percentage'], '8.00')
         
         # Verify invoice items were created from receipt lines
         items = ap_invoice.invoice.items.all()
@@ -1145,94 +1134,3 @@ class APInvoiceCreateFromReceiptTests(TestCase):
         gift_item = items.filter(name='Free Mouse').first()
         self.assertIsNotNone(gift_item)
         self.assertEqual(gift_item.unit_price, Decimal('0.00'))
-    
-    def test_variance_preview_success(self):
-        """Test variance preview endpoint returns correct variance without creating invoice"""
-        url = reverse('finance:invoice:ap-invoice-variance-preview')
-        response = self.client.post(url, self.valid_data, format='json')
-        
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        
-        # Verify response structure
-        self.assertIn('variance_percentage', response.data)
-        self.assertIn('variance_amount', response.data)
-        self.assertIn('po_total', response.data)
-        self.assertIn('invoice_total', response.data)
-        self.assertIn('preview', response.data)
-        
-        # Verify variance calculation
-        # PO total: 10000.00, Invoice total (10000 + 800 tax): 10800.00
-        # Variance: ((10800 - 10000) / 10000) * 100 = 8.00%
-        self.assertEqual(response.data['variance_percentage'], Decimal('8.00'))
-        self.assertEqual(response.data['variance_amount'], Decimal('800.00'))
-        self.assertEqual(response.data['po_total'], Decimal('10000.00'))
-        self.assertEqual(response.data['invoice_total'], Decimal('10800.00'))
-        
-        # Verify preview data
-        preview = response.data['preview']
-        self.assertEqual(preview['goods_receipt_id'], self.grn.id)
-        self.assertEqual(preview['grn_number'], 'GRN-TEST-001')
-        self.assertEqual(preview['supplier_name'], 'Test Supplier Inc')
-        self.assertEqual(preview['po_number'], 'PO-TEST-001')
-        self.assertIn('items', preview)
-        self.assertEqual(len(preview['items']), 1)
-        
-        # Verify no invoice was created
-        self.assertFalse(AP_Invoice.objects.filter(goods_receipt=self.grn).exists())
-    
-    def test_variance_preview_zero_variance(self):
-        """Test variance preview when invoice matches PO exactly"""
-        # Update tax to 0 so invoice total matches PO total
-        data = self.valid_data.copy()
-        data['tax_amount'] = '0.00'
-        data['journal_entry']['lines'][0]['amount'] = '10000.00'
-        data['journal_entry']['lines'][1]['amount'] = '10000.00'
-        
-        url = reverse('finance:invoice:ap-invoice-variance-preview')
-        response = self.client.post(url, data, format='json')
-        
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['variance_percentage'], Decimal('0.00'))
-        self.assertEqual(response.data['variance_amount'], Decimal('0.00'))
-    
-    def test_variance_preview_negative_variance(self):
-        """Test variance preview when invoice is less than PO (discount/credit)"""
-        # Invoice total less than PO (negative variance)
-        data = self.valid_data.copy()
-        data['tax_amount'] = '-500.00'  # Credit/discount
-        invoice_total = Decimal('9500.00')  # 10000 - 500
-        data['journal_entry']['lines'][0]['amount'] = str(invoice_total)
-        data['journal_entry']['lines'][1]['amount'] = str(invoice_total)
-        
-        url = reverse('finance:invoice:ap-invoice-variance-preview')
-        response = self.client.post(url, data, format='json')
-        
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        # Variance: ((9500 - 10000) / 10000) * 100 = -5.00%
-        self.assertEqual(response.data['variance_percentage'], Decimal('-5.00'))
-        self.assertEqual(response.data['variance_amount'], Decimal('-500.00'))
-    
-    def test_variance_preview_duplicate_check(self):
-        """Test variance preview fails if GRN already has invoice"""
-        # Create invoice first
-        create_url = reverse('finance:invoice:ap-invoice-create-from-receipt')
-        create_response = self.client.post(create_url, self.valid_data, format='json')
-        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
-        
-        # Try variance preview on same GRN
-        preview_url = reverse('finance:invoice:ap-invoice-variance-preview')
-        preview_response = self.client.post(preview_url, self.valid_data, format='json')
-        
-        self.assertEqual(preview_response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('goods_receipt_id', preview_response.data)
-    
-    def test_variance_preview_nonexistent_receipt(self):
-        """Test variance preview with invalid goods receipt ID"""
-        data = self.valid_data.copy()
-        data['goods_receipt_id'] = 99999
-        
-        url = reverse('finance:invoice:ap-invoice-variance-preview')
-        response = self.client.post(url, data, format='json')
-        
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('goods_receipt_id', response.data)

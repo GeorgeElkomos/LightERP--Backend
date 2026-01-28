@@ -15,4 +15,7 @@ urlpatterns = [
     
     # Job roles and permissions sub-app URLs
     path('job_roles/', include('core.job_roles.urls')),
+    
+    # Lookups sub-app URLs
+    path('lookups/', include('core.lookups.urls')),
 ]

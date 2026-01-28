@@ -6,6 +6,7 @@ Central manager for handling approval workflows on any Django model.
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 
@@ -49,10 +50,16 @@ class ApprovalManager:
         # Fallback: first super_admin user type, or just first user
         try:
             # Try to get a super_admin user
-            from core.user_accounts.models import UserType
-            super_admin_type = UserType.objects.filter(type_name='super_admin').first()
-            if super_admin_type:
-                return User.objects.filter(user_type=super_admin_type).first() or User.objects.first()
+            # Check for admin role
+            from core.job_roles.models import JobRole
+            admin_role = JobRole.objects.filter(code='admin').first()
+            if admin_role:
+                 user = User.objects.filter(
+                     user_job_roles__job_role=admin_role
+                 ).first()
+                 if user:
+                     return user
+            
             return User.objects.first()
         except Exception:
             raise ValueError(
@@ -281,12 +288,32 @@ class ApprovalManager:
         
         # Filter by job_role if specified (now uses ForeignKey relationship)
         if stage_template.required_role:
-            qs = qs.filter(job_role=stage_template.required_role)
+            qs = qs.filter(
+                user_job_roles__job_role=stage_template.required_role,
+                user_job_roles__effective_start_date__lte=timezone.now().date()
+            ).filter(
+                Q(user_job_roles__effective_end_date__isnull=True) |
+                Q(user_job_roles__effective_end_date__gte=timezone.now().date())
+            )
         
         created = []
         for user in qs.distinct():
             # Get job_role name for snapshot (role_snapshot is CharField)
-            role_name = user.job_role.name if user.job_role else None
+            if stage_template.required_role:
+                role_name = stage_template.required_role.name
+            else:
+                # If no specific role required, list all active roles
+                roles = user.user_job_roles.filter(
+                    effective_start_date__lte=timezone.now().date()
+                ).filter(
+                    Q(effective_end_date__isnull=True) |
+                    Q(effective_end_date__gte=timezone.now().date())
+                ).select_related('job_role')
+                
+                if roles.exists():
+                    role_name = ", ".join([r.job_role.name for r in roles])
+                else:
+                    role_name = None
             
             obj, created_flag = ApprovalAssignment.objects.get_or_create(
                 stage_instance=stage_instance,
@@ -572,23 +599,24 @@ class ApprovalManager:
                 
                 # Delete pending assignments
                 stage.assignments.filter(status=ApprovalAssignment.STATUS_PENDING).delete()
-                
+                # ! using delete instead of deactivate since this is a queryset object consider adding a custom QuerySet method
                 # Call hook
                 if hasattr(obj, 'on_stage_approved'):
                     obj.on_stage_approved(stage)
-        
+
         elif outcome == "rejected":
             for stage in group_stages:
                 stage.status = ApprovalWorkflowStageInstance.STATUS_COMPLETED
                 stage.completed_at = now
                 stage.save(update_fields=["status", "completed_at"])
-                
+
                 stage.delegations.filter(active=True).update(
                     active=False,
                     deactivated_at=now
                 )
-                
+
                 stage.assignments.filter(status=ApprovalAssignment.STATUS_PENDING).delete()
+                # ! using delete instead of deactivate since this is a queryset object consider adding a custom QuerySet method
             
             # Mark workflow rejected
             instance.status = ApprovalWorkflowInstance.STATUS_REJECTED

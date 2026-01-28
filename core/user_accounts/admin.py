@@ -1,19 +1,16 @@
 from django.contrib import admin
-from .models import CustomUser, UserType
+from .models import UserAccount
 
 
-@admin.register(UserType)
-class UserTypeAdmin(admin.ModelAdmin):
-    """Admin configuration for UserType model"""
-    list_display = ['type_name', 'description']
-    search_fields = ['type_name']
+@admin.register(UserAccount)
+class UserAccountAdmin(admin.ModelAdmin):
+    """
+    Admin configuration for UserAccount model.
 
-
-@admin.register(CustomUser)
-class CustomUserAdmin(admin.ModelAdmin):
-    """Admin configuration for CustomUser model"""
-    list_display = ['email', 'name', 'phone_number', 'user_type']
-    list_filter = ['user_type']
+    Note: Job roles are now managed via UserJobRole M2M (see job_roles app).
+    Users can have multiple roles with effective dates.
+    """
+    list_display = ['email', 'name', 'phone_number', 'get_roles_display']
     search_fields = ['email', 'name', 'phone_number']
     readonly_fields = ['last_login']
     
@@ -21,17 +18,17 @@ class CustomUserAdmin(admin.ModelAdmin):
         ('User Information', {
             'fields': ('email', 'name', 'phone_number')
         }),
-        ('Type & Permissions', {
-            'fields': ('user_type',)
-        }),
         ('Authentication', {
             'fields': ('password', 'last_login')
         }),
     )
-    
-    def get_readonly_fields(self, request, obj=None):
-        """Make certain fields readonly for super admin users"""
-        readonly = list(self.readonly_fields)
-        if obj and obj.is_super_admin():
-            readonly.extend(['user_type', 'email'])
-        return readonly
+
+    def get_roles_display(self, obj):
+        """Display user's active job roles"""
+        from core.job_roles.services import get_user_active_roles
+        roles = get_user_active_roles(obj)
+        if roles:
+            return ', '.join([role.name for role in roles[:3]])  # Show first 3 roles
+        return '(No roles)'
+    get_roles_display.short_description = 'Roles'
+

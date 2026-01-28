@@ -315,9 +315,6 @@ class APInvoiceListSerializer(serializers.ModelSerializer):
     total = serializers.DecimalField(max_digits=14, decimal_places=2)
     approval_status = serializers.CharField()
     payment_status = serializers.CharField()
-    variance_percentage = serializers.DecimalField(
-        max_digits=10, decimal_places=2, read_only=True, allow_null=True
-    )
     
     def get_invoice_number(self, obj):
         """Generate invoice number from prefix_code and invoice_id"""
@@ -337,7 +334,6 @@ class APInvoiceListSerializer(serializers.ModelSerializer):
             "total",
             "approval_status",
             "payment_status",
-            "variance_percentage",
         ]
         read_only_fields = fields
 
@@ -361,9 +357,6 @@ class APInvoiceDetailSerializer(serializers.ModelSerializer):
     total = serializers.DecimalField(max_digits=14, decimal_places=2)
     approval_status = serializers.CharField()
     payment_status = serializers.CharField()
-    variance_percentage = serializers.DecimalField(
-        max_digits=10, decimal_places=2, read_only=True, allow_null=True
-    )
 
     # Goods Receipt info (if invoice was created from receipt)
     goods_receipt_info = serializers.SerializerMethodField()
@@ -385,7 +378,6 @@ class APInvoiceDetailSerializer(serializers.ModelSerializer):
             "total",
             "approval_status",
             "payment_status",
-            "variance_percentage",
             "goods_receipt_info",
             "items",
             "journal_entry",
@@ -559,106 +551,13 @@ class APInvoiceFromReceiptSerializer(serializers.Serializer):
         )
         
         # Call service method
-        ap_invoice = InvoiceService.create_ap_invoice_from_receipt(
+        return InvoiceService.create_ap_invoice_from_receipt(
             goods_receipt_id=validated_data["goods_receipt_id"],
             currency_id=validated_data["currency_id"],
             country_id=validated_data.get("country_id"),
             tax_amount=validated_data["tax_amount"],
             journal_entry_dto=journal_entry_dto
         )
-        
-        # Variance is auto-calculated in model save(), refresh to get it
-        ap_invoice.refresh_from_db()
-        
-        return ap_invoice
-
-
-class APInvoiceVariancePreviewSerializer(APInvoiceFromReceiptSerializer):
-    """
-    Serializer for previewing variance without creating invoice.
-    
-    Performs dry-run calculation to show what variance would be
-    if the invoice were created from this Goods Receipt.
-    
-    Example Response:
-    {
-        "variance_percentage": "5.25",
-        "po_total": "10000.00",
-        "invoice_total": "10525.00",
-        "variance_amount": "525.00",
-        "preview": {
-            "goods_receipt_id": 1,
-            "supplier_name": "Tech Supplier Inc",
-            "items": [...]
-        }
-    }
-    """
-    
-    def create(self, validated_data):
-        """
-        Calculate variance without saving invoice.
-        
-        Returns dict with variance data instead of AP_Invoice instance.
-        """
-        from procurement.receiving.models import GoodsReceipt
-        from decimal import Decimal
-        
-        # Get the Goods Receipt
-        goods_receipt = GoodsReceipt.objects.select_related(
-            'po_header', 'supplier'
-        ).prefetch_related('lines').get(
-            pk=validated_data["goods_receipt_id"]
-        )
-        
-        # Calculate what invoice total would be
-        invoice_subtotal = goods_receipt.total_amount
-        invoice_tax = validated_data["tax_amount"]
-        invoice_total = invoice_subtotal + invoice_tax
-        
-        # Get PO total
-        po_total = goods_receipt.po_header.total_amount
-        
-        # Calculate variance
-        if po_total == 0:
-            variance_percentage = None
-            variance_amount = None
-        else:
-            variance_amount = invoice_total - po_total
-            variance_percentage = ((invoice_total - po_total) / po_total) * Decimal('100')
-            variance_percentage = variance_percentage.quantize(Decimal('0.01'))
-        
-        # Build preview data
-        preview_data = {
-            "goods_receipt_id": goods_receipt.id,
-            "grn_number": goods_receipt.grn_number,
-            "supplier_id": goods_receipt.supplier.business_partner_id,
-            "supplier_name": goods_receipt.supplier.name,
-            "po_number": goods_receipt.po_header.po_number,
-            "po_date": goods_receipt.po_header.po_date,
-            "grn_date": goods_receipt.receipt_date,
-            "items": [
-                {
-                    "name": line.item_name,
-                    "description": line.item_description,
-                    "quantity_received": line.quantity_received,
-                    "unit_price": line.unit_price,
-                    "line_total": line.line_total,
-                }
-                for line in goods_receipt.lines.all()
-            ],
-            "subtotal": invoice_subtotal,
-            "tax_amount": invoice_tax,
-            "total": invoice_total,
-        }
-        
-        # Return variance data + preview
-        return {
-            "variance_percentage": variance_percentage,
-            "variance_amount": variance_amount,
-            "po_total": po_total,
-            "invoice_total": invoice_total,
-            "preview": preview_data,
-        }
 
 
 # ==================== AR INVOICE SERIALIZERS ====================

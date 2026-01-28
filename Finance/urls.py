@@ -28,9 +28,6 @@ urlpatterns = [
     # Cash Management URLs
     path('cash/', include('Finance.cash_management.urls')),
     
-    # Budget Control URLs
-    path('budget/', include('Finance.budget_control.urls')),
-    
     # Default Combinations URLs
     path('', include('Finance.default_combinations.urls')),
 ]

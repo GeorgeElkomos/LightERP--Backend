@@ -1,0 +1,357 @@
+{
+	"info": {
+		"_postman_id": "hr-work-structures-grades-api",
+		"name": "HR Work Structures - Grades API",
+		"description": "API collection for HR Grades, Grade Rates, and Grade Rate Types",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{access_token}}",
+				"type": "string"
+			}
+		]
+	},
+	"item": [
+		{
+			"name": "Grades",
+			"item": [
+				{
+					"name": "List Grades",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/hr/work_structures/grades/?organization=&search=&status=ALL",
+							"host": ["{{base_url}}"],
+							"path": ["hr", "work_structures", "grades", ""],
+							"query": [
+								{
+									"key": "organization",
+									"value": "",
+									"description": "Filter by Organization ID"
+								},
+								{
+									"key": "search",
+									"value": "",
+									"description": "Search by grade name"
+								},
+								{
+									"key": "status",
+									"value": "ALL",
+									"description": "ALL, ACTIVE, INACTIVE"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Grade",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"organization_id\": 1,\n    \"grade_name_id\": 1170,\n    \"sequence\": 1,\n    \"effective_from\": \"2024-01-01\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/hr/work_structures/grades/",
+							"host": ["{{base_url}}"],
+							"path": ["hr", "work_structures", "grades", ""]
+						}
+					}
+				},
+				{
+					"name": "Get Grade Detail",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/hr/work_structures/grades/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["hr", "work_structures", "grades", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Grade",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"grade_id\": 1,\n    \"grade_name_id\": 1170,\n    \"sequence\": 2\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/hr/work_structures/grades/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["hr", "work_structures", "grades", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Grade",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/hr/work_structures/grades/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["hr", "work_structures", "grades", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Grade Rate Types",
+			"item": [
+				{
+					"name": "List Grade Rate Types",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/hr/work_structures/grade-rate-types/",
+							"host": ["{{base_url}}"],
+							"path": ["hr", "work_structures", "grade-rate-types", ""]
+						}
+					}
+				},
+				{
+					"name": "Create Grade Rate Type",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"code\": \"HOUSING\",\n    \"description\": \"Housing Allowance\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/hr/work_structures/grade-rate-types/",
+							"host": ["{{base_url}}"],
+							"path": ["hr", "work_structures", "grade-rate-types", ""]
+						}
+					}
+				},
+				{
+					"name": "Get Grade Rate Type Detail",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/hr/work_structures/grade-rate-types/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["hr", "work_structures", "grade-rate-types", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Grade Rate Type",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"code\": \"HOUSING_UPDATED\",\n    \"description\": \"Updated Housing Allowance\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/hr/work_structures/grade-rate-types/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["hr", "work_structures", "grade-rate-types", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Grade Rate Type",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/hr/work_structures/grade-rate-types/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["hr", "work_structures", "grade-rate-types", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Grade Rates",
+			"item": [
+				{
+					"name": "List Grade Rates",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/hr/work_structures/grade-rates/?grade_id=&rate_type_id=&as_of_date=",
+							"host": ["{{base_url}}"],
+							"path": ["hr", "work_structures", "grade-rates", ""],
+							"query": [
+								{
+									"key": "grade_id",
+									"value": "",
+									"description": "Filter by Grade ID"
+								},
+								{
+									"key": "rate_type_id",
+									"value": "",
+									"description": "Filter by Rate Type ID"
+								},
+								{
+									"key": "as_of_date",
+									"value": "",
+									"description": "Filter by effective date (YYYY-MM-DD)"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Create Grade Rate",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"grade_id\": 1,\n    \"rate_type_id\": 1,\n    \"min_amount\": \"5000.00\",\n    \"max_amount\": \"8000.00\",\n    \"currency\": \"USD\",\n    \"effective_start_date\": \"2024-01-01\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/hr/work_structures/grade-rates/",
+							"host": ["{{base_url}}"],
+							"path": ["hr", "work_structures", "grade-rates", ""]
+						}
+					}
+				},
+				{
+					"name": "Get Grade Rate Detail",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/hr/work_structures/grade-rates/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["hr", "work_structures", "grade-rates", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Update Grade Rate",
+					"request": {
+						"method": "PUT",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"grade_rate_id\": 1,\n    \"min_amount\": \"5500.00\",\n    \"max_amount\": \"8500.00\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/hr/work_structures/grade-rates/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["hr", "work_structures", "grade-rates", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						}
+					}
+				},
+				{
+					"name": "Delete Grade Rate",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/hr/work_structures/grade-rates/:id/",
+							"host": ["{{base_url}}"],
+							"path": ["hr", "work_structures", "grade-rates", ":id", ""],
+							"variable": [
+								{
+									"key": "id",
+									"value": "1"
+								}
+							]
+						}
+					}
+				}
+			]
+		}
+	]
+}

@@ -48,22 +48,19 @@ class ProcurementIntegrationTestCase(TestCase):
             email='requester@test.com',
             password='testpass123',
             name='Requester User',
-            phone_number='1234567890',
-            user_type_name='employee'
+            phone_number='1234567890'
         )
         self.approver = User.objects.create_user(
             email='approver@test.com',
             password='testpass123',
             name='Approver User',
-            phone_number='0987654321',
-            user_type_name='employee'
+            phone_number='0987654321'
         )
         self.receiver = User.objects.create_user(
             email='receiver@test.com',
             password='testpass123',
             name='Receiver User',
-            phone_number='5555555555',
-            user_type_name='employee'
+            phone_number='5555555555'
         )
         
         # Create supplier (automatically creates BusinessPartner)
@@ -117,7 +114,7 @@ class ProcurementIntegrationTestCase(TestCase):
     def create_approval_templates(self):
         """Create simple approval templates for PR and PO"""
         from django.contrib.contenttypes.models import ContentType
-        from core.job_roles.models import JobRole
+        from core.job_roles.models import JobRole, UserJobRole
         
         # Create a manager role for approvals
         manager_role, _ = JobRole.objects.get_or_create(
@@ -128,8 +125,12 @@ class ProcurementIntegrationTestCase(TestCase):
         )
         
         # Assign the approver user to the manager role
+        UserJobRole.objects.create(
+            user=self.approver,
+            job_role=manager_role,
+            effective_start_date=date.today() - timedelta(days=1)
+        )
         self.approver.job_role = manager_role
-        self.approver.save()
         
         # PR approval templates
         for pr_model in [Catalog_PR, NonCatalog_PR, Service_PR]:

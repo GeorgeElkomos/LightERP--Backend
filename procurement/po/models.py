@@ -94,25 +94,6 @@ class POHeader(ApprovableMixin, models.Model):
     
     updated_at = models.DateTimeField(auto_now=True)
     
-    # Budget Control Integration (Stage 2: Encumbrance)
-    segment_combination = models.ForeignKey(
-        'finance_gl.XX_Segment_combination',
-        on_delete=models.PROTECT,
-        null=True,
-        blank=True,
-        related_name='purchase_orders',
-        help_text="GL account coding inherited from PR or assigned directly"
-    )
-    budget_encumbered_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        help_text="Timestamp when budget encumbrance was created"
-    )
-    budget_pr_commitment_released = models.BooleanField(
-        default=False,
-        help_text="Tracks if source PR commitment was released during PO approval"
-    )
-    
     # Manager - Standard manager (child classes will use ChildModelManagerMixin)
     objects = models.Manager()
     
@@ -248,162 +229,10 @@ class POHeader(ApprovableMixin, models.Model):
         self.confirmed_at = timezone.now()
         self.save()
     
-    def can_be_edited(self):
-        """Check if PO can be edited (only DRAFT status)."""
-        return self.status == 'DRAFT'
-    
-    # ==================== BUDGET CONTROL METHODS ====================
-    
-    def _consume_budget_encumbrance(self):
-        """
-        Stage 2: Convert PR commitment to PO encumbrance when PO is approved.
-        
-        Business logic:
-        1. Release PR commitment amount (original requested amount)
-        2. Consume PO encumbrance (actual order amount - may differ due to price changes)
-        
-        This allows budget to adjust for negotiated price differences.
-        """
-        from Finance.budget_control.models import BudgetHeader
-        from Finance.GL.models import XX_Segment
-        from django.core.exceptions import ValidationError
-        import logging
-        
-        logger = logging.getLogger(__name__)
-        
-        # Skip if no segment combination
-        if not self.segment_combination:
-            logger.debug(f"PO {self.po_number} has no segment_combination - budget control skipped")
-            return
-        
-        # Find active or closed budget for PO date
-        budget = BudgetHeader.objects.filter(
-            status__in=['ACTIVE', 'CLOSED'],
-            is_active=True,
-            start_date__lte=self.po_date,
-            end_date__gte=self.po_date
-        ).first()
-        
-        if not budget:
-            logger.warning(f"No active budget found for PO {self.po_number} dated {self.po_date}")
-            return
-        
-        # Extract segments from combination
-        segment_ids = list(
-            self.segment_combination.details.values_list('segment_id', flat=True)
-        )
-        segment_objects = list(XX_Segment.objects.filter(id__in=segment_ids))
-        
-        if not segment_objects:
-            logger.warning(f"No segments found for PO {self.po_number}")
-            return
-        
-        budget_amounts = budget.get_applicable_budget_amounts(segment_objects)
-        
-        if not budget_amounts.exists():
-            logger.warning(f"No budget amounts found for PO {self.po_number} segments")
-            return
-        
-        # Consume PO encumbrance - this automatically releases PR commitment if release_commitment=True
-        for budget_amt in budget_amounts:
-            try:
-                # Use PO total amount for encumbrance
-                # release_commitment=True will automatically convert PR commitment to PO encumbrance
-                budget_amt.consume_encumbrance(
-                    amount=self.total_amount,
-                    transaction_ref=f"PO-{self.po_number}",
-                    release_commitment=True  # Automatically converts PR commitment to PO encumbrance
-                )
-                logger.info(f"Consumed encumbrance of {self.total_amount} for PO {self.po_number}")
-            except Exception as e:
-                logger.error(f"Failed to consume encumbrance for PO {self.po_number}: {str(e)}")
-                raise
-        
-        self.budget_pr_commitment_released = True
-        self.budget_encumbered_at = timezone.now()
-        self.save(update_fields=['budget_pr_commitment_released', 'budget_encumbered_at'])
-    
-    def _get_source_pr_total(self):
-        """
-        Calculate total amount from source PR(s).
-        Used to release the correct commitment amount.
-        """
-        from decimal import Decimal
-        
-        # Get all source PRs linked to this PO
-        source_prs = self.source_pr_headers.all()
-        
-        if not source_prs.exists():
-            return Decimal('0')
-        
-        # Sum up all PR totals
-        pr_total = sum(pr.total for pr in source_prs)
-        return pr_total
-    
-    def _release_budget_encumbrance(self):
-        """
-        Release budget encumbrance when PO is cancelled.
-        Also releases PR commitment if it wasn't released during approval.
-        """
-        from Finance.budget_control.models import BudgetHeader
-        from Finance.GL.models import XX_Segment
-        import logging
-        
-        logger = logging.getLogger(__name__)
-        
-        # Only release if budget was encumbered
-        if not self.segment_combination:
-            return
-        
-        # Find budget
-        budget = BudgetHeader.objects.filter(
-            status__in=['ACTIVE', 'CLOSED'],
-            start_date__lte=self.po_date,
-            end_date__gte=self.po_date
-        ).first()
-        
-        if not budget:
-            logger.warning(f"No budget found to release encumbrance for PO {self.po_number}")
-            return
-        
-        # Extract segments
-        segment_ids = list(
-            self.segment_combination.details.values_list('segment_id', flat=True)
-        )
-        segment_objects = list(XX_Segment.objects.filter(id__in=segment_ids))
-        
-        if not segment_objects:
-            return
-        
-        budget_amounts = budget.get_applicable_budget_amounts(segment_objects)
-        
-        # Release encumbrance if it was created
-        if self.budget_encumbered_at:
-            for budget_amt in budget_amounts:
-                try:
-                    budget_amt.release_encumbrance(amount=self.total_amount)
-                    logger.info(f"Released encumbrance of {self.total_amount} for cancelled PO {self.po_number}")
-                except Exception as e:
-                    logger.error(f"Failed to release encumbrance for PO {self.po_number}: {str(e)}")
-        
-        # If PR commitment was never released, release it now
-        if not self.budget_pr_commitment_released:
-            pr_total = self._get_source_pr_total()
-            if pr_total > 0:
-                for budget_amt in budget_amounts:
-                    try:
-                        budget_amt.release_commitment(amount=pr_total)
-                        logger.info(f"Released PR commitment of {pr_total} for cancelled PO {self.po_number}")
-                    except Exception as e:
-                        logger.error(f"Failed to release PR commitment for PO {self.po_number}: {str(e)}")
-    
     def cancel_po(self, reason, cancelled_by):
-        """Cancel this PO with reason - includes budget release."""
+        """Cancel this PO with reason."""
         if self.status in ['RECEIVED', 'CANCELLED']:
             raise ValidationError(f"Cannot cancel PO with status '{self.status}'.")
-        
-        # Release budget before cancellation
-        self._release_budget_encumbrance()
         
         self.status = 'CANCELLED'
         self.cancellation_reason = reason
@@ -442,80 +271,21 @@ class POHeader(ApprovableMixin, models.Model):
         pass  # Continue workflow
     
     def on_fully_approved(self, instance):
-        """Called when all approval stages are approved - includes budget encumbrance."""
-        
-        # Inherit segment_combination from PR if not already set
-        if not self.segment_combination and self.source_pr_headers.exists():
-            source_pr = self.source_pr_headers.first()
-            if source_pr.segment_combination:
-                self.segment_combination = source_pr.segment_combination
-        
-        # Budget integration - consume encumbrance
-        try:
-            self._consume_budget_encumbrance()
-        except Exception as e:
-            # If budget encumbrance fails, don't approve
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f"Budget encumbrance failed for PO {self.po_number}: {str(e)}")
-            raise
-        
+        """Called when all approval stages are approved."""
         self.status = 'APPROVED'
         self.approved_at = timezone.now()
         self.save()
     
     def on_rejected(self, reason, instance):
-        """Called when approval is rejected - restores PR commitment if needed."""
-                # Release PO encumbrance first
-        self._release_budget_encumbrance()
-                # If PR commitment was already released during approval attempt, restore it
-        if self.budget_pr_commitment_released and self.source_pr_headers.exists():
-            from Finance.budget_control.models import BudgetHeader
-            from Finance.GL.models import XX_Segment
-            import logging
-            
-            logger = logging.getLogger(__name__)
-            
-            if self.segment_combination:
-                # Find budget
-                budget = BudgetHeader.objects.filter(
-                    status__in=['ACTIVE', 'CLOSED'],
-                    start_date__lte=self.po_date,
-                    end_date__gte=self.po_date
-                ).first()
-                
-                if budget:
-                    segment_ids = list(
-                        self.segment_combination.details.values_list('segment_id', flat=True)
-                    )
-                    segment_objects = list(XX_Segment.objects.filter(id__in=segment_ids))
-                    
-                    if segment_objects:
-                        budget_amounts = budget.get_applicable_budget_amounts(segment_objects)
-                        pr_total = self._get_source_pr_total()
-                        
-                        # Restore PR commitment
-                        for budget_amt in budget_amounts:
-                            try:
-                                budget_amt.consume_commitment(amount=pr_total, transaction_ref=f"PR-Restored-{self.po_number}")
-                                logger.info(f"Restored PR commitment of {pr_total} after PO {self.po_number} rejection")
-                            except Exception as e:
-                                logger.error(f"Failed to restore PR commitment for PO {self.po_number}: {str(e)}")
-                        
-                        self.budget_pr_commitment_released = False
-        
+        """Called when approval is rejected."""
         self.status = 'DRAFT'  # Return to draft for revision
         self.rejected_at = timezone.now()
         self.save()
     
     def on_cancelled(self, reason, instance):
-        """Called when approval workflow is cancelled - releases budget."""
-        
-        # Release budget encumbrance
-        self._release_budget_encumbrance()
-        
+        """Called when approval workflow is cancelled."""
         if self.status != 'CANCELLED':
-            self.cancel_po(reason=reason, cancelled_by=None)
+            self.cancel_po(reason)
 
 
 """PO Line Item - Unified model for all PO types."""

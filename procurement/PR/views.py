@@ -728,11 +728,7 @@ def approved_prs_for_conversion(request):
             'partially_converted_items': partially_converted
         })
     
-    return success_response(
-        data=response_data,
-        message="Approved PRs retrieved successfully",
-        status_code=status.HTTP_200_OK
-    )
+    return response_data
 
 
 @api_view(['GET'])
@@ -879,7 +875,7 @@ def pr_attachment_list(request, pr_id):
         
         return error_response(
             message="Failed to upload attachment",
-            data=serializer.errors,
+            errors=serializer.errors,
             status_code=status.HTTP_400_BAD_REQUEST
         )
 

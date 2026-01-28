@@ -19,6 +19,7 @@ FIXTURE_DIRS = [
     BASE_DIR / 'fixtures',
 ]
 
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
@@ -57,13 +58,13 @@ INSTALLED_APPS = [
     'Finance.default_combinations',  # Default Segment Combinations
     'Finance.period',    # Period management
     'Finance.cash_management',  # Cash Management
-    'Finance.budget_control',  # Budget Control
     
     # Core Module
     'core',              # Main Core App
     'core.job_roles',    # Job roles and permissions (must load before user_accounts)
     'core.user_accounts',     # Accounts management
     'core.approval',     # Approval workflows
+    'core.lookups',     # Lookup tables
     
     # Procurement Module
     'procurement',              # Main Procurement App  
@@ -71,6 +72,11 @@ INSTALLED_APPS = [
     'procurement.PR',           # Purchase Requisitions
     'procurement.po',           # Purchase Orders
     'procurement.receiving',    # Goods Receiving
+    
+    # HR Module
+    'HR',              # Main HR App
+    'HR.work_structures',      # Work Structures
+    'HR.person',           # Person and PersonType
 ]
 
 MIDDLEWARE = [
@@ -179,7 +185,7 @@ REST_FRAMEWORK = {
 from datetime import timedelta
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=120),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
@@ -187,4 +193,4 @@ SIMPLE_JWT = {
 }
 
 # Use custom user model
-AUTH_USER_MODEL = 'user_accounts.CustomUser'
+AUTH_USER_MODEL = 'user_accounts.UserAccount'

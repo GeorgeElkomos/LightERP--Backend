@@ -16,8 +16,7 @@ from Finance.Invoice.views.ap_views import (
     ap_invoice_submit_for_approval,
     ap_invoice_pending_approvals,
     ap_invoice_approval_action,
-    ap_invoice_create_from_receipt,
-    ap_invoice_variance_preview
+    ap_invoice_create_from_receipt
 )
 
 from Finance.Invoice.views.ar_views import (
@@ -47,7 +46,6 @@ __all__ = [
     'ap_invoice_pending_approvals',
     'ap_invoice_approval_action',
     'ap_invoice_create_from_receipt',
-    'ap_invoice_variance_preview',
     
     # AR Invoice views
     'ar_invoice_list',

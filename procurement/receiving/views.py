@@ -150,9 +150,6 @@ def grn_detail(request, pk):
                 'quantity': line.quantity_received
             })
         
-        # Reverse budget actual before deletion
-        grn.reverse_budget_actual()
-        
         # Delete GRN
         grn.delete()
         

@@ -17,7 +17,8 @@ from core.approval.models import (
     TestInvoice,
     TestPurchaseOrder,
 )
-from core.job_roles.models import JobRole
+from core.job_roles.models import JobRole, UserJobRole
+from django.utils import timezone
 
 User = get_user_model()
 
@@ -39,6 +40,13 @@ class WorkflowTemplateAPITest(TestCase):
 
         # Create job role
         self.role = JobRole.objects.create(name="Manager")
+
+        # Assign role to user
+        UserJobRole.objects.create(
+            user=self.user,
+            job_role=self.role,
+            effective_start_date=timezone.now().date()
+        )
 
         # Get content types
         self.invoice_ct = ContentType.objects.get_for_model(TestInvoice)
