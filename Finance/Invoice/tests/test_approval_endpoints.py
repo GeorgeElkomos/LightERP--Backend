@@ -25,8 +25,7 @@ from rest_framework import status as http_status
 from decimal import Decimal
 from datetime import date
 
-from core.user_accounts.models import UserType
-from core.job_roles.models import JobRole
+from core.job_roles.models import JobRole, UserJobRole
 from core.approval.models import (
     ApprovalWorkflowTemplate,
     ApprovalWorkflowStageTemplate,
@@ -52,9 +51,18 @@ class BaseApprovalEndpointTest(TestCase):
         self.client = APIClient()
         
         # Create job roles
-        self.accountant_role, _ = JobRole.objects.get_or_create(name='accountant')
-        self.manager_role, _ = JobRole.objects.get_or_create(name='manager')
-        self.director_role, _ = JobRole.objects.get_or_create(name='director')
+        self.accountant_role, _ = JobRole.objects.get_or_create(
+            name='accountant',
+            defaults={'code': 'ACCT'}
+        )
+        self.manager_role, _ = JobRole.objects.get_or_create(
+            name='manager',
+            defaults={'code': 'MGR'}
+        )
+        self.director_role, _ = JobRole.objects.get_or_create(
+            name='director',
+            defaults={'code': 'DIR'}
+        )
         
         # Create users with different roles
         self.accountant = self._create_user(
@@ -120,10 +128,7 @@ class BaseApprovalEndpointTest(TestCase):
     
     def _create_user(self, email, name, phone_number, role=None):
         """Helper to create a user with specified role."""        
-        user_type, _ = UserType.objects.get_or_create(
-            type_name='user',
-            defaults={'description': 'Regular user'}
-        )
+        
         
         user = User.objects.create_user(
             email=email,
@@ -131,8 +136,16 @@ class BaseApprovalEndpointTest(TestCase):
             phone_number=phone_number,
             password='testpass123'
         )
-        user.job_role = role
-        user.save()
+        
+        # Create UserJobRole record to properly assign role
+        if role:
+            UserJobRole.objects.create(
+                user=user,
+                job_role=role,
+                effective_start_date=date.today(),
+                effective_end_date=None
+            )
+        
         return user
     
     def _setup_workflow_template(self):

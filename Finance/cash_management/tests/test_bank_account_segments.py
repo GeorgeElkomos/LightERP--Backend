@@ -11,7 +11,7 @@ from rest_framework.test import APITestCase
 from rest_framework import status
 from decimal import Decimal
 
-from core.user_accounts.models import CustomUser as User
+from core.user_accounts.models import UserAccount as User
 from Finance.core.models import Country, Currency
 from Finance.GL.models import XX_SegmentType, XX_Segment, XX_Segment_combination
 from Finance.cash_management.models import Bank, BankBranch, BankAccount

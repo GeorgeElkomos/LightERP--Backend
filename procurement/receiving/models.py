@@ -3,7 +3,7 @@ from django.utils import timezone
 from django.core.exceptions import ValidationError
 from decimal import Decimal
 
-from core.user_accounts.models import CustomUser as User
+from core.user_accounts.models import UserAccount as User
 from Finance.BusinessPartner.models import Supplier
 from procurement.po.models import POHeader, POLineItem
 from procurement.catalog.models import UnitOfMeasure

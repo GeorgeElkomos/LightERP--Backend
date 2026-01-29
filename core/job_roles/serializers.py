@@ -3,363 +3,278 @@ Serializers for Job Roles and Permissions models.
 Handles serialization/deserialization for API endpoints.
 """
 from rest_framework import serializers
+from django.utils import timezone
+from core.base.models import StatusChoices
 from .models import (
     JobRole,
     Page,
     Action,
     PageAction,
     JobRolePage,
-    UserActionDenial,
+    UserJobRole,
+    UserPermissionOverride,
 )
-from core.user_accounts.models import CustomUser
 
+
+# ============================================================================
+# READ-ONLY SERIALIZERS FOR HARD-CODED DATA
+# ============================================================================
 
 class ActionSerializer(serializers.ModelSerializer):
-    """Serializer for Action model."""
-    
+    """Read-only serializer for Action model."""
+
     class Meta:
         model = Action
-        fields = ['id', 'name', 'display_name', 'description', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        fields = ['id', 'code', 'name', 'description']
+        read_only_fields = ['id', 'code', 'name', 'description']
+
+
+class PageSerializer(serializers.ModelSerializer):
+    """Read-only serializer for Page model."""
+
+    class Meta:
+        model = Page
+        fields = ['id', 'code', 'name', 'description']
+        read_only_fields = ['id', 'code', 'name', 'description']
 
 
 class PageActionSerializer(serializers.ModelSerializer):
-    """Serializer for PageAction model with nested action details."""
+    """Read-only serializer for PageAction model."""
+
+    page = PageSerializer(read_only=True)
     action = ActionSerializer(read_only=True)
-    action_id = serializers.PrimaryKeyRelatedField(
-        queryset=Action.objects.all(),
-        source='action',
-        write_only=True,
-        required=False,
-        allow_null=True
-    )
-    action_name = serializers.CharField(write_only=True, required=False, allow_blank=True)
-    page_name = serializers.CharField(source='page.name', read_only=True)
-    page_display_name = serializers.CharField(source='page.display_name', read_only=True)
-    
+
     class Meta:
         model = PageAction
-        fields = [
-            'id', 'page', 'page_name', 'page_display_name',
-            'action', 'action_id', 'action_name', 'created_at', 'updated_at'
-        ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
-    
-    def to_internal_value(self, data):
-        """
-        Handle action_name to action_id conversion during deserialization.
-        """
-        # Create a mutable copy of data
-        data_copy = data.copy() if hasattr(data, 'copy') else dict(data)
-        action_name = data_copy.get('action_name')
-        
-        # If action_name is provided but not action_id, resolve it
-        if action_name and not data_copy.get('action_id'):
-            try:
-                action = Action.objects.get(name=action_name)
-                data_copy['action_id'] = action.id
-            except Action.DoesNotExist:
-                # Remove action_name to prevent it from reaching the model
-                data_copy.pop('action_name', None)
-                # Let validation handle the error
-                pass
-        
-        # Always remove action_name from the data that goes to validation
-        # This prevents it from being passed to the model
-        data_copy.pop('action_name', None)
-        
-        return super().to_internal_value(data_copy)
-    
-    def validate(self, attrs):
-        """Ensure either action_id or action_name is provided and valid."""
-        # At this point, action_name should already be removed
-        # If action is not in attrs, we need to check why
-        
-        if 'action' not in attrs:
-            # Check if action_name was provided but not found
-            original_data = self.initial_data
-            action_name = original_data.get('action_name')
-            
-            if action_name:
-                raise serializers.ValidationError({
-                    'action_name': f"Action with name '{action_name}' does not exist."
-                })
-            else:
-                raise serializers.ValidationError({
-                    'action': 'Either action_id or action_name is required.'
-                })
-        
-        return attrs   
-    
-class PageSerializer(serializers.ModelSerializer):
-    """Serializer for Page model."""
-    available_actions = PageActionSerializer(source='page_actions', many=True, read_only=True)
-    
-    class Meta:
-        model = Page
-        fields = [
-            'id', 'name', 'display_name', 'description',
-            'available_actions', 'created_at', 'updated_at'
-        ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        fields = ['id', 'page', 'action']
+        read_only_fields = ['id', 'page', 'action']
 
 
-class PageListSerializer(serializers.ModelSerializer):
-    """Lightweight serializer for page lists."""
-    
+# ============================================================================
+# JOB ROLE SERIALIZERS
+# ============================================================================
+
+class JobRoleSerializer(serializers.ModelSerializer):
+    """
+    Serializer for JobRole model with hierarchy and audit support.
+    """
+    parent_role_name = serializers.CharField(source='parent_role.name', read_only=True, allow_null=True)
+    child_roles_count = serializers.SerializerMethodField()
+    user_count = serializers.SerializerMethodField()
+    page_count = serializers.IntegerField(source='job_role_pages.count', read_only=True)
+
     class Meta:
-        model = Page
-        fields = ['id', 'name', 'display_name']
+        model = JobRole
+        fields = [
+            'id', 'code', 'name', 'description',
+            'parent_role', 'parent_role_name', 'priority', 'created_at', 'updated_at',
+            'child_roles_count', 'user_count', 'page_count'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at', 'child_roles_count', 'user_count']
+
+    def get_child_roles_count(self, obj):
+        """Count of direct child roles"""
+        return obj.child_roles.count()
+
+    def get_user_count(self, obj):
+        """Count of users assigned to this role"""
+        from datetime import date
+        return obj.user_job_roles.active_on(date.today()).count() if hasattr(obj, 'user_job_roles') else 0
+
+
+class JobRoleCreateSerializer(serializers.ModelSerializer):
+    """
+    Simplified serializer for creating job roles.
+    """
+    class Meta:
+        model = JobRole
+        fields = ['id', 'code', 'name', 'description', 'parent_role', 'priority']
         read_only_fields = ['id']
 
 
 class JobRolePageSerializer(serializers.ModelSerializer):
-    """Serializer for JobRolePage model."""
-    page = PageListSerializer(read_only=True)
+    """
+    Serializer for JobRolePage - assigning pages to job roles.
+    """
+    page = PageSerializer(read_only=True)
     page_id = serializers.PrimaryKeyRelatedField(
         queryset=Page.objects.all(),
         source='page',
         write_only=True
     )
     job_role_name = serializers.CharField(source='job_role.name', read_only=True)
-    
+
     class Meta:
         model = JobRolePage
-        fields = ['id', 'job_role', 'job_role_name', 'page', 'page_id', 'created_at']
+        fields = ['id', 'job_role', 'job_role_name', 'page', 'page_id', 'inherit_to_children']
         read_only_fields = ['id', 'created_at']
 
 
-class JobRoleSerializer(serializers.ModelSerializer):
-    """Serializer for JobRole model."""
-    pages = JobRolePageSerializer(source='job_role_pages', many=True, read_only=True)
-    page_count = serializers.IntegerField(source='job_role_pages.count', read_only=True)
-    
-    class Meta:
-        model = JobRole
-        fields = [
-            'id', 'name', 'description', 'pages', 'page_count',
-            'created_at', 'updated_at'
-        ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+# ============================================================================
+# USER JOB ROLE ASSIGNMENT SERIALIZERS
+# ============================================================================
 
-
-class JobRoleListSerializer(serializers.ModelSerializer):
-    """Lightweight serializer for job role lists."""
-    
-    class Meta:
-        model = JobRole
-        fields = ['id', 'name', 'description']
-        read_only_fields = ['id']
-
-
-class UserActionDenialSerializer(serializers.ModelSerializer):
-    """Serializer for UserActionDenial model."""
+class UserJobRoleSerializer(serializers.ModelSerializer):
+    """
+    Serializer for UserJobRole - user to role assignments.
+    """
     user_email = serializers.CharField(source='user.email', read_only=True)
     user_name = serializers.CharField(source='user.name', read_only=True)
-    page_action_details = PageActionSerializer(source='page_action', read_only=True)
-    
+    job_role_name = serializers.CharField(source='job_role.name', read_only=True)
+    job_role_code = serializers.CharField(source='job_role.code', read_only=True)
+    created_by_email = serializers.CharField(source='created_by.email', read_only=True, allow_null=True)
+    is_currently_effective = serializers.SerializerMethodField()
+
     class Meta:
-        model = UserActionDenial
+        model = UserJobRole
         fields = [
             'id', 'user', 'user_email', 'user_name',
-            'page_action', 'page_action_details',
-            'denial_reason', 'created_at', 'updated_at'
+            'job_role', 'job_role_name', 'job_role_code',
+            'effective_start_date', 'effective_end_date',
+            'status', 'created_by', 'created_by_email',
+            'created_at', 'updated_at', 'is_currently_effective'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'status', 'created_at', 'updated_at', 'is_currently_effective']
 
+    def get_is_currently_effective(self, obj):
+        """Check if this role assignment is currently in effect"""
+        return obj.is_currently_effective()
 
-class UserActionDenialCreateSerializer(serializers.Serializer):
-    """Serializer for creating user action denials with flexible input options."""
-    # Option 1: Use IDs directly
-    user = serializers.PrimaryKeyRelatedField(
-        queryset=CustomUser.objects.all(), 
-        required=False
-    )
-    page_action = serializers.PrimaryKeyRelatedField(
-        queryset=PageAction.objects.all(), 
-        required=False
-    )
-    
-    # Option 2: Use names/email
-    user_email = serializers.EmailField(required=False)
-    page_name = serializers.CharField(required=False)
-    action_name = serializers.CharField(required=False)
-    
-    # Optional reason for denial
-    denial_reason = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    
     def validate(self, data):
-        """
-        Validate and resolve user_email, page_name, action_name to their model instances.
-        Also validate that the user's job role has access to the page.
-        """
-        from core.user_accounts.models import CustomUser
-        
-        # Resolve user (either by user field or user_email)
-        user_email = data.get('user_email')
-        user = data.get('user')
-        
-        if not user and user_email:
-            try:
-                user = CustomUser.objects.get(email=user_email)
-                data['user'] = user
-            except CustomUser.DoesNotExist:
-                raise serializers.ValidationError(
-                    {'user_email': f"User with email '{user_email}' does not exist."}
-                )
-        elif not user:
+        """Validate role assignment constraints"""
+        # Validate effective dates
+        start_date = data.get('effective_start_date')
+        end_date = data.get('effective_end_date')
+        if start_date and end_date and end_date < start_date:
             raise serializers.ValidationError(
-                'Either user or user_email is required.'
+                {'effective_end_date': 'End date must be after start date'}
             )
-        
-        # Remove the email/names from data since they're not model fields
-        data.pop('user_email', None)
-        page_name = data.pop('page_name', None)
-        action_name = data.pop('action_name', None)
-        
-        # Resolve page_action (either directly or via page_name + action_name)
-        page_action = data.get('page_action')
-        
-        if not page_action:
-            if not page_name or not action_name:
-                raise serializers.ValidationError(
-                    'Either page_action or both page_name and action_name are required.'
-                )
-            
-            try:
-                page = Page.objects.get(name=page_name)
-            except Page.DoesNotExist:
-                raise serializers.ValidationError(
-                    {'page_name': f"Page with name '{page_name}' does not exist."}
-                )
-            
-            try:
-                action = Action.objects.get(name=action_name)
-            except Action.DoesNotExist:
-                raise serializers.ValidationError(
-                    {'action_name': f"Action with name '{action_name}' does not exist."}
-                )
-            
-            try:
-                page_action = PageAction.objects.get(page=page, action=action)
-                data['page_action'] = page_action
-            except PageAction.DoesNotExist:
-                raise serializers.ValidationError(
-                    f"PageAction for page '{page_name}' and action '{action_name}' does not exist."
-                )
-        
-        # Check if user's job role has access to this page
-        if not user.job_role:
-            raise serializers.ValidationError(
-                f"User {user.email} has no job role assigned."
-            )
-        
-        has_page_access = JobRolePage.objects.filter(
-            job_role=user.job_role,
-            page=page_action.page
-        ).exists()
-        
-        if not has_page_access:
-            raise serializers.ValidationError(
-                f"User's job role '{user.job_role.name}' does not have access to page '{page_action.page.name}'. "
-                "Cannot deny an action on a page the user cannot access."
-            )
-        
+
         return data
-    
-    def create(self, validated_data):
-        """Create the UserActionDenial instance."""
-        return UserActionDenial.objects.create(**validated_data)
 
 
-class JobRoleWithPagesSerializer(serializers.ModelSerializer):
+class UserJobRoleCreateSerializer(serializers.ModelSerializer):
     """
-    Serializer for creating a job role with page assignments in one request.
-    Handles atomic creation of JobRole and JobRolePage entries.
-    Supports both page IDs and page names for flexibility.
+    Create serializer for UserJobRole assignments.
     """
-    page_ids = serializers.ListField(
-        child=serializers.IntegerField(),
-        write_only=True,
-        required=False,
-        help_text="List of page IDs to assign to this job role"
-    )
-    page_names = serializers.ListField(
-        child=serializers.CharField(),
-        write_only=True,
-        required=False,
-        help_text="List of page names to assign to this job role"
-    )
-    pages = JobRolePageSerializer(source='job_role_pages', many=True, read_only=True)
-    
     class Meta:
-        model = JobRole
-        fields = ['id', 'name', 'description', 'page_ids', 'page_names', 'pages', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
-    
+        model = UserJobRole
+        fields = ['user', 'job_role', 'effective_start_date', 'effective_end_date']
+
     def validate(self, data):
-        """
-        Validate page_ids or page_names and normalize them to page_ids.
-        This ensures atomic operation - either all pages are valid or we fail.
-        """
-        page_ids = data.pop('page_ids', [])
-        page_names = data.pop('page_names', [])
-        
-        # Convert page_names to page_ids
-        if page_names:
-            pages = Page.objects.filter(name__in=page_names)
-            found_names = set(pages.values_list('name', flat=True))
-            missing_names = set(page_names) - found_names
-            
-            if missing_names:
-                raise serializers.ValidationError(
-                    {'page_names': f"The following page names do not exist: {sorted(missing_names)}"}
-                )
-            
-            page_ids.extend(pages.values_list('id', flat=True))
-        
-        # Validate page_ids
-        if page_ids:
-            # Check for duplicates
-            if len(page_ids) != len(set(page_ids)):
-                raise serializers.ValidationError(
-                    {'page_ids': "Duplicate page IDs found in the list."}
-                )
-            
-            # Verify all pages exist
-            existing_page_ids = set(Page.objects.filter(id__in=page_ids).values_list('id', flat=True))
-            invalid_ids = set(page_ids) - existing_page_ids
-            
-            if invalid_ids:
-                raise serializers.ValidationError(
-                    {'page_ids': f"The following page IDs do not exist: {sorted(invalid_ids)}"}
-                )
-        
-        data['_page_ids'] = list(set(page_ids))  # Store for use in create()
+        """Validate before creation"""
+        # Set default start date if not provided
+        if not data.get('effective_start_date'):
+            data['effective_start_date'] = timezone.now().date()
+
+        # Validate effective dates
+        start_date = data.get('effective_start_date')
+        end_date = data.get('effective_end_date')
+        if start_date and end_date and end_date < start_date:
+            raise serializers.ValidationError(
+                {'effective_end_date': 'End date must be after start date'}
+            )
+
         return data
-    
-    def create(self, validated_data):
-        """
-        Create job role and assign pages atomically.
-        Uses transaction to ensure data consistency - if page assignment fails,
-        the job role creation is rolled back.
-        """
-        from django.db import transaction
-        
-        # Extract page_ids before creating the job role
-        page_ids = validated_data.pop('_page_ids', [])
-        
-        # Create job role and assign pages in a single transaction
-        with transaction.atomic():
-            # Create the job role
-            job_role = JobRole.objects.create(**validated_data)
-            
-            # Create JobRolePage entries for each page
-            if page_ids:
-                job_role_pages = [
-                    JobRolePage(job_role=job_role, page_id=page_id)
-                    for page_id in page_ids
-                ]
-                JobRolePage.objects.bulk_create(job_role_pages)
-        
-        return job_role
+
+
+# ============================================================================
+# USER PERMISSION OVERRIDE SERIALIZERS
+# ============================================================================
+
+class UserPermissionOverrideSerializer(serializers.ModelSerializer):
+    """
+    Serializer for UserPermissionOverride - grants AND denials.
+    """
+    user_email = serializers.CharField(source='user.email', read_only=True)
+    user_name = serializers.CharField(source='user.name', read_only=True)
+    page_name = serializers.CharField(source='page_action.page.name', read_only=True)
+    action_name = serializers.CharField(source='page_action.action.name', read_only=True)
+    created_by_email = serializers.CharField(source='created_by.email', read_only=True, allow_null=True)
+    is_currently_effective = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UserPermissionOverride
+        fields = [
+            'id', 'user', 'user_email', 'user_name',
+            'page_action', 'page_name', 'action_name',
+            'permission_type', 'reason',
+            'effective_start_date', 'effective_end_date',
+            'status', 'created_by', 'created_by_email', 'created_at',
+            'is_currently_effective'
+        ]
+        read_only_fields = ['id', 'status', 'created_at', 'is_currently_effective']
+
+    def get_is_currently_effective(self, obj):
+        """Check if this override is currently in effect"""
+        return obj.is_currently_effective()
+
+
+class UserPermissionOverrideCreateSerializer(serializers.ModelSerializer):
+    """
+    Create serializer for permission overrides.
+    """
+    class Meta:
+        model = UserPermissionOverride
+        fields = ['user', 'page_action', 'permission_type', 'reason', 'effective_start_date', 'effective_end_date']
+
+    def validate(self, data):
+        """Validate override creation"""
+        user = data.get('user')
+        page_action = data.get('page_action')
+        permission_type = data.get('permission_type')
+
+        # Validate effective dates
+        start_date = data.get('effective_start_date')
+        end_date = data.get('effective_end_date')
+
+        # Set default start date if not provided
+        if not start_date:
+            data['effective_start_date'] = timezone.now().date()
+            start_date = data['effective_start_date']
+
+        if start_date and end_date and end_date < start_date:
+            raise serializers.ValidationError(
+                {'effective_end_date': 'End date must be after start date'}
+            )
+
+        # Validation: user must have the page assigned via their job role for denials
+        if permission_type == 'deny':
+            from .services import get_user_active_roles
+            has_role_access = JobRolePage.objects.filter(
+                job_role__in=get_user_active_roles(user),
+                page=page_action.page
+            ).exists()
+            if not has_role_access:
+                raise serializers.ValidationError(
+                    f"User {user.email} does not have access to page '{page_action.page.name}' via any job role, so cannot create a denial."
+                )
+
+        return data
+
+
+# ============================================================================
+# UTILITY SERIALIZERS
+# ============================================================================
+
+class UserRolePermissionsSerializer(serializers.Serializer):
+    """
+    Serializer for user permissions endpoint - shows all permissions for a user.
+    """
+    user_email = serializers.EmailField(source='user.email', read_only=True)
+    user_name = serializers.CharField(source='user.name', read_only=True)
+    active_roles = serializers.ListField(child=serializers.CharField(), read_only=True)
+    direct_permissions = serializers.DictField(read_only=True)
+    effective_permissions = serializers.DictField(read_only=True)
+    permission_overrides = serializers.ListField(read_only=True)
+
+    def to_representation(self, instance):
+        """Format the permissions data for the API response"""
+        return {
+            'user_email': instance['user'].email,
+            'user_name': instance['user'].name,
+            'active_roles': [role.name for role in instance['active_roles']],
+            'direct_permissions': instance['direct_permissions'],
+            'effective_permissions': instance['effective_permissions'],
+            'permission_overrides': instance['permission_overrides']
+        }

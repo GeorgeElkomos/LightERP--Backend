@@ -13,8 +13,8 @@ urlpatterns = [
     path('profile/', views.user_profile, name='user_profile'),
     # Password reset flow
     path('password-reset-request/', views.password_reset_request, name='password_reset_request'),
-    path('superadmin/password-reset/', views.superadmin_password_reset, name='superadmin_password_reset'),
-    # Admin User Management Endpoints (Admin/Super Admin Only)
+    path('admin/password-reset/', views.admin_password_reset, name='radmin_password_reset'),
+    # Admin User Management Endpoints
     path('admin/users/', views.admin_user_list, name='admin_user_list'),
     path('admin/users/<int:user_id>/', views.admin_user_detail, name='admin_user_detail'),
 ]

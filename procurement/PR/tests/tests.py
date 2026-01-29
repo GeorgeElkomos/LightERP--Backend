@@ -11,7 +11,6 @@ from decimal import Decimal
 
 from procurement.PR.models import PR, PRItem, Catalog_PR, NonCatalog_PR, Service_PR
 from procurement.catalog.models import UnitOfMeasure, catalogItem
-from core.user_accounts.models import UserType
 
 User = get_user_model()
 
@@ -27,7 +26,7 @@ class PRTestBase(TestCase):
             email='testuser@example.com',
             name='Test User',
             phone_number='1234567890',
-            user_type_name='employee',
+            # user_type_name='employee',
             password='testpass123'
         )
         self.client.force_authenticate(user=self.user)

@@ -10,17 +10,18 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
 from django.core.exceptions import PermissionDenied
 
-from .models import CustomUser, UserType
+from .models import UserAccount
 from .serializers import (
     UserRegistrationSerializer,
     UserProfileSerializer,
     ChangePasswordSerializer,
-    AdminUserCreationSerializer,
-    AdminUserUpdateSerializer,
+    AdminCreateSerializer,
+    AdminUpdateSerializer,
     UserListSerializer,
     PasswordResetRequestSerializer,
-    SuperAdminPasswordResetSerializer,
+    AdminPasswordResetSerializer,
 )
+from core.job_roles.decorators import require_page_action
 
 
 # ============================================================================
@@ -32,8 +33,8 @@ from .serializers import (
 def register(request):
     """
     Public endpoint for user registration.
-    Creates a new user account with 'user' type and returns JWT tokens.
-    
+    Creates a new user account and returns JWT tokens.
+
     POST /auth/register/
     - Request body: { "email", "name", "phone_number", "password", "confirm_password" }
     - Returns: User data and JWT tokens
@@ -51,8 +52,7 @@ def register(request):
             'user': {
                 'id': user.id,
                 'email': user.email,
-                'name': user.name,
-                'user_type': user.user_type.type_name
+                'name': user.name
             },
             'tokens': {
                 'refresh': str(refresh),
@@ -99,8 +99,7 @@ def login(request):
         'user': {
             'id': user.id,
             'email': user.email,
-            'name': user.name,
-            'user_type': user.user_type.type_name
+            'name': user.name
         },
         'tokens': {
             'refresh': str(refresh),
@@ -178,6 +177,7 @@ def user_profile(request):
             }, status=status.HTTP_200_OK)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    return None
 
 
 @api_view(['POST'])
@@ -219,38 +219,24 @@ def change_password(request):
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
+@require_page_action('user_management')
 def admin_user_list(request):
     """
     Admin endpoint for listing and creating users.
     
-    Permissions:
-    - Super Admin: Can view all users and create users with any type
-    - Admin: Can view and create only 'user' type users
-    - User: No access (403)
-    
+    Permissions: Handled by decorators (check job role permissions)
+
     GET /admin/users/
-    - Returns: List of users based on permissions
-    
+    - Returns: List of all users
+
     POST /admin/users/
     - Request body: AdminUserCreationSerializer fields
     - Returns: Created user data
     """
-    # Permission check
-    if not request.user.is_admin():
-        return Response(
-            {'error': 'Admin privileges required'},
-            status=status.HTTP_403_FORBIDDEN
-        )
-    
+
     if request.method == 'GET':
-        # Super admin sees all users
-        if request.user.is_super_admin():
-            users = CustomUser.objects.all()
-        # Regular admin only sees non-admin users
-        else:
-            user_type = UserType.objects.get(type_name='user')
-            users = CustomUser.objects.filter(user_type=user_type)
-        
+        users = UserAccount.objects.all()
+
         serializer = UserListSerializer(users, many=True)
         return Response({
             'count': users.count(),
@@ -258,7 +244,7 @@ def admin_user_list(request):
         }, status=status.HTTP_200_OK)
     
     elif request.method == 'POST':
-        serializer = AdminUserCreationSerializer(
+        serializer = AdminCreateSerializer(
             data=request.data,
             context={'request': request}
         )
@@ -272,68 +258,51 @@ def admin_user_list(request):
             }, status=status.HTTP_201_CREATED)
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    return None
 
 
 @api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
 @permission_classes([IsAuthenticated])
+@require_page_action('user_management')
 def admin_user_detail(request, user_id):
     """
     Admin endpoint for viewing, updating, and deleting specific users.
     
-    Permissions:
-    - Super Admin: Full CRUD on all users except cannot delete/demote self or other super admins
-    - Admin: Full CRUD on 'user' type only, cannot touch admins or super admins
-    - User: No access (403)
-    
+    Permissions: Handled by decorators (check job role permissions)
+
     GET /admin/users/<id>/
     - Returns: User details
     
     PUT/PATCH /admin/users/<id>/
-    - Request body: AdminUserUpdateSerializer fields
+    - Request body: AdminUpdateSerializer fields
     - Returns: Updated user data
     
     DELETE /admin/users/<id>/
     - Returns: Success message
     """
-    # Permission check
-    if not request.user.is_admin():
-        return Response(
-            {'error': 'Admin privileges required'},
-            status=status.HTTP_403_FORBIDDEN
-        )
-    
+
     # Get target user
     try:
-        target_user = CustomUser.objects.get(pk=user_id)
-    except CustomUser.DoesNotExist:
+        target_user = UserAccount.objects.get(pk=user_id)
+    except UserAccount.DoesNotExist:
         return Response(
             {'error': 'User not found'},
             status=status.HTTP_404_NOT_FOUND
         )
     
-    # Check for self-deletion/modification first (applies to DELETE only, but we check early)
-    # This ensures proper error messages for test_cannot_delete_self
+    # Prevent self-deletion
     if request.method == 'DELETE' and request.user.id == target_user.id:
         return Response(
             {'error': 'Cannot delete your own account'},
             status=status.HTTP_403_FORBIDDEN
         )
-    
-    # Permission check: Regular admins can only manage regular users
-    if not request.user.is_super_admin():
-        if target_user.is_admin():
-            return Response(
-                {'error': 'You do not have permission to manage admin users'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-    
-    # Super admin cannot modify other super admins (except themselves for profile updates)
-    if request.user.is_super_admin() and target_user.is_super_admin():
-        if request.user.id != target_user.id:
-            return Response(
-                {'error': 'Cannot modify other super admin users'},
-                status=status.HTTP_403_FORBIDDEN
-            )
+
+    # Admin protection: admin CANNOT modify OR delete another admin
+    if target_user.is_admin() and request.user.id != target_user.id:
+        return Response(
+            {'error': 'Cannot modify or delete another admin user'},
+            status=status.HTTP_403_FORBIDDEN
+        )
     
     if request.method == 'GET':
         serializer = UserListSerializer(target_user)
@@ -341,7 +310,7 @@ def admin_user_detail(request, user_id):
     
     elif request.method in ['PUT', 'PATCH']:
         partial = request.method == 'PATCH'
-        serializer = AdminUserUpdateSerializer(
+        serializer = AdminUpdateSerializer(
             target_user,
             data=request.data,
             partial=partial,
@@ -358,17 +327,8 @@ def admin_user_detail(request, user_id):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     elif request.method == 'DELETE':
-        # Cannot delete super admin (model also protects this)
-        if target_user.is_super_admin():
-            return Response(
-                {'error': 'Cannot delete super admin user'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        # Self-deletion check is now handled earlier in the function
-        
         try:
-            target_user.delete()
+            target_user.deactivate()
             return Response({
                 'message': f'User {target_user.email} deleted successfully'
             }, status=status.HTTP_200_OK)
@@ -377,6 +337,7 @@ def admin_user_detail(request, user_id):
                 {'error': str(e)},
                 status=status.HTTP_403_FORBIDDEN
             )
+    return None
 
 
 # ============================================================================
@@ -387,11 +348,11 @@ def admin_user_detail(request, user_id):
 @permission_classes([AllowAny])
 def password_reset_request(request):
     """
-    Public endpoint: User submits password reset request which is routed to super admin.
+    Public endpoint: User submits password reset request which is routed to admin.
     Always returns a generic success message to avoid leaking account existence.
     
     POST /auth/password-reset-request/
-    - Request body: { "email", "reason"? }
+    - Request body: { "email", "reason" }
     - Returns: Generic success message
     """
     serializer = PasswordResetRequestSerializer(data=request.data)
@@ -399,45 +360,22 @@ def password_reset_request(request):
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    email = serializer.validated_data['email']
-    reason = serializer.validated_data.get('reason', '')
-
-    # Security: check existence silently
-    user_exists = CustomUser.objects.filter(email=email).exists()
-
-    if user_exists:
-        # Log request for manual/administrative handling
-        print(f"\n{'='*60}")
-        print(f"PASSWORD RESET REQUEST")
-        print(f"Email: {email}")
-        print(f"Reason: {reason}")
-        print(f"Status: Pending Super Admin Review")
-        print(f"{'='*60}\n")
-
+    # TODO: Actually send email/notification to admin with reset request details
     return Response({
-        'message': 'If an account exists with this email, a password reset request has been submitted to the super admin.'
+        'message': 'If an account exists with this email, a password reset request has been submitted to the admin.'
     }, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
-def superadmin_password_reset(request):
+@require_page_action('user_management')
+def admin_password_reset(request):
     """
-    Super admin endpoint to set a temporary password for a user.
-    Requires authenticated super admin user.
-    
-    POST /admin/password-reset/
-    - Request body: { "user_id", "temporary_password" }
-    - Returns: Success message with temporary password
+    Admin endpoint to set a temporary password for a user.
+    Requires authenticated admin user.
     """
-    # Permission check
-    if not request.user.is_super_admin():
-        return Response(
-            {'error': 'Super admin privileges required'},
-            status=status.HTTP_403_FORBIDDEN
-        )
 
-    serializer = SuperAdminPasswordResetSerializer(data=request.data)
+    serializer = AdminPasswordResetSerializer(data=request.data)
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -445,12 +383,11 @@ def superadmin_password_reset(request):
     temporary_password = serializer.validated_data['temporary_password']
 
     try:
-        user = CustomUser.objects.get(pk=user_id)
+        user = UserAccount.objects.get(pk=user_id)
 
         user.set_password(temporary_password)
         user.save()
 
-        
         return Response({
             'message': f'Temporary password set successfully for {user.email}',
             'user': {
@@ -462,7 +399,7 @@ def superadmin_password_reset(request):
             'note': 'User should change this password after logging in'
         }, status=status.HTTP_200_OK)
 
-    except CustomUser.DoesNotExist:
+    except UserAccount.DoesNotExist:
         return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
     except PermissionDenied as e:
         return Response({'error': str(e)}, status=status.HTTP_403_FORBIDDEN)
