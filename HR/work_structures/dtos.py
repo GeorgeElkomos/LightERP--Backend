@@ -42,6 +42,18 @@ class OrganizationManagerUpdateDTO:
     # Note: Cannot change organization or person - create new assignment instead
 
 @dataclass
+class CompetencyRequirementDTO:
+    """DTO for competency requirement with proficiency level"""
+    competency_id: int
+    proficiency_level_id: int
+
+@dataclass
+class QualificationRequirementDTO:
+    """DTO for qualification requirement"""
+    qualification_type_id: int
+    qualification_title_id: int
+
+@dataclass
 class PositionCreateDTO:
     """DTO for creating a new position"""
     code: str
@@ -100,19 +112,6 @@ class GradeUpdateDTO:
     grade_id: int  # Primary Key
     grade_name_id: Optional[int] = None
     sequence: Optional[int] = None
-
-
-@dataclass
-class CompetencyRequirementDTO:
-    """DTO for competency requirement with proficiency level"""
-    competency_id: int
-    proficiency_level_id: int
-
-@dataclass
-class QualificationRequirementDTO:
-    """DTO for qualification requirement"""
-    qualification_type_id: int
-    qualification_title_id: int
 
 @dataclass
 class JobCreateDTO:
