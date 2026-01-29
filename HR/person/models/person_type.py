@@ -65,7 +65,7 @@ class PersonType(AuditMixin, models.Model):
         constraints = [
             # Ensure base_type is not empty at database level
             models.CheckConstraint(
-                check=Q(base_type__in=['APL', 'EMP', 'CWK', 'CON']),
+                condition=Q(base_type__in=['APL', 'EMP', 'CWK', 'CON']),
                 name='valid_base_type'
             )
         ]

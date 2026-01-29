@@ -121,22 +121,13 @@ def create_tax_rate(country=None, category='STANDARD', rate=Decimal('5.00'), nam
 
 def get_or_create_test_user(email='testuser@example.com', name='Test User'):
     """Get or create a test user for tests"""
-    from core.user_accounts.models import UserType
-    
-    # Get or create a basic user type
-    user_type, _ = UserType.objects.get_or_create(
-        type_name='employee',
-        defaults={
-            'description': 'Regular employee'
-        }
-    )
-    
+
     user, created = User.objects.get_or_create(
         email=email,
         defaults={
             'name': name,
             'phone_number': '1234567890',
-            'user_type': user_type
+            # 'user_type': user_type
         }
     )
     

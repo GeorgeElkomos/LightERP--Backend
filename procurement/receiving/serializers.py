@@ -288,7 +288,7 @@ class GoodsReceiptCreateSerializer(serializers.Serializer):
         received_by_id = validated_data.pop('received_by_id', None)
         received_by = request.user if request and not received_by_id else None
         if received_by_id:
-            from core.user_accounts.models import CustomUser
+            from core.user_accounts.models import UserAccount as CustomUser
             received_by = CustomUser.objects.get(id=received_by_id)
         
         # Get PO and supplier

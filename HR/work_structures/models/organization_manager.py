@@ -70,7 +70,7 @@ class OrganizationManager(VersionedMixin, AuditMixin, models.Model):
                 name='unique_org_manager_assignment'
             ),
             models.CheckConstraint(
-                check=models.Q(effective_end_date__isnull=True) |
+                condition=models.Q(effective_end_date__isnull=True) |
                       models.Q(effective_end_date__gte=models.F('effective_start_date')),
                 name='org_manager_end_after_start'
             ),

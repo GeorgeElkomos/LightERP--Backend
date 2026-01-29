@@ -225,7 +225,7 @@ class Assignment(VersionedMixin, AuditMixin, models.Model):
         unique_together = [('assignment_no', 'effective_start_date')]
         constraints = [
             CheckConstraint(
-                check=Q(work_end_time__gt=F('work_start_time')) | Q(work_start_time__isnull=True) | Q(work_end_time__isnull=True),
+                condition=Q(work_end_time__gt=F('work_start_time')) | Q(work_start_time__isnull=True) | Q(work_end_time__isnull=True),
                 name='assignment_work_end_after_start'
             ),
         ]

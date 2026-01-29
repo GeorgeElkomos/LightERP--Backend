@@ -8,7 +8,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('approval', '0006_alter_approvalworkflowinstance_unique_together'),
-        ('user_accounts', '0002_role_customuser_role'),
+        ('job_roles', '0001_initial'),
     ]
 
     operations = [
@@ -18,6 +18,6 @@ class Migration(migrations.Migration):
         migrations.AlterField(
             model_name='approvalworkflowstagetemplate',
             name='required_role',
-            field=models.ForeignKey(blank=True, help_text='Optional role filter - only users with this role can approve', null=True, on_delete=django.db.models.deletion.SET_NULL, to='user_accounts.role'),
+            field=models.ForeignKey(blank=True, help_text='Optional job role filter - only users with this job role can approve', null=True, on_delete=django.db.models.deletion.SET_NULL, to='job_roles.jobrole'),
         ),
     ]

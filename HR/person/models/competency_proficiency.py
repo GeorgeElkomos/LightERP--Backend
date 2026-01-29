@@ -72,7 +72,7 @@ class CompetencyProficiency(VersionedMixin, AuditMixin, models.Model):
                 name='unique_person_competency_date'
             ),
             models.CheckConstraint(
-                check=models.Q(effective_end_date__isnull=True) | models.Q(effective_end_date__gte=models.F('effective_start_date')),
+                condition=models.Q(effective_end_date__isnull=True) | models.Q(effective_end_date__gte=models.F('effective_start_date')),
                 name='proficiency_end_after_start'
             ),
         ]

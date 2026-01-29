@@ -112,7 +112,7 @@ class Organization(VersionedMixin, AuditMixin, models.Model):
         ]
         constraints = [
             models.CheckConstraint(
-                check=models.Q(work_end_time__gt=models.F('work_start_time')),
+                condition=models.Q(work_end_time__gt=models.F('work_start_time')),
                 name='work_end_after_start'
             ),
         ]

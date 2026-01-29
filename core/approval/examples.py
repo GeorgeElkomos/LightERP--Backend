@@ -445,9 +445,18 @@ def create_budget_transfer_workflow_template():
     )
     
     # Get or create job roles
-    supervisor_role, _ = JobRole.objects.get_or_create(name='supervisor')
-    manager_role, _ = JobRole.objects.get_or_create(name='manager')
-    cfo_role, _ = JobRole.objects.get_or_create(name='cfo')
+    supervisor_role, _ = JobRole.objects.get_or_create(
+        name='supervisor',
+        defaults={'code': 'SUP'}
+    )
+    manager_role, _ = JobRole.objects.get_or_create(
+        name='manager',
+        defaults={'code': 'MGR'}
+    )
+    cfo_role, _ = JobRole.objects.get_or_create(
+        name='cfo',
+        defaults={'code': 'CFO'}
+    )
     
     # Stage 1: Supervisor Review (ANY policy)
     ApprovalWorkflowStageTemplate.objects.create(
@@ -516,8 +525,14 @@ def create_purchase_order_workflow_template():
     )
     
     # Get or create job roles
-    dept_head_role, _ = JobRole.objects.get_or_create(name='department_head')
-    finance_director_role, _ = JobRole.objects.get_or_create(name='finance_director')
+    dept_head_role, _ = JobRole.objects.get_or_create(
+        name='department_head',
+        defaults={'code': 'DHEAD'}
+    )
+    finance_director_role, _ = JobRole.objects.get_or_create(
+        name='finance_director',
+        defaults={'code': 'FINDIR'}
+    )
     
     # Stage 1: Department Heads (QUORUM policy)
     ApprovalWorkflowStageTemplate.objects.create(
@@ -568,7 +583,10 @@ def create_simple_workflow_template():
     )
     
     # Get or create manager job role
-    manager_role, _ = JobRole.objects.get_or_create(name='manager')
+    manager_role, _ = JobRole.objects.get_or_create(
+        name='manager',
+        defaults={'code': 'MGR'}
+    )
     
     # Single stage: Manager approval
     ApprovalWorkflowStageTemplate.objects.create(

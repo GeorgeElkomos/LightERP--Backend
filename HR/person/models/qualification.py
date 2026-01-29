@@ -186,23 +186,23 @@ class Qualification(SoftDeleteMixin, AuditMixin, models.Model):
         ]
         constraints = [
             models.CheckConstraint(
-                check=models.Q(completed_percentage__isnull=True) |
+                condition=models.Q(completed_percentage__isnull=True) |
                       models.Q(completed_percentage__gte=0, completed_percentage__lte=100),
                 name='qualification_percentage_valid_range'
             ),
             models.CheckConstraint(
-                check=models.Q(effective_end_date__isnull=True) |
+                condition=models.Q(effective_end_date__isnull=True) |
                       models.Q(effective_end_date__gte=models.F('effective_start_date')),
                 name='qualification_effective_end_after_start'
             ),
             models.CheckConstraint(
-                check=models.Q(study_end_date__isnull=True) |
+                condition=models.Q(study_end_date__isnull=True) |
                       models.Q(study_start_date__isnull=True) |
                       models.Q(study_end_date__gte=models.F('study_start_date')),
                 name='qualification_study_end_after_start'
             ),
             models.CheckConstraint(
-                check=models.Q(tuition_fees__isnull=True) |
+                condition=models.Q(tuition_fees__isnull=True) |
                       models.Q(tuition_fees_currency__isnull=False),
                 name='qualification_fees_requires_currency'
             ),

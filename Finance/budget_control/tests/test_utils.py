@@ -36,7 +36,7 @@ def create_test_user(username='testuser', email='test@example.com', password='te
         name=name,
         phone_number=phone_number,
         password=password,
-        user_type_name=user_type_name,
+        # user_type_name=user_type_name,
         **kwargs
     )
     

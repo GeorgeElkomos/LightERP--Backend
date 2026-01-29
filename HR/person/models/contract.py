@@ -114,11 +114,11 @@ class Contract(VersionedMixin, AuditMixin, models.Model):
         unique_together = [('contract_reference', 'effective_start_date')]
         constraints = [
             CheckConstraint(
-                check=Q(contract_end_date__gte=F('contract_start_date')),
+                condition=Q(contract_end_date__gte=F('contract_start_date')),
                 name='contract_end_date_gte_start'
             ),
             CheckConstraint(
-                check=Q(basic_salary__gte=0),
+                condition=Q(basic_salary__gte=0),
                 name='contract_basic_salary_non_negative'
             )
         ]

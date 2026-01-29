@@ -79,7 +79,7 @@ class Grade(SoftDeleteMixin, AuditMixin, models.Model):
                 name='unique_grade_name_per_org'
             ),
             models.CheckConstraint(
-                check=models.Q(sequence__gt=0),
+                condition=models.Q(sequence__gt=0),
                 name='grade_sequence_positive'
             ),
         ]
@@ -437,11 +437,11 @@ class Position(VersionedMixin, AuditMixin, models.Model):
                 name='unique_position_code_org_start_date'
             ),
             models.CheckConstraint(
-                check=models.Q(full_time_equivalent__gte=0.1) & models.Q(full_time_equivalent__lte=1.5),
+                condition=models.Q(full_time_equivalent__gte=0.1) & models.Q(full_time_equivalent__lte=1.5),
                 name='position_fte_valid_range'
             ),
             models.CheckConstraint(
-                check=models.Q(head_count__gt=0),
+                condition=models.Q(head_count__gt=0),
                 name='position_headcount_positive'
             ),
         ]

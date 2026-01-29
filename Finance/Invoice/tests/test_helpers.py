@@ -71,21 +71,14 @@ def get_or_create_test_user(email='testuser@test.com', **kwargs):
     Returns:
         User: The test user
     """
-    # Import here to avoid circular imports
-    from core.user_accounts.models import UserType
-    
-    # Get or create a default user type
-    user_type, _ = UserType.objects.get_or_create(
-        type_name='user',
-        defaults={'description': 'Regular user'}
-    )
+   
     
     user, created = User.objects.get_or_create(
         email=email,
         defaults={
             'name': kwargs.get('name', 'Test User'),
             'phone_number': kwargs.get('phone_number', '1234567890'),
-            'user_type': user_type,
+            # 'user_type': user_type,
         }
     )
     

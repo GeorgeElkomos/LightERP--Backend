@@ -8,11 +8,11 @@ Provides endpoints for:
 4. Child period endpoints (AR, AP, GL)
 """
 from django.urls import path, include
-from rest_framework.routers import DefaultRouter
+from rest_framework.routers import SimpleRouter
 from .views import PeriodViewSet, AR_PeriodViewSet, AP_PeriodViewSet, GL_PeriodViewSet
 
 # Create router and register viewsets
-router = DefaultRouter()
+router = SimpleRouter()
 router.register(r'periods', PeriodViewSet, basename='period')
 router.register(r'ar-periods', AR_PeriodViewSet, basename='ar-period')
 router.register(r'ap-periods', AP_PeriodViewSet, basename='ap-period')
