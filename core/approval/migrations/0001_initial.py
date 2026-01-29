@@ -171,10 +171,6 @@ class Migration(migrations.Migration):
             model_name='approvalworkflowtemplate',
             index=models.Index(fields=['content_type', 'is_active'], name='approval_wo_content_954b22_idx'),
         ),
-        migrations.AddIndex(
-            model_name='approvalworkflowtemplate',
-            index=models.Index(fields=['content_type', 'filter_field', 'filter_value'], name='approval_wo_content_082f81_idx'),
-        ),
         migrations.AlterUniqueTogether(
             name='approvalworkflowstagetemplate',
             unique_together={('workflow_template', 'order_index')},
