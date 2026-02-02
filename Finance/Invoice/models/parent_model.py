@@ -53,6 +53,12 @@ class Invoice(ApprovableMixin, ApprovableInterface, ManagedParentModel, models.M
     ]
     
     prefix_code = models.CharField(max_length=10, blank=True, null=True)
+    invoice_number = models.CharField(
+        max_length=50, 
+        unique=True,
+        null=False,
+        help_text="Manually entered invoice number (required)"
+    )
     
     # Core fields
     date = models.DateField()

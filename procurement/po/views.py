@@ -65,7 +65,10 @@ def po_list(request):
         # Apply filters
         status_filter = request.query_params.get('status')
         if status_filter:
-            queryset = queryset.filter(status=status_filter)
+            # Support comma-separated values for OR filtering
+            # e.g., ?status=CONFIRMED,PARTIALLY_RECEIVED
+            status_values = [s.strip() for s in status_filter.split(',')]
+            queryset = queryset.filter(status__in=status_values)
         
         po_type_filter = request.query_params.get('po_type')
         if po_type_filter:

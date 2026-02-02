@@ -85,6 +85,7 @@ class InvoiceItemDTO:
 @dataclass
 class InvoiceBaseDTO:
     """Base invoice data common to all invoice types"""
+    invoice_number: str
     date: date
     currency_id: int
     country_id: Optional[int]
@@ -177,6 +178,7 @@ class InvoiceService:
         # 6. Create AP Invoice (automatically creates Invoice parent)
         ap_invoice = AP_Invoice.objects.create(
             # Invoice fields (auto-handled by pattern)
+            invoice_number=dto.invoice_number,
             date=dto.date,
             currency=currency,
             country=country,
@@ -222,6 +224,7 @@ class InvoiceService:
         
         # 6. Create AR Invoice
         ar_invoice = AR_Invoice.objects.create(
+            invoice_number=dto.invoice_number,
             date=dto.date,
             currency=currency,
             country=country,
@@ -271,6 +274,7 @@ class InvoiceService:
         
         # Create one-time supplier invoice
         one_time = OneTimeSupplier.objects.create(
+            invoice_number=dto.invoice_number,
             date=dto.date,
             currency=currency,
             country=country,
@@ -290,6 +294,7 @@ class InvoiceService:
     @staticmethod
     @transaction.atomic
     def create_ap_invoice_from_receipt(
+        invoice_number: str,
         goods_receipt_id: int,
         currency_id: int,
         country_id: Optional[int],
@@ -306,6 +311,7 @@ class InvoiceService:
         - Totals calculated from received quantities
         
         Args:
+            invoice_number: Manually entered invoice number
             goods_receipt_id: ID of the GoodsReceipt to create invoice from
             currency_id: Currency for the invoice
             country_id: Optional country for tax purposes
@@ -362,6 +368,7 @@ class InvoiceService:
         # 8. Create AP Invoice with goods_receipt link
         ap_invoice = AP_Invoice.objects.create(
             # Invoice fields
+            invoice_number=invoice_number,
             date=goods_receipt.receipt_date,
             currency=currency,
             country=country,

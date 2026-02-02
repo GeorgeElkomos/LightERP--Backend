@@ -206,6 +206,7 @@ class APInvoiceCreateSerializer(serializers.Serializer):
     """
 
     # Invoice fields
+    invoice_number = serializers.CharField(max_length=50, required=True)
     date = serializers.DateField()
     currency_id = serializers.IntegerField(min_value=Decimal("1"))
     country_id = serializers.IntegerField(min_value=Decimal("1"),
@@ -284,6 +285,7 @@ class APInvoiceCreateSerializer(serializers.Serializer):
 
         # Convert to DTO
         dto = APInvoiceDTO(
+            invoice_number=validated_data["invoice_number"],
             date=validated_data["date"],
             currency_id=validated_data["currency_id"],
             country_id=validated_data.get("country_id"),
@@ -308,7 +310,8 @@ class APInvoiceListSerializer(serializers.ModelSerializer):
     currency_code = serializers.CharField(
         source="invoice.currency.code", read_only=True
     )
-    invoice_number = serializers.SerializerMethodField()
+    invoice_number = serializers.CharField(source="invoice.invoice_number", read_only=True)
+    invoice_code = serializers.SerializerMethodField()
 
     # Invoice fields (proxied through properties)
     date = serializers.DateField()
@@ -319,8 +322,8 @@ class APInvoiceListSerializer(serializers.ModelSerializer):
         max_digits=10, decimal_places=2, read_only=True, allow_null=True
     )
     
-    def get_invoice_number(self, obj):
-        """Generate invoice number from prefix_code and invoice_id"""
+    def get_invoice_code(self, obj):
+        """Generate invoice code from prefix_code and invoice_id"""
         if obj.invoice.prefix_code:
             return f"{obj.invoice.prefix_code}-{obj.invoice.id}"
         return str(obj.invoice.id)
@@ -330,6 +333,8 @@ class APInvoiceListSerializer(serializers.ModelSerializer):
         fields = [
             "invoice_id",
             "invoice_number",
+            "invoice_code",
+            "invoice_code",
             "date",
             "supplier_id",
             "supplier_name",
@@ -499,6 +504,11 @@ class APInvoiceFromReceiptSerializer(serializers.Serializer):
     }
     """
     
+    invoice_number = serializers.CharField(
+        max_length=50,
+        required=True,
+        help_text="Manually entered invoice number"
+    )
     goods_receipt_id = serializers.IntegerField(
         min_value=1,
         help_text="ID of the Goods Receipt to create invoice from"
@@ -560,6 +570,7 @@ class APInvoiceFromReceiptSerializer(serializers.Serializer):
         
         # Call service method
         ap_invoice = InvoiceService.create_ap_invoice_from_receipt(
+            invoice_number=validated_data["invoice_number"],
             goods_receipt_id=validated_data["goods_receipt_id"],
             currency_id=validated_data["currency_id"],
             country_id=validated_data.get("country_id"),
@@ -668,6 +679,7 @@ class ARInvoiceCreateSerializer(serializers.Serializer):
     """Serializer for creating AR Invoices - similar structure to AP"""
 
     # Invoice fields
+    invoice_number = serializers.CharField(max_length=50, required=True)
     date = serializers.DateField()
     currency_id = serializers.IntegerField(min_value=Decimal("1"))
  
@@ -744,6 +756,7 @@ class ARInvoiceCreateSerializer(serializers.Serializer):
 
         # Convert to DTO
         dto = ARInvoiceDTO(
+            invoice_number=validated_data["invoice_number"],
             date=validated_data["date"],
             currency_id=validated_data["currency_id"],
             country_id=validated_data.get("country_id"),
@@ -767,14 +780,15 @@ class ARInvoiceListSerializer(serializers.ModelSerializer):
     currency_code = serializers.CharField(
         source="invoice.currency.code", read_only=True
     )
-    invoice_number = serializers.SerializerMethodField()
+    invoice_number = serializers.CharField(source="invoice.invoice_number", read_only=True)
+    invoice_code = serializers.SerializerMethodField()
     date = serializers.DateField()
     total = serializers.DecimalField(max_digits=14, decimal_places=2)
     approval_status = serializers.CharField()
     payment_status = serializers.CharField()
     
-    def get_invoice_number(self, obj):
-        """Generate invoice number from prefix_code and invoice_id"""
+    def get_invoice_code(self, obj):
+        """Generate invoice code from prefix_code and invoice_id"""
         if obj.invoice.prefix_code:
             return f"{obj.invoice.prefix_code}-{obj.invoice.id}"
         return str(obj.invoice.id)
@@ -784,6 +798,8 @@ class ARInvoiceListSerializer(serializers.ModelSerializer):
         fields = [
             "invoice_id",
             "invoice_number",
+            "invoice_code",
+            "invoice_code",
             "date",
             "customer_id",
             "customer_name",
@@ -900,6 +916,7 @@ class OneTimeSupplierCreateSerializer(serializers.Serializer):
     """Serializer for creating one-time supplier invoices"""
 
     # Invoice fields
+    invoice_number = serializers.CharField(max_length=50, required=True)
     date = serializers.DateField()
     currency_id = serializers.IntegerField(min_value=Decimal("1"))
  
@@ -986,6 +1003,7 @@ class OneTimeSupplierCreateSerializer(serializers.Serializer):
 
         # Convert to DTO
         dto = OneTimeSupplierDTO(
+            invoice_number=validated_data["invoice_number"],
             date=validated_data["date"],
             currency_id=validated_data["currency_id"],
             country_id=validated_data.get("country_id"),
@@ -1017,18 +1035,27 @@ class OneTimeSupplierListSerializer(serializers.ModelSerializer):
     )
 
     invoice_number = serializers.CharField(source="invoice.invoice_number", read_only=True)
+    invoice_code = serializers.SerializerMethodField()
 
     # Invoice fields (proxied through properties)
     date = serializers.DateField()
     total = serializers.DecimalField(max_digits=14, decimal_places=2)
     approval_status = serializers.CharField()
     payment_status = serializers.CharField()
+    
+    def get_invoice_code(self, obj):
+        """Generate invoice code from prefix_code and invoice_id"""
+        if obj.invoice.prefix_code:
+            return f"{obj.invoice.prefix_code}-{obj.invoice.id}"
+        return str(obj.invoice.id)
 
     class Meta:
         model = OneTimeSupplier
         fields = [
             "invoice_id",
             "invoice_number",
+            "invoice_code",
+            "invoice_code",
             "date",
             "supplier_name",
             "currency_code",
